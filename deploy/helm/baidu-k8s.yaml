@@ -101,7 +101,7 @@ images:
     tag: ~
     pullPolicy: Always
   statsd:
-    repository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow/statsd-exporter
+    repository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/statsd-exporter
     tag: v0.29.0
     pullPolicy: Always
   redis:
@@ -119,7 +119,7 @@ images:
     tag: airflow-pgbouncer-exporter-2025.03.05-0.18.0
     pullPolicy: Always
   gitSync:
-    repository: registry.k8s.io/git-sync/git-sync
+    repository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/git-sync
     tag: v4.4.2
     pullPolicy: Always
 
@@ -2322,13 +2322,13 @@ apiServer:
 
     # Service annotations
     annotations:
-      service.beta.kubernetes.io/cce-load-balancer-eip: "120.48.12.59"
+      service.beta.kubernetes.io/cce-load-balancer-eip: "120.48.176.248"
 
     ports:
       - name: api-server
         port: "{{ .Values.ports.apiServer }}"
 
-    loadBalancerIP: ~
+    loadBalancerIP: "120.48.176.248"
 
     # Limit load balancer source ips to list of CIDRs
     loadBalancerSourceRanges: []
@@ -2784,7 +2784,7 @@ triggerer:
 
   persistence:
     # Enable persistent volumes
-    enabled: true
+    enabled: false
 
     # This policy determines whether PVCs should be deleted when StatefulSet is scaled down or removed.
     persistentVolumeClaimRetentionPolicy: ~
@@ -4194,18 +4194,18 @@ dags:
     subPath: ~
 
   gitSync:
-    enabled: false
+    enabled: true
 
     # Git repo clone url
-    repo: https://github.com/apache/airflow.git
+    repo: git@github.com:inFpZero/airflow_dags.git
     # SSH example: git@github.com:apache/airflow.git
     # HTTPS example: https://github.com/apache/airflow.git
 
-    branch: v2-2-stable
+    branch: main
     rev: HEAD
 
     # The git revision (branch, tag, or hash) to check out, v4 only
-    ref: v2-2-stable
+    ref: main
 
     depth: 1
 
@@ -4214,7 +4214,7 @@ dags:
 
     # Subpath within the repo where dags are located.
     # Should be "" if dags are at repo root
-    subPath: "tests/dags"
+    subPath: ""
 
     # If your repo needs a username/password, you can load them to a k8s secret
     #
@@ -4235,7 +4235,7 @@ dags:
 
     # If you are using an ssh clone url, you can load the ssh private key to a k8s secret
     #
-    # sshKeySecret: airflow-ssh-secret
+    sshKeySecret: airflow-ssh-secret
     #
     # Secret example:
     #  apiVersion: v1
