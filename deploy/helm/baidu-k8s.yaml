@@ -65,14 +65,14 @@ airflowHome: /opt/airflow
 defaultAirflowRepository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow
 
 # Default Airflow tag to deploy
-defaultAirflowTag: "3.2.0"
+defaultAirflowTag: "3.2.1"
 
 # Default Airflow digest. If specified, it takes precedence over tag
 defaultAirflowDigest: ~
 
 # Airflow version (Used to make some decisions based on Airflow Version being deployed)
 # Version 2.11.0 and above is supported.
-airflowVersion: "3.2.0"
+airflowVersion: "3.2.1"
 
 images:
   airflow:
@@ -4094,6 +4094,10 @@ config:
     auth_manager: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
   logging:
     colored_console_log: 'False'
+  api:
+    # Timeout for fetching logs from worker log server (port 8793).
+    # Set low so unresolvable worker hostnames fail fast and fall back to CFS local reads.
+    log_fetch_timeout_sec: '5'
   metrics:
     statsd_on: '{{ ternary "True" "False" .Values.statsd.enabled }}'
     statsd_port: 9125
@@ -4214,7 +4218,7 @@ dags:
 
     # Subpath within the repo where dags are located.
     # Should be "" if dags are at repo root
-    subPath: ""
+    subPath: "dags"
 
     # If your repo needs a username/password, you can load them to a k8s secret
     #
