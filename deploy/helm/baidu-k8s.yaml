@@ -4093,7 +4093,6 @@ config:
     executor: '{{ .Values.executor }}'
     auth_manager: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
   logging:
-    remote_logging: '{{- ternary "True" "False" (or .Values.elasticsearch.enabled .Values.opensearch.enabled) }}'
     colored_console_log: 'False'
   metrics:
     statsd_on: '{{ ternary "True" "False" .Values.statsd.enabled }}'
@@ -4211,7 +4210,7 @@ dags:
     depth: 1
 
     # The number of consecutive failures allowed before aborting
-    maxFailures: 0
+    maxFailures: 1
 
     # Subpath within the repo where dags are located.
     # Should be "" if dags are at repo root
@@ -4263,7 +4262,7 @@ dags:
     # Low values cause more traffic to the remote git repository.
     # Go-style duration string (e.g. "100ms" or "0.1s" = 100ms).
     # For backwards compatibility, wait will be used if it is specified.
-    period: 5s
+    period: 30s
     wait: ~
 
     # Add variables from secret into gitSync containers, such proxy-config
@@ -4350,8 +4349,8 @@ logs:
   #   medium: Memory
 
   persistence:
-    # Enable persistent volume for storing logs
-    enabled: false
+    # Enable persistent volume for storing logs (shared CFS)
+    enabled: true
 
     # Volume size for logs
     size: 100Gi
@@ -4360,7 +4359,7 @@ logs:
     annotations: {}
 
     # If using a custom storageClass, pass name here
-    storageClassName:
+    storageClassName: cfs-shared-sc
 
     # The name of an existing PVC to use
     existingClaim:
