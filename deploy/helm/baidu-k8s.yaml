@@ -560,7 +560,7 @@ fernetKeySecretName: ~
 fernetKeySecretAnnotations: {}
 
 # Flask secret key for Airflow 3+ Api: '[api] secret_key' in airflow.cfg
-apiSecretKey: ~
+apiSecretKey: "c1f77c60e3a897e20093950ceb852361b2af01b570efece68cc934987c51f122"
 
 # Add custom annotations to the api secret
 apiSecretAnnotations: {}
