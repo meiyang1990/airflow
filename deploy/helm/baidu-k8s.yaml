@@ -385,10 +385,18 @@ env: []
 #   value: ""
 
 # Volumes for all Airflow containers
-volumes: []
+volumes:
+  - name: git-ssh-key
+    secret:
+      secretName: airflow-ssh-secret
+      defaultMode: 0400
 
 # VolumeMounts for all Airflow containers
-volumeMounts: []
+volumeMounts:
+  - name: git-ssh-key
+    mountPath: /etc/git-secret/ssh
+    subPath: gitSshKey
+    readOnly: true
 
 # Secrets for all Airflow containers
 secret: []
@@ -471,10 +479,9 @@ extraConfigMaps: {}
 # Extra env 'items' that will be added to the definition of Airflow containers
 # a string is expected (templated).
 # TODO: difference from `env`? This is a templated string. Probably should template `env` and remove this.
-extraEnv: ~
-# extraEnv: |
-#   - name: AIRFLOW__CORE__LOAD_EXAMPLES
-#     value: 'True'
+extraEnv: |
+  - name: AIRFLOW_CONN_AIRFLOW_DAGS_REPO
+    value: '{"conn_type": "git", "host": "git@github.com:inFpZero/airflow_dags.git", "login": "git", "extra": {"key_file": "/etc/git-secret/ssh"}}'
 
 # Extra envFrom 'items' that will be added to the definition of Airflow containers
 # A string is expected (templated).
@@ -2987,29 +2994,33 @@ dagProcessor:
   # Dag Bundle Configuration
   # Define Dag bundles in a structured YAML format. This will be automatically
   # converted to JSON string format for `config.dag_processor.dag_bundle_config_list`.
+  #
+  # Multi-branch using GitDagBundle (Airflow 3.0+ native git integration):
+  #   - Uses Airflow Connections for SSH/HTTPS auth (see extraSecrets below)
+  #   - Manages git repos within the DAG Processor process (no sidecar containers)
+  #   - Supports version pinning per task run
   dagBundleConfigList:
-    - name: dags-folder
-      classpath: "airflow.dag_processing.bundles.local.LocalDagBundle"
-      kwargs: {}
-  # Example:
-  # dagBundleConfigList:
-  #   - name: bundle1
-  #     classpath: "airflow.providers.git.bundles.git.GitDagBundle"
-  #     kwargs:
-  #       git_conn_id: "GITHUB__repo1"
-  #       subdir: "dags"
-  #       tracking_ref: "main"
-  #       refresh_interval: 60
-  #   - name: bundle2
-  #     classpath: "airflow.providers.git.bundles.git.GitDagBundle"
-  #     kwargs:
-  #       git_conn_id: "GITHUB__repo2"
-  #       subdir: "dags"
-  #       tracking_ref: "develop"
-  #       refresh_interval: 120
-  #   - name: dags-folder
-  #     classpath: "airflow.dag_processing.bundles.local.LocalDagBundle"
-  #     kwargs: {}
+    - name: dag_main
+      classpath: "airflow.providers.git.bundles.git.GitDagBundle"
+      kwargs:
+        git_conn_id: "airflow_dags_repo"
+        subdir: "dags"
+        tracking_ref: "main"
+        refresh_interval: 60
+    - name: dag_dev
+      classpath: "airflow.providers.git.bundles.git.GitDagBundle"
+      kwargs:
+        git_conn_id: "airflow_dags_repo"
+        subdir: "dags"
+        tracking_ref: "dev"
+        refresh_interval: 60
+    - name: dag_test
+      classpath: "airflow.providers.git.bundles.git.GitDagBundle"
+      kwargs:
+        git_conn_id: "airflow_dags_repo"
+        subdir: "dags"
+        tracking_ref: "test"
+        refresh_interval: 60
 
   # Number of Airflow dag processors in the Deployment
   replicas: 1
@@ -4172,8 +4183,9 @@ podTemplate: ~
 #         ...
 
 dags:
-  # Where dags volume will be mounted. Works for both persistence and gitSync.
-  # If not specified, dags mount path will be set to $AIRFLOW_HOME/dags
+  # Where dags volume will be mounted.
+  # For GitDagBundle, DAG files are managed internally by the DAG Processor,
+  # so this mount path is only used as a fallback (e.g. for the dags-folder bundle).
   mountPath: ~
   persistence:
     # Annotations for dags PVC
@@ -4197,154 +4209,12 @@ dags:
     # Optional subpath for dag volume mount
     subPath: ~
 
+  # GitSync is DISABLED in favor of Airflow's built-in GitDagBundle.
+  # GitDagBundle runs inside the DAG Processor process (no sidecar containers needed)
+  # and supports multiple branches natively.
+  # See dagProcessor.dagBundleConfigList for the multi-branch configuration.
   gitSync:
-    enabled: true
-
-    # Git repo clone url
-    repo: git@github.com:inFpZero/airflow_dags.git
-    # SSH example: git@github.com:apache/airflow.git
-    # HTTPS example: https://github.com/apache/airflow.git
-
-    branch: main
-    rev: HEAD
-
-    # The git revision (branch, tag, or hash) to check out, v4 only
-    ref: main
-
-    depth: 1
-
-    # The number of consecutive failures allowed before aborting
-    maxFailures: 1
-
-    # Subpath within the repo where dags are located.
-    # Should be "" if dags are at repo root
-    subPath: "dags"
-
-    # If your repo needs a username/password, you can load them to a k8s secret
-    #
-    # credentialsSecret: git-credentials
-    #
-    # Secret example:
-    #  apiVersion: v1
-    #  kind: Secret
-    #  metadata:
-    #    name: git-credentials
-    #  data:
-    #    # For git-sync v3
-    #    GIT_SYNC_USERNAME: <base64_encoded_git_username>
-    #    GIT_SYNC_PASSWORD: <base64_encoded_git_password>
-    #    # For git-sync v4
-    #    GITSYNC_USERNAME: <base64_encoded_git_username>
-    #    GITSYNC_PASSWORD: <base64_encoded_git_password>
-
-    # If you are using an ssh clone url, you can load the ssh private key to a k8s secret
-    #
-    sshKeySecret: airflow-ssh-secret
-    #
-    # Secret example:
-    #  apiVersion: v1
-    #  kind: Secret
-    #  metadata:
-    #    name: airflow-ssh-secret
-    #  data:
-    #    gitSshKey: <base64_encoded_data>
-
-    # If `sshKeySecret` is not specified, you can set `sshKey`
-    # sshKey: |
-    #   -----BEGIN {OPENSSH PRIVATE KEY}-----
-    #   ...
-    #   -----END {OPENSSH PRIVATE KEY}-----
-
-    # If you are using an ssh private key, you can additionally
-    # specify the content of your known_hosts file
-    # knownHosts: |
-    #    <host1>,<ip1> <key1>
-    #    <host2>,<ip2> <key2>
-
-    # Interval between git sync attempts in seconds.
-    # High values are more likely to cause DAGs to become out of sync between different components.
-    # Low values cause more traffic to the remote git repository.
-    # Go-style duration string (e.g. "100ms" or "0.1s" = 100ms).
-    # For backwards compatibility, wait will be used if it is specified.
-    period: 30s
-    wait: ~
-
-    # Add variables from secret into gitSync containers, such proxy-config
-    envFrom: ~
-    # envFrom: |
-    #   - secretRef:
-    #       name: 'proxy-config'
-
-    containerName: git-sync
-    uid: 65533
-
-    # When not set, the values defined in the global `securityContext` will be used
-    # (deprecated, use `dags.gitSync.securityContexts` instead)
-    securityContext: {}
-    #  runAsUser: 65533
-    #  runAsGroup: 0
-
-    securityContexts:
-      container: {}
-
-    # Container level lifecycle hooks
-    containerLifecycleHooks: {}
-
-    # Git-Sync liveness service HTTP bind port
-    httpPort: 1234
-
-    # Setting this to true, will remove readinessProbe usage and configure livenessProbe to
-    # use a dedicated Git-Sync liveness service. In future, behaviour with value true will be
-    # default one and old one will be removed
-    recommendedProbeSetting: false
-
-    startupProbe:
-      enabled: true
-      timeoutSeconds: 1
-      initialDelaySeconds: 0
-      periodSeconds: 5
-      failureThreshold: 10
-
-    # As Git-Sync is not service-type object, the usage of this section will be removed.
-    # By setting `dags.gitSync.recommendedProbeSetting` to 'true', you will enable future behaviour.
-    readinessProbe: {}
-
-    # The behaviour of the LivenessProbe will change with the next release of Helm Chart.
-    # To enable future behaviour set `dags.gitSync.recommendedProbeSetting` to 'true'.
-    # New behaviour uses the recommended liveness configuration by using Git-Sync built-in
-    # liveness service
-    livenessProbe: {}
-    #  enabled: true
-    #  timeoutSeconds: 1
-    #  initialDelaySeconds: 0
-    #  periodSeconds: 5
-    #  failureThreshold: 10
-
-    # Mount additional volumes into git-sync.
-    extraVolumeMounts: []
-    # It can be templated like in the following example:
-    #  extraVolumeMounts:
-    #    - name: my-templated-extra-volume
-    #      mountPath: "{{ .Values.my_custom_path }}"
-    #      readOnly: true
-
-    # Supported env vars for gitsync can be found at https://github.com/kubernetes/git-sync
-    env: []
-    # - name: ""
-    #   value: ""
-
-    # Configuration for empty dir volume
-    # emptyDirConfig:
-    #   sizeLimit: 1Gi
-    #   medium: Memory
-
-    resources: {}
-    #  limits:
-    #   cpu: 100m
-    #   memory: 128Mi
-    #  requests:
-    #   cpu: 100m
-    #   memory: 128Mi
+    enabled: false
 
 logs:
   # Configuration for empty dir volume (if `logs.persistence.enabled` == 'false')
