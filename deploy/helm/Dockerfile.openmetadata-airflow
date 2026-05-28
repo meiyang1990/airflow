@@ -1,0 +1,102 @@
+FROM ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:3.2.1
+
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
+    PIP_EXTRA_INDEX_URL="https://mirrors.cloud.tencent.com/pypi/simple/ https://pypi.tuna.tsinghua.edu.cn/simple" \
+    PIP_TRUSTED_HOST="mirrors.aliyun.com mirrors.cloud.tencent.com pypi.tuna.tsinghua.edu.cn" \
+    PIP_NO_CACHE_DIR=1
+
+USER airflow
+
+RUN pip install --no-cache-dir \
+    "openmetadata-managed-apis==1.12.6.0" \
+    "antlr4-python3-runtime==4.9.2" \
+    "cached-property==1.5.2" \
+    "chardet==4.0.0" \
+    "collate-sqllineage>=2.1.1" \
+    "collate-data-diff>=0.11.9" \
+    "jsonpatch<2.0,>=1.24" \
+    "memory-profiler" \
+    "mypy_extensions>=0.4.3" \
+    "python-dateutil>=2.8.1" \
+    "PyYAML~=6.0" \
+    "requests>=2.23" \
+    "requests-aws4auth~=1.1" \
+    "packaging" \
+    "tabulate==0.9.0" \
+    "typing-inspect" \
+    "email-validator>=2.0" \
+    "presidio-analyzer==2.2.358" \
+    "pydantic>=2.7.0,<2.12" \
+    "pydantic-settings>=2.7.0,<3" \
+    "setuptools>=78.1.1,<81" \
+    "shapely" \
+    "jaraco.functools<4.2.0" \
+    "jaraco.context==6.0.1" \
+    "pyhive[hive_pure_sasl]~=0.7" \
+    "thrift>=0.13,<1" \
+    "pure-sasl" \
+    "thrift-sasl~=0.4" \
+    "impyla~=0.18.0"
+
+RUN pip install --no-cache-dir --no-deps \
+    "openmetadata-ingestion==1.12.6.0"
+
+RUN python - <<'PY'
+from pathlib import Path
+
+site_packages = Path("/home/airflow/.local/lib/python3.13/site-packages")
+
+headers = site_packages / "metadata/ingestion/connections/headers.py"
+text = headers.read_text()
+text = text.replace(
+    "import pkg_resources", "from importlib.metadata import version as package_version"
+)
+text = text.replace(
+    'pkg_resources.require("openmetadata-ingestion")[0].version',
+    'package_version("openmetadata-ingestion")',
+)
+headers.write_text(text)
+
+replacements = {
+    "metadata/ingestion/source/database/hive/metadata.py": {
+        'self.engine.execute("SELECT VERSION()")': 'self.engine.execute(text("SELECT VERSION()"))',
+        "from sqlalchemy.engine.reflection import Inspector": (
+            "from sqlalchemy import text\nfrom sqlalchemy.engine.reflection import Inspector"
+        ),
+    },
+    "metadata/ingestion/source/database/hive/metastore_dialects/mysql/dialect.py": {
+        "connection.execute(query).fetchall()": "connection.execute(text(query)).fetchall()",
+    },
+    "metadata/ingestion/source/database/hive/metastore_dialects/postgres/dialect.py": {
+        "connection.execute(query).fetchall()": "connection.execute(text(query)).fetchall()",
+    },
+    "metadata/ingestion/source/database/hive/utils.py": {
+        "connection.execute(query)": "connection.execute(text(query))",
+        "connection.execute(\n        HIVE_GET_COMMENTS.format(schema_name=schema_name, table_name=table_name)\n    )": (
+            "connection.execute(\n"
+            "        text(HIVE_GET_COMMENTS.format(schema_name=schema_name, table_name=table_name))\n"
+            "    )"
+        ),
+        'connection.execute(f"SHOW CREATE TABLE {full_view_name}")': (
+            'connection.execute(text(f"SHOW CREATE TABLE {full_view_name}"))'
+        ),
+        "from sqlalchemy.engine import reflection": (
+            "from sqlalchemy import text\nfrom sqlalchemy.engine import reflection"
+        ),
+    },
+    "metadata/utils/sqlalchemy_utils.py": {
+        "connection.execute(query)": "connection.execute(text(query))",
+        "engine.execute(query).all()": "engine.execute(text(query)).all()",
+        "from sqlalchemy.engine import Engine, reflection": (
+            "from sqlalchemy import text\nfrom sqlalchemy.engine import Engine, reflection"
+        ),
+    },
+}
+
+for relative_path, file_replacements in replacements.items():
+    file_path = site_packages / relative_path
+    file_text = file_path.read_text()
+    for old, new in file_replacements.items():
+        file_text = file_text.replace(old, new)
+    file_path.write_text(file_text)
+PY

@@ -76,8 +76,8 @@ airflowVersion: "3.2.1"
 
 images:
   airflow:
-    repository: ~
-    tag: ~
+    repository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow-openmetadata
+    tag: "3.2.1-om-1.12.6"
     # Specifying digest takes precedence over tag.
     digest: ~
     pullPolicy: Always
@@ -1748,7 +1748,10 @@ workers:
     extraInitContainers: []
 
     # Additional volumes attached to the pods created with pod-template-file
-    extraVolumes: []
+    extraVolumes:
+      - name: openmetadata-generated-configs
+        persistentVolumeClaim:
+          claimName: airflow-openmetadata-configs
     # Mount additional volumes into workers pods. It can be templated like in the following example:
     #  extraVolumes:
     #    - name: my-templated-extra-volume
@@ -1758,7 +1761,9 @@ workers:
     #         optional: true
 
     # Additional volume mounts attached to the pods created with pod-template-file
-    extraVolumeMounts: []
+    extraVolumeMounts:
+      - name: openmetadata-generated-configs
+        mountPath: /opt/airflow/dag_generated_configs
     # Mount additional volumes into workers pods. It can be templated like in the following example:
     #  extraVolumeMounts:
     #    - name: my-templated-extra-volume
@@ -1927,8 +1932,13 @@ scheduler:
   extraInitContainers: []
 
   # Mount additional volumes into scheduler.
-  extraVolumes: []
-  extraVolumeMounts: []
+  extraVolumes:
+    - name: openmetadata-generated-configs
+      persistentVolumeClaim:
+        claimName: airflow-openmetadata-configs
+  extraVolumeMounts:
+    - name: openmetadata-generated-configs
+      mountPath: /opt/airflow/dag_generated_configs
   # It can be templated like in the following example:
   #  extraVolumes:
   #    - name: my-templated-extra-volume
@@ -2033,11 +2043,11 @@ createUserJob:
   # Create initial user.
   defaultUser:
     role: Admin
-    username: admin
-    email: admin@example.com
-    firstName: admin
-    lastName: user
-    password: admin
+    username: openmetadata
+    email: openmetadata@local
+    firstName: OpenMetadata
+    lastName: Service
+    password: omd12376#5
 
   # Limit the lifetime of the job object after it finished execution.
   ttlSecondsAfterFinished: 300
@@ -2378,8 +2388,18 @@ apiServer:
   extraInitContainers: []
 
   # Mount additional volumes into API server.
-  extraVolumes: []
-  extraVolumeMounts: []
+  extraVolumes:
+    - name: dags
+      persistentVolumeClaim:
+        claimName: airflow-dags
+    - name: openmetadata-generated-configs
+      persistentVolumeClaim:
+        claimName: airflow-openmetadata-configs
+  extraVolumeMounts:
+    - name: dags
+      mountPath: /opt/airflow/dags
+    - name: openmetadata-generated-configs
+      mountPath: /opt/airflow/dag_generated_configs
   # It can be templated like in the following example:
   #  extraVolumes:
   #    - name: my-templated-extra-volume
@@ -2841,8 +2861,13 @@ triggerer:
   extraInitContainers: []
 
   # Mount additional volumes into triggerer.
-  extraVolumes: []
-  extraVolumeMounts: []
+  extraVolumes:
+    - name: openmetadata-generated-configs
+      persistentVolumeClaim:
+        claimName: airflow-openmetadata-configs
+  extraVolumeMounts:
+    - name: openmetadata-generated-configs
+      mountPath: /opt/airflow/dag_generated_configs
   # It can be templated like in the following example:
   #   extraVolumes:
   #     - name: my-templated-extra-volume
@@ -3021,6 +3046,10 @@ dagProcessor:
         subdir: "dags"
         tracking_ref: "test"
         refresh_interval: 60
+    - name: dags-folder
+      classpath: "airflow.dag_processing.bundles.local.LocalDagBundle"
+      kwargs:
+        refresh_interval: 10
 
   # Number of Airflow dag processors in the Deployment
   replicas: 1
@@ -3110,8 +3139,13 @@ dagProcessor:
   extraInitContainers: []
 
   # Mount additional volumes into dag processor.
-  extraVolumes: []
-  extraVolumeMounts: []
+  extraVolumes:
+    - name: openmetadata-generated-configs
+      persistentVolumeClaim:
+        claimName: airflow-openmetadata-configs
+  extraVolumeMounts:
+    - name: openmetadata-generated-configs
+      mountPath: /opt/airflow/dag_generated_configs
   # It can be templated like in the following example:
   #  extraVolumes:
   #    - name: my-templated-extra-volume
@@ -4192,16 +4226,16 @@ dags:
     annotations: {}
 
     # Enable persistent volume for storing dags
-    enabled: false
+    enabled: true
 
     # Volume size for dags
     size: 1Gi
 
     # If using a custom storageClass, pass name here
-    storageClassName:
+    storageClassName: cfs-shared-sc
 
     # Access mode of the persistent volume
-    accessMode: ReadWriteOnce
+    accessMode: ReadWriteMany
 
     # The name of an existing PVC to use
     existingClaim:
