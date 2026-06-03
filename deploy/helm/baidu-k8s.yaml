@@ -3120,10 +3120,10 @@ dagProcessor:
   resources:
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 3Gi
     requests:
       cpu: 500m
-      memory: 512Mi
+      memory: 2Gi
 
   # Grace period for dag processor to finish after SIGTERM is sent from Kubernetes
   terminationGracePeriodSeconds: 60
