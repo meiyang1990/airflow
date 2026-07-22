@@ -1,12 +1,11 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: airflow-openmetadata-configs
-  namespace: airflow
+  name: nas-extreme-rwx-test
 spec:
   accessModes:
     - ReadWriteMany
   storageClassName: alicloud-nas-extreme-rwx
   resources:
     requests:
-      storage: 1Gi
+      storage: 100Gi

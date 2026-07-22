@@ -917,7 +917,7 @@ workers:
 
     # If using a custom storageClass, pass name ref to all StatefulSets here
     # (deprecated, use `workers.celery.persistence.storageClassName` instead)
-    storageClassName:
+    storageClassName: alicloud-nas-extreme-rwx
 
     # Execute init container to chown log directory.
     # This is currently only needed in kind, due to usage
@@ -1421,7 +1421,7 @@ workers:
       size: ~
 
       # If using a custom storageClass, pass name ref to all StatefulSets here
-      storageClassName:
+      storageClassName: alicloud-nas-extreme-rwx
 
       # Execute init container to chown log directory.
       # This is currently only needed in kind, due to usage
@@ -2820,7 +2820,7 @@ triggerer:
     size: 100Gi
 
     # If using a custom storageClass, pass name ref to all statefulSets here
-    storageClassName:
+    storageClassName: alicloud-nas-extreme-rwx
 
     # Execute init container to chown log directory.
     # This is currently only needed in kind, due to usage
@@ -3787,7 +3787,7 @@ redis:
     size: 1Gi
 
     # If using a custom storageClass, pass name ref to all statefulSets here
-    storageClassName:
+    storageClassName: alicloud-nas-extreme-rwx
 
     # Annotations to add to redis volumes
     annotations: {}
@@ -4232,7 +4232,7 @@ dags:
     size: 1Gi
 
     # If using a custom storageClass, pass name here
-    storageClassName: cfs-shared-sc
+    storageClassName: alicloud-nas-extreme-rwx
 
     # Access mode of the persistent volume
     accessMode: ReadWriteMany
@@ -4257,7 +4257,7 @@ logs:
   #   medium: Memory
 
   persistence:
-    # Enable persistent volume for storing logs (shared CFS)
+    # Enable persistent volume for storing logs (shared NAS)
     enabled: true
 
     # Volume size for logs
@@ -4267,7 +4267,7 @@ logs:
     annotations: {}
 
     # If using a custom storageClass, pass name here
-    storageClassName: cfs-shared-sc
+    storageClassName: alicloud-nas-extreme-rwx
 
     # The name of an existing PVC to use
     existingClaim:

@@ -1,0 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: alicloud-nas-extreme-rwx
+mountOptions:
+  - nolock,tcp,noresvport
+  - vers=3
+parameters:
+  volumeAs: subpath
+  server: "011rv6vpjoxsx3d1gc1-sbiq.cn-beijing.extreme.nas.aliyuncs.com:/k8s"
+  archiveOnDelete: "true"
+provisioner: nasplugin.csi.alibabacloud.com
+reclaimPolicy: Retain
+allowVolumeExpansion: true
