@@ -25,12 +25,13 @@
 
 - Kubernetes 集群：阿里云 ACK，当前 kube context 为 `aliyun-common-service`
 - Helm release：`airflow`
-- 命名空间：`airflow`
+- 命名空间：`bigdata`
 - Chart 路径：`deploy/helm/airflow`
 - Values 文件：`deploy/helm/aliyun-k8s-values.yaml`
 - 共享存储类：`alicloud-nas-extreme-rwx`
 - Airflow Executor：`KubernetesExecutor`
-- Airflow API Server Service 类型：`LoadBalancer`
+- Airflow API Server Service 类型：`ClusterIP`
+- 公网入口：`bigdata-lakehouse/frontend` 统一前端，通过 `http://39.106.220.142:1818/airflow/` 反向代理到集群内 `airflow-api-server`
 - 数据库：外部 PostgreSQL，`postgresql.enabled: false`
 
 ## 当前状态
@@ -40,14 +41,14 @@
 检查命令：
 
 ```bash
-helm status airflow -n airflow
-kubectl get pods,pvc,svc -n airflow
+helm status airflow -n bigdata
+kubectl get pods,pvc,svc -n bigdata
 ```
 
 如果仍显示 `pending-install`，建议在正式部署前清理该半成品 release：
 
 ```bash
-helm uninstall airflow -n airflow
+helm uninstall airflow -n bigdata
 ```
 
 由于 NAS StorageClass 使用 `reclaimPolicy: Retain`，删除 PVC 后底层 PV/NAS 数据不会自动清掉。需要保留或清理数据时，请先确认实际 PV 和 NAS 子目录。
@@ -97,7 +98,7 @@ helm uninstall airflow -n airflow
 6. `airflow-ssh-secret` 已存在或会在部署前创建。当前 values 中多个组件会挂载该 Secret，用于访问 DAG Git 仓库：
 
    ```bash
-   kubectl get secret airflow-ssh-secret -n airflow
+   kubectl get secret airflow-ssh-secret -n bigdata
    ```
 
 ## 已调整的存储配置
@@ -128,7 +129,7 @@ accessMode: ReadWriteMany
 ```yaml
 metadata:
   name: airflow-openmetadata-configs
-  namespace: airflow
+  namespace: bigdata
 spec:
   accessModes:
     - ReadWriteMany
@@ -147,7 +148,7 @@ helm lint deploy/helm/airflow -f deploy/helm/aliyun-k8s-values.yaml
 
 ```bash
 helm template airflow deploy/helm/airflow \
-  -n airflow \
+  -n bigdata \
   -f deploy/helm/aliyun-k8s-values.yaml \
   >/tmp/airflow-aliyun-rendered.yaml
 ```
@@ -155,7 +156,13 @@ helm template airflow deploy/helm/airflow \
 检查关键资源：
 
 ```bash
-rg -n "storageClassName|airflow-openmetadata-configs|LoadBalancer" /tmp/airflow-aliyun-rendered.yaml
+rg -n "storageClassName|airflow-openmetadata-configs|type: ClusterIP|base_url = http://39.106.220.142:1818/airflow/|FORWARDED_ALLOW_IPS" /tmp/airflow-aliyun-rendered.yaml
+```
+
+确认 `airflow-api-server` Service 为 `ClusterIP`，且没有公网 `LoadBalancer`：
+
+```bash
+rg -n "name: airflow-api-server|type: ClusterIP|loadBalancerIP" /tmp/airflow-aliyun-rendered.yaml
 ```
 
 ## 正式部署步骤
@@ -163,13 +170,13 @@ rg -n "storageClassName|airflow-openmetadata-configs|LoadBalancer" /tmp/airflow-
 1. 创建命名空间：
 
    ```bash
-   kubectl create namespace airflow --dry-run=client -o yaml | kubectl apply -f -
+   kubectl create namespace bigdata --dry-run=client -o yaml | kubectl apply -f -
    ```
 
 2. 确认或创建 Git SSH Secret：
 
    ```bash
-   kubectl get secret airflow-ssh-secret -n airflow
+   kubectl get secret airflow-ssh-secret -n bigdata
    ```
 
 3. 创建 OpenMetadata 共享配置 PVC：
@@ -182,7 +189,7 @@ rg -n "storageClassName|airflow-openmetadata-configs|LoadBalancer" /tmp/airflow-
 
    ```bash
    helm upgrade --install airflow deploy/helm/airflow \
-     -n airflow \
+     -n bigdata \
      --create-namespace \
      -f deploy/helm/aliyun-k8s-values.yaml \
      --wait \
@@ -194,13 +201,13 @@ rg -n "storageClassName|airflow-openmetadata-configs|LoadBalancer" /tmp/airflow-
 查看 release：
 
 ```bash
-helm status airflow -n airflow
+helm status airflow -n bigdata
 ```
 
 查看 Pod、PVC、Service：
 
 ```bash
-kubectl get pods,pvc,svc -n airflow -o wide
+kubectl get pods,pvc,svc -n bigdata -o wide
 ```
 
 所有核心 Pod 应进入 Running：
@@ -214,19 +221,28 @@ kubectl get pods,pvc,svc -n airflow -o wide
 PVC 应为 Bound，并使用 `alicloud-nas-extreme-rwx`：
 
 ```bash
-kubectl get pvc -n airflow
+kubectl get pvc -n bigdata
 ```
 
-如果 API Server Service 为 LoadBalancer，查看公网地址：
+Airflow API Server Service 应为 `ClusterIP`，不再直接分配公网地址：
 
 ```bash
-kubectl get svc airflow-api-server -n airflow
+kubectl get svc airflow-api-server -n bigdata
 ```
 
-也可以用端口转发本地访问：
+公网访问统一走前端入口 `http://39.106.220.142:1818/airflow/`。确认前端 values 中已包含：
+
+```yaml
+nginx:
+  proxyRoutes:
+    - pathPrefix: /airflow/
+      target: http://airflow-api-server.bigdata.svc.cluster.local:8080
+```
+
+本地排查时也可以用端口转发访问：
 
 ```bash
-kubectl port-forward svc/airflow-api-server 8080:8080 -n airflow
+kubectl port-forward svc/airflow-api-server 8080:8080 -n bigdata
 ```
 
 ## 常见问题排查
@@ -234,19 +250,19 @@ kubectl port-forward svc/airflow-api-server 8080:8080 -n airflow
 查看事件：
 
 ```bash
-kubectl get events -n airflow --sort-by=.lastTimestamp
+kubectl get events -n bigdata --sort-by=.lastTimestamp
 ```
 
 查看 Pod 详情：
 
 ```bash
-kubectl describe pod -n airflow <pod-name>
+kubectl describe pod -n bigdata <pod-name>
 ```
 
 查看 init container 日志：
 
 ```bash
-kubectl logs -n airflow <pod-name> -c wait-for-airflow-migrations
+kubectl logs -n bigdata <pod-name> -c wait-for-airflow-migrations
 ```
 
 如果 Pod 卡在 `Init:0/1`，优先检查：
@@ -262,19 +278,19 @@ kubectl logs -n airflow <pod-name> -c wait-for-airflow-migrations
 回滚到上一版：
 
 ```bash
-helm rollback airflow <revision> -n airflow
+helm rollback airflow <revision> -n bigdata
 ```
 
 卸载 release：
 
 ```bash
-helm uninstall airflow -n airflow
+helm uninstall airflow -n bigdata
 ```
 
 如果需要清理 PVC：
 
 ```bash
-kubectl delete pvc airflow-dags airflow-logs airflow-openmetadata-configs -n airflow
+kubectl delete pvc airflow-dags airflow-logs airflow-openmetadata-configs -n bigdata
 ```
 
 注意：`alicloud-nas-extreme-rwx` 的 `reclaimPolicy` 为 `Retain`，删除 PVC 不等于删除 NAS 上的真实数据。

@@ -51,7 +51,8 @@ securityContext: {}
 
 # Detailed default security context for Airflow Deployments
 securityContexts:
-  pod: {}
+  pod:
+    fsGroup: 0
   containers: {}
 
 # Global container lifecycle hooks for Airflow containers
@@ -520,7 +521,7 @@ data:
     user: airflow_user
     pass: "AcQs#uRcDLh@"
     protocol: postgresql
-    host: 192.168.48.2
+    host: pgm-2ze018200m73425d.pg.rds.aliyuncs.com
     port: 5432
     db: airflow_meta
     sslmode: disable
@@ -2157,11 +2158,11 @@ createUserJob:
 
   resources:
     limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
       cpu: 200m
       memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
 
 # Airflow database migration job settings
 migrateDatabaseJob:
@@ -2283,14 +2284,16 @@ apiServer:
   command: ~
 
   # Args to use when running the Airflow API server (templated).
-  args: ["bash", "-c", "exec airflow api-server"]
+  args: ["bash", "-c", "exec airflow api-server --proxy-headers"]
   # Example: To enable proxy headers support when running behind a reverse proxy:
   # args: ["bash", "-c", "exec airflow api-server --proxy-headers"]
 
   allowPodLogReading: true
 
   # Environment variables for the Airflow API server.
-  env: []
+  env:
+    - name: FORWARDED_ALLOW_IPS
+      value: "*"
   # Example: To configure FORWARDED_ALLOW_IPS when running behind a reverse proxy:
   # env:
   #   - name: FORWARDED_ALLOW_IPS
@@ -2335,17 +2338,16 @@ apiServer:
     annotations: {}
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
 
     # Service annotations
-    annotations:
-      service.beta.kubernetes.io/cce-load-balancer-eip: "120.48.176.248"
+    annotations: {}
 
     ports:
       - name: api-server
         port: "{{ .Values.ports.apiServer }}"
 
-    loadBalancerIP: "120.48.176.248"
+    loadBalancerIP: ~
 
     # Limit load balancer source ips to list of CIDRs
     loadBalancerSourceRanges: []
@@ -2385,7 +2387,21 @@ apiServer:
   extraContainers: []
 
   # Add additional init containers into API server (templated).
-  extraInitContainers: []
+  extraInitContainers:
+    - name: fix-logs-permissions
+      image: "{{ template \"airflow_image\" . }}"
+      imagePullPolicy: "{{ .Values.images.airflow.pullPolicy }}"
+      command:
+        - sh
+        - -c
+        - |
+          chown -R {{ .Values.uid }}:{{ .Values.gid }} {{ template "airflow_logs" . }}
+          chmod -R ug+rwX {{ template "airflow_logs" . }}
+      securityContext:
+        runAsUser: 0
+      volumeMounts:
+        - name: logs
+          mountPath: /opt/airflow/logs
 
   # Mount additional volumes into API server.
   extraVolumes:
@@ -2675,7 +2691,7 @@ webserver:
   webserverConfigConfigMapName: ~
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
 
     # Service annotations
     annotations: {}
@@ -4140,6 +4156,7 @@ config:
   logging:
     colored_console_log: 'False'
   api:
+    base_url: http://39.106.220.142:1818/airflow/
     # Timeout for fetching logs from worker log server (port 8793).
     # Set low so unresolvable worker hostnames fail fast and fall back to CFS local reads.
     log_fetch_timeout_sec: '5'
