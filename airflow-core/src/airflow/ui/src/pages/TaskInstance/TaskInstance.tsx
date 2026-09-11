@@ -19,7 +19,7 @@
 import { Heading } from "@chakra-ui/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
-import { FiCode, FiDatabase, FiUser } from "react-icons/fi";
+import { FiActivity, FiCode, FiDatabase, FiUser } from "react-icons/fi";
 import { MdDetails, MdOutlineEventNote, MdOutlineTask, MdReorder, MdSyncAlt } from "react-icons/md";
 import { PiBracketsCurlyBold } from "react-icons/pi";
 import { useParams } from "react-router-dom";
@@ -27,6 +27,7 @@ import { useParams } from "react-router-dom";
 import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { useHITLReviewTabs } from "src/hooks/useHITLReviewTabs";
 import { usePluginTabs } from "src/hooks/usePluginTabs";
+import { useRayDashboardTabs } from "src/hooks/useRayDashboardTabs";
 import { useRequiredActionTabs } from "src/hooks/useRequiredActionTabs";
 import { DetailsLayout } from "src/layouts/Details/DetailsLayout";
 import { useGridTiSummariesStream } from "src/queries/useGridTISummaries.ts";
@@ -49,6 +50,7 @@ export const TaskInstance = () => {
       value: "rendered_templates",
     },
     { icon: <MdSyncAlt />, label: translate("tabs.xcom"), value: "xcom" },
+    { icon: <FiActivity />, label: translate("tabs.rayDashboard"), value: "ray_dashboard" },
     { icon: <FiDatabase />, label: translate("tabs.assetEvents"), value: "asset_events" },
     { icon: <MdOutlineEventNote />, label: translate("tabs.auditLog"), value: "events" },
     { icon: <FiCode />, label: translate("tabs.code"), value: "code" },
@@ -105,7 +107,22 @@ export const TaskInstance = () => {
     refetchInterval: isStatePending(taskInstance?.state) ? refetchInterval : false,
   });
 
-  const { tabs: displayTabs } = useHITLReviewTabs({ dagId, dagRunId: runId, taskId }, requiredActionTabs, {
+  const { tabs: rayDashboardTabs } = useRayDashboardTabs(
+    {
+      dagId,
+      mapIndex: parsedMapIndex,
+      runId,
+      taskId,
+      tryNumber: taskInstance?.try_number,
+    },
+    requiredActionTabs,
+    {
+      enabled: taskInstance !== undefined,
+      refetchInterval: isStatePending(taskInstance?.state) ? refetchInterval : false,
+    },
+  );
+
+  const { tabs: displayTabs } = useHITLReviewTabs({ dagId, dagRunId: runId, taskId }, rayDashboardTabs, {
     mapIndex: parsedMapIndex,
     refetchInterval: isStatePending(taskInstance?.state) ? refetchInterval : false,
   });

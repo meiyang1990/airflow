@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Literal, cast
 
 import structlog
@@ -65,6 +66,11 @@ from airflow.api_fastapi.common.parameters import (
 )
 from airflow.api_fastapi.common.router import AirflowRouter
 from airflow.api_fastapi.core_api.datamodels.common import BulkBody, BulkResponse
+from airflow.api_fastapi.core_api.datamodels.ray_dashboard import (
+    RayDashboardAvailabilityResponse,
+    RayDashboardMetricSampleCollectionResponse,
+    RayDashboardSnapshotCollectionResponse,
+)
 from airflow.api_fastapi.core_api.datamodels.task_instance_history import (
     TaskInstanceHistoryCollectionResponse,
     TaskInstanceHistoryResponse,
@@ -89,6 +95,11 @@ from airflow.api_fastapi.core_api.services.public.task_instances import (
 from airflow.api_fastapi.logging.decorators import action_logging
 from airflow.exceptions import AirflowClearRunningTaskException, TaskNotFound
 from airflow.models import Base, DagRun
+from airflow.models.ray_dashboard import (
+    RayDashboardMetricSample,
+    RayDashboardSnapshot,
+    get_ray_dashboard_task_instance,
+)
 from airflow.models.taskinstance import TaskInstance as TI, clear_task_instances
 from airflow.models.taskinstancehistory import TaskInstanceHistory as TIH
 from airflow.ti_deps.dep_context import DepContext
@@ -372,6 +383,145 @@ def get_mapped_task_instance_tries(
         map_index=map_index,
         session=session,
     )
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/rayDashboard",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_INSTANCE))],
+)
+def get_ray_dashboard_availability(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    try_number: Annotated[int, Query(ge=1)],
+    session: SessionDep,
+) -> RayDashboardAvailabilityResponse:
+    """Get Ray Dashboard availability for a task instance attempt."""
+    task_instance_exists = session.scalar(
+        select(TI.id).where(
+            TI.dag_id == dag_id,
+            TI.run_id == dag_run_id,
+            TI.task_id == task_id,
+            TI.map_index == map_index,
+        )
+    )
+    if task_instance_exists is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task Instance not found")
+
+    dashboard = get_ray_dashboard_task_instance(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        try_number=try_number,
+        session=session,
+    )
+    if dashboard is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ray Dashboard data not found")
+
+    sections = list(
+        session.scalars(
+            select(RayDashboardSnapshot.section)
+            .where(RayDashboardSnapshot.dashboard_id == dashboard.id)
+            .distinct()
+            .order_by(RayDashboardSnapshot.section)
+        )
+    )
+    metrics = list(
+        session.scalars(
+            select(RayDashboardMetricSample.metric_name)
+            .where(RayDashboardMetricSample.dashboard_id == dashboard.id)
+            .distinct()
+            .order_by(RayDashboardMetricSample.metric_name)
+        )
+    )
+    return RayDashboardAvailabilityResponse(dashboard=dashboard, sections=sections, metrics=metrics)
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/rayDashboard/snapshots",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_INSTANCE))],
+)
+def get_ray_dashboard_snapshots(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    try_number: Annotated[int, Query(ge=1)],
+    session: SessionDep,
+    section: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> RayDashboardSnapshotCollectionResponse:
+    """Get Ray Dashboard section snapshots for a task instance attempt."""
+    dashboard = get_ray_dashboard_task_instance(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        try_number=try_number,
+        session=session,
+    )
+    if dashboard is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ray Dashboard data not found")
+
+    query = select(RayDashboardSnapshot).where(RayDashboardSnapshot.dashboard_id == dashboard.id)
+    if section is not None:
+        query = query.where(RayDashboardSnapshot.section == section)
+
+    total_entries = get_query_count(query, session=session)
+    snapshots = session.scalars(
+        query.order_by(RayDashboardSnapshot.collected_at.desc()).limit(limit).offset(offset)
+    ).all()
+    return RayDashboardSnapshotCollectionResponse(snapshots=snapshots, total_entries=total_entries)
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/rayDashboard/metrics",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_INSTANCE))],
+)
+def get_ray_dashboard_metric_samples(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    try_number: Annotated[int, Query(ge=1)],
+    session: SessionDep,
+    metric_name: Annotated[str | None, Query()] = None,
+    start_date: Annotated[datetime | None, Query()] = None,
+    end_date: Annotated[datetime | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=5000)] = 1000,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> RayDashboardMetricSampleCollectionResponse:
+    """Get Ray Dashboard metric samples for a task instance attempt."""
+    dashboard = get_ray_dashboard_task_instance(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        try_number=try_number,
+        session=session,
+    )
+    if dashboard is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ray Dashboard data not found")
+
+    query = select(RayDashboardMetricSample).where(RayDashboardMetricSample.dashboard_id == dashboard.id)
+    if metric_name is not None:
+        query = query.where(RayDashboardMetricSample.metric_name == metric_name)
+    if start_date is not None:
+        query = query.where(RayDashboardMetricSample.sampled_at >= start_date)
+    if end_date is not None:
+        query = query.where(RayDashboardMetricSample.sampled_at <= end_date)
+
+    total_entries = get_query_count(query, session=session)
+    samples = session.scalars(
+        query.order_by(RayDashboardMetricSample.sampled_at.asc()).limit(limit).offset(offset)
+    ).all()
+    return RayDashboardMetricSampleCollectionResponse(samples=samples, total_entries=total_entries)
 
 
 @task_instances_router.get(

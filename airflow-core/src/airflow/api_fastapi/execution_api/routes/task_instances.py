@@ -46,6 +46,12 @@ from airflow.api_fastapi.common.dagbag import DagBagDep, get_latest_version_of_d
 from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.types import UtcDateTime
 from airflow.api_fastapi.compat import HTTP_422_UNPROCESSABLE_CONTENT
+from airflow.api_fastapi.execution_api.datamodels.ray_dashboard import (
+    RayDashboardMetadataPayload,
+    RayDashboardMetricSamplesPayload,
+    RayDashboardSnapshotPayload,
+    RayDashboardWriteResponse,
+)
 from airflow.api_fastapi.execution_api.datamodels.taskinstance import (
     InactiveAssetsResponse,
     PreviousTIResponse,
@@ -69,6 +75,11 @@ from airflow.models.asset import AssetActive
 from airflow.models.dag import DagModel
 from airflow.models.dagrun import DagRun as DR
 from airflow.models.log import Log
+from airflow.models.ray_dashboard import (
+    add_ray_dashboard_metric_samples,
+    add_ray_dashboard_snapshot,
+    upsert_ray_dashboard_task_instance,
+)
 from airflow.models.taskinstance import TaskInstance as TI, _stop_remaining_tasks
 from airflow.models.taskinstancehistory import TaskInstanceHistory as TIH
 from airflow.models.taskreschedule import TaskReschedule
@@ -670,6 +681,122 @@ def ti_skip_downstream(
 
     result = session.execute(query)
     log.info("Downstream tasks skipped", tasks_skipped=getattr(result, "rowcount", 0))
+
+
+@ti_id_router.put(
+    "/{task_instance_id}/ray-dashboard",
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Task Instance not found"},
+    },
+)
+def put_ray_dashboard_metadata(
+    task_instance_id: UUID,
+    payload: RayDashboardMetadataPayload,
+    session: SessionDep,
+) -> RayDashboardWriteResponse:
+    """Publish Ray Dashboard metadata for a running task instance attempt."""
+    bind_contextvars(ti_id=str(task_instance_id))
+    task_instance = session.scalar(select(TI).where(TI.id == task_instance_id))
+    if task_instance is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task Instance not found")
+
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=task_instance.try_number,
+        dashboard_url=payload.dashboard_url,
+        ray_cluster_id=payload.ray_cluster_id,
+        ray_cluster_name=payload.ray_cluster_name,
+        ray_namespace=payload.ray_namespace,
+        ray_job_id=payload.ray_job_id,
+        ray_submission_id=payload.ray_submission_id,
+        status=payload.status,
+        collector_status=payload.collector_status,
+        collector_error=payload.collector_error,
+        collector_metadata=payload.collector_metadata,
+        session=session,
+    )
+    session.flush()
+    return RayDashboardWriteResponse(dashboard_id=str(dashboard.id), updated_at=dashboard.updated_at)
+
+
+@ti_id_router.post(
+    "/{task_instance_id}/ray-dashboard/snapshots",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Task Instance not found"},
+    },
+)
+def post_ray_dashboard_snapshot(
+    task_instance_id: UUID,
+    payload: RayDashboardSnapshotPayload,
+    session: SessionDep,
+) -> RayDashboardWriteResponse:
+    """Publish a Ray Dashboard section snapshot for a task instance attempt."""
+    bind_contextvars(ti_id=str(task_instance_id))
+    task_instance = session.scalar(select(TI).where(TI.id == task_instance_id))
+    if task_instance is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task Instance not found")
+
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=task_instance.try_number,
+        collector_status=payload.source_status,
+        collector_error=payload.source_error,
+        session=session,
+    )
+    add_ray_dashboard_snapshot(
+        dashboard=dashboard,
+        section=payload.section,
+        payload=payload.payload,
+        collected_at=payload.collected_at,
+        source_status=payload.source_status,
+        source_error=payload.source_error,
+        session=session,
+    )
+    session.flush()
+    return RayDashboardWriteResponse(dashboard_id=str(dashboard.id), updated_at=dashboard.updated_at)
+
+
+@ti_id_router.post(
+    "/{task_instance_id}/ray-dashboard/metrics",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Task Instance not found"},
+    },
+)
+def post_ray_dashboard_metric_samples(
+    task_instance_id: UUID,
+    payload: RayDashboardMetricSamplesPayload,
+    session: SessionDep,
+) -> RayDashboardWriteResponse:
+    """Publish directly collected Ray metric samples for a task instance attempt."""
+    bind_contextvars(ti_id=str(task_instance_id))
+    task_instance = session.scalar(select(TI).where(TI.id == task_instance_id))
+    if task_instance is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task Instance not found")
+
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=task_instance.try_number,
+        session=session,
+    )
+    add_ray_dashboard_metric_samples(
+        dashboard=dashboard,
+        samples=[sample.model_dump() for sample in payload.samples],
+        session=session,
+    )
+    session.flush()
+    return RayDashboardWriteResponse(dashboard_id=str(dashboard.id), updated_at=dashboard.updated_at)
 
 
 @ti_id_router.put(

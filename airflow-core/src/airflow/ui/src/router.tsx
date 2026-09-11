@@ -53,7 +53,7 @@ import { Details as DagRunDetails } from "src/pages/Run/Details";
 import { Security } from "src/pages/Security";
 import { Task } from "src/pages/Task";
 import { Overview as TaskOverview } from "src/pages/Task/Overview";
-import { TaskInstance, Logs } from "src/pages/TaskInstance";
+import { TaskInstance, Logs, RayDashboard } from "src/pages/TaskInstance";
 import { AssetEvents as TaskInstanceAssetEvents } from "src/pages/TaskInstance/AssetEvents";
 import { Details as TaskInstanceDetails } from "src/pages/TaskInstance/Details";
 import { HITLResponse } from "src/pages/TaskInstance/HITLResponse";
@@ -73,6 +73,7 @@ export const taskInstanceRoutes = [
   { element: <Logs />, index: true, path: undefined },
   { element: <Events />, path: "events" },
   { element: <XCom />, path: "xcom" },
+  { element: <RayDashboard />, path: "ray_dashboard" },
   { element: <Code />, path: "code" },
   { element: <TaskInstanceDetails />, path: "details" },
   { element: <RenderedTemplates />, path: "rendered_templates" },

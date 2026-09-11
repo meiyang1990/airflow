@@ -19,3 +19,4 @@
 
 export * from "./TaskInstance";
 export * from "./Logs";
+export * from "./RayDashboard";
