@@ -15,6 +15,7 @@
 `<PROJECT>` is folder where pyproject.toml of the package you want to test is located. For example, `airflow-core` or `providers/amazon`.
 `<target_branch>` is the branch the PR will be merged into — usually `main`, but could be `v3-1-test` when creating a PR for the 3.1 branch.
 
+- **Build Docker images from source:** when building and publishing an Airflow Docker image from this repository, always perform a full source build from the current workspace state. Do not create release or deployment images by layering partial files, frontend `dist` artifacts, hotfix overlays, or selected directories on top of a previously built image. If the image is intended for deployment, the image tag must correspond to the complete source tree and build process used for that deployment.
 - **Run a single test:** `uv run --project <PROJECT> pytest path/to/test.py::TestClass::test_method -xvs`
 - **Run a test file:** `uv run --project <PROJECT> pytest path/to/test.py -xvs`
 - **Run all tests in package:** `uv run --project <PROJECT> pytest path/to/package -xvs`

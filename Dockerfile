@@ -1849,13 +1849,19 @@ FROM ${BASE_IMAGE} as airflow-build-image
 SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "nounset", "-o", "nolog", "-c"]
 
 ARG BASE_IMAGE
+ARG PIP_INDEX_URL=""
+ARG PIP_TRUSTED_HOST=""
+ARG UV_INDEX_URL=""
 
 # Make sure noninteractive debian install is used and language variables set
 ENV BASE_IMAGE=${BASE_IMAGE} \
     DEBIAN_FRONTEND=noninteractive LANGUAGE=C.UTF-8 LANG=C.UTF-8 LC_ALL=C.UTF-8 \
     LC_CTYPE=C.UTF-8 LC_MESSAGES=C.UTF-8 \
     PIP_CACHE_DIR=/tmp/.cache/pip \
-    UV_CACHE_DIR=/tmp/.cache/uv
+    PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST} \
+    UV_CACHE_DIR=/tmp/.cache/uv \
+    UV_INDEX_URL=${UV_INDEX_URL}
 
 ARG DEV_APT_DEPS=""
 ARG ADDITIONAL_DEV_APT_DEPS=""
@@ -1937,6 +1943,9 @@ ARG AIRFLOW_FALLBACK_NO_CONSTRAINTS_INSTALLATION="false"
 
 # By default PIP has progress bar but you can disable it.
 ARG PIP_PROGRESS_BAR
+ARG PIP_INDEX_URL=""
+ARG PIP_TRUSTED_HOST=""
+ARG UV_INDEX_URL=""
 # This is airflow version that is put in the label of the image build
 ARG AIRFLOW_VERSION
 # By default latest released version of airflow is installed (when empty) but this value can be overridden
@@ -1990,6 +1999,9 @@ ENV AIRFLOW_PIP_VERSION=${AIRFLOW_PIP_VERSION} \
     DEFAULT_CONSTRAINTS_BRANCH=${DEFAULT_CONSTRAINTS_BRANCH} \
     PATH=${AIRFLOW_USER_HOME_DIR}/.local/bin:${PATH} \
     PIP_PROGRESS_BAR=${PIP_PROGRESS_BAR} \
+    PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST} \
+    UV_INDEX_URL=${UV_INDEX_URL} \
     ADDITIONAL_PIP_INSTALL_FLAGS=${ADDITIONAL_PIP_INSTALL_FLAGS} \
     AIRFLOW_HOME=${AIRFLOW_HOME} \
     AIRFLOW_IMAGE_TYPE=${AIRFLOW_IMAGE_TYPE} \
@@ -2027,6 +2039,11 @@ ENV PATH="/usr/python/bin:$PATH"
 RUN bash /scripts/docker/install_packaging_tools.sh; bash /scripts/docker/create_prod_venv.sh
 
 COPY --chown=airflow:0 ${AIRFLOW_SOURCES_FROM} ${AIRFLOW_SOURCES_TO}
+
+ARG DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR="false"
+RUN if [[ "${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}" == "true" ]]; then \
+        sed -i '/^exclude-newer = "4 days"$/d' "${AIRFLOW_SOURCES_TO}/pyproject.toml"; \
+    fi
 
 # Add extra python dependencies
 ARG ADDITIONAL_PYTHON_DEPS=""

@@ -29,9 +29,18 @@ AIRFLOW_PYTHON_VERSION="${AIRFLOW_PYTHON_VERSION:-3.13.13}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 PUSH_IMAGE="${PUSH_IMAGE:-true}"
 USE_CHINA_APT_MIRROR="${USE_CHINA_APT_MIRROR:-true}"
+PYPI_INDEX_URL="${PYPI_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}"
+PYPI_TRUSTED_HOST="${PYPI_TRUSTED_HOST:-mirrors.aliyun.com}"
+UV_INDEX_URL="${UV_INDEX_URL:-${PYPI_INDEX_URL}}"
+# Aliyun's PyPI mirror omits upload-time metadata for some files; frozen uv.lock keeps versions pinned.
+DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR="${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR:-true}"
 IMAGE_TAG_FILE="${IMAGE_TAG_FILE:-/tmp/airflow-source-image-tags.env}"
 
 AIRFLOW_IMAGE="${AIRFLOW_IMAGE_REPO}:${AIRFLOW_IMAGE_TAG}"
+DOCKER_CONTEXT_FILES_DIR="${REPO_ROOT}/docker-context-files"
+PIP_CONF_PATH="${DOCKER_CONTEXT_FILES_DIR}/pip.conf"
+PIP_CONF_BACKUP=""
+PIP_CONF_CREATED="false"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "docker is required but was not found in PATH" >&2
@@ -44,10 +53,41 @@ else
     APT_MIRROR_CMD=""
 fi
 
+cleanup_generated_pip_conf() {
+    if [[ "${PIP_CONF_CREATED}" == "true" ]]; then
+        rm -f "${PIP_CONF_PATH}"
+    elif [[ -n "${PIP_CONF_BACKUP}" && -f "${PIP_CONF_BACKUP}" ]]; then
+        mv "${PIP_CONF_BACKUP}" "${PIP_CONF_PATH}"
+    fi
+}
+
+prepare_pip_conf() {
+    mkdir -p "${DOCKER_CONTEXT_FILES_DIR}"
+    if [[ -f "${PIP_CONF_PATH}" ]]; then
+        PIP_CONF_BACKUP="$(mktemp "${PIP_CONF_PATH}.backup.XXXXXX")"
+        cp "${PIP_CONF_PATH}" "${PIP_CONF_BACKUP}"
+    else
+        PIP_CONF_CREATED="true"
+    fi
+
+    cat >"${PIP_CONF_PATH}" <<EOF
+[global]
+index-url = ${PYPI_INDEX_URL}
+trusted-host = ${PYPI_TRUSTED_HOST}
+disable-pip-version-check = true
+EOF
+}
+
+trap cleanup_generated_pip_conf EXIT
+prepare_pip_conf
+
 cat >"${IMAGE_TAG_FILE}" <<EOF
 AIRFLOW_IMAGE_REPO=${AIRFLOW_IMAGE_REPO}
 AIRFLOW_IMAGE_TAG=${AIRFLOW_IMAGE_TAG}
 AIRFLOW_IMAGE=${AIRFLOW_IMAGE}
+PYPI_INDEX_URL=${PYPI_INDEX_URL}
+UV_INDEX_URL=${UV_INDEX_URL}
+DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR=${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}
 EOF
 
 echo "Building Airflow image from source"
@@ -56,6 +96,9 @@ echo "  tag:       ${AIRFLOW_IMAGE_TAG}"
 echo "  image:     ${AIRFLOW_IMAGE}"
 echo "  platform:  ${PLATFORM}"
 echo "  push:      ${PUSH_IMAGE}"
+echo "  pypi:      ${PYPI_INDEX_URL}"
+echo "  uv index:  ${UV_INDEX_URL}"
+echo "  uv cutoff: relax exclude-newer for mirror metadata = ${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}"
 echo "  tag file:  ${IMAGE_TAG_FILE}"
 echo
 
@@ -67,6 +110,11 @@ build_args=(
     --build-arg AIRFLOW_SOURCES_TO=/opt/airflow
     --build-arg "AIRFLOW_VERSION=${AIRFLOW_VERSION}"
     --build-arg "AIRFLOW_PYTHON_VERSION=${AIRFLOW_PYTHON_VERSION}"
+    --build-arg "PIP_INDEX_URL=${PYPI_INDEX_URL}"
+    --build-arg "PIP_TRUSTED_HOST=${PYPI_TRUSTED_HOST}"
+    --build-arg "UV_INDEX_URL=${UV_INDEX_URL}"
+    --build-arg "ADDITIONAL_PIP_INSTALL_FLAGS=--index-url ${PYPI_INDEX_URL} --trusted-host ${PYPI_TRUSTED_HOST}"
+    --build-arg "DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR=${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}"
     --build-arg PYTHON_LTO=false
     --build-arg "DEV_APT_COMMAND=${APT_MIRROR_CMD}"
     --build-arg "RUNTIME_APT_COMMAND=${APT_MIRROR_CMD}"
