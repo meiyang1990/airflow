@@ -30,7 +30,7 @@
 | 配置项 | 当前值 |
 | --- | --- |
 | Airflow 版本 | `3.2.1` |
-| Airflow 镜像 | `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow-openmetadata:3.2.1-om-1.12.6` |
+| Airflow 镜像 | `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:<tag>` |
 | Executor | `KubernetesExecutor` |
 | PostgreSQL | 使用外部数据库，Chart 内置 PostgreSQL 关闭 |
 | 数据库地址 | `192.168.48.2:5432/airflow_meta` |
@@ -49,7 +49,7 @@
 1. 已连接到目标百度云 Kubernetes 集群，并且 `kubectl` 当前上下文指向该集群。
 2. 已安装 Helm 3。
 3. 集群可以拉取以下镜像仓库中的镜像：
-   - `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow-openmetadata`
+   - `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow`
    - `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/statsd-exporter`
    - `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/git-sync`
 4. 集群中存在名为 `cfs-shared-sc` 的 StorageClass，并支持 `ReadWriteMany`。
@@ -197,6 +197,153 @@ kubectl -n bigdata get pods -w
 - `airflow-statsd`
 - `airflow-run-airflow-migrations`
 - `airflow-create-user`
+
+## 发布 Ray Dashboard 上报链路更新
+
+Ray Dashboard task tab 的本次更新分为两部分：
+
+1. `airflow` 镜像内的 Airflow / Task SDK 代码：新增 `airflow.sdk.execution_time.ray_dashboard` helper，并由 task supervisor 代为调用 Execution API。
+2. `airflow_dags` 仓库内的 DAG 代码：`utils/ray_dashboard_reporter.py` 改为调用 Task SDK helper，不再自行获取 Execution API token。
+
+必须先发布 Airflow 镜像，再发布 DAG 仓库代码。否则 DAG 代码会找不到新的 Task SDK helper，Ray Dashboard 上报会被跳过。
+
+### 1. 构建并推送 Airflow 镜像
+
+在 `airflow` 仓库完成代码提交后，为本次更新生成一个新的镜像 tag。建议不要复用线上已有 tag，避免节点镜像缓存造成版本不一致。
+
+仓库内提供了源码镜像构建脚本：
+
+```bash
+export AIRFLOW_IMAGE_REPO=ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow
+export AIRFLOW_IMAGE_TAG=3.2.1-ray-dashboard-$(date +%Y%m%d%H%M)
+
+deploy/helm/build-airflow-source-image.sh
+```
+
+脚本会基于当前仓库源码执行 `docker buildx build --platform linux/amd64`，并默认推送到百度云镜像仓库。构建完成后会把镜像变量写入 `/tmp/airflow-source-image-tags.env`：
+
+```bash
+source /tmp/airflow-source-image-tags.env
+echo "${AIRFLOW_IMAGE}"
+```
+
+可通过环境变量覆盖默认行为：
+
+```bash
+AIRFLOW_IMAGE_TAG=3.2.1-ray-dashboard-20260917162118 \
+AIRFLOW_PYTHON_VERSION=3.13.13 \
+PLATFORM=linux/amd64 \
+PUSH_IMAGE=true \
+deploy/helm/build-airflow-source-image.sh
+```
+
+如果只想本地构建不推送，可设置 `PUSH_IMAGE=false`。如果使用其他内部构建流水线，以流水线产出的镜像 tag 为准。
+
+### 2. 更新 Helm values 中的镜像 tag
+
+修改 `deploy/helm/baidu-k8s.yaml`：
+
+```yaml
+images:
+  airflow:
+    repository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow
+    tag: "<new-airflow-image-tag>"
+```
+
+`KubernetesExecutor` 的 worker 镜像由同一个 values 配置传递：
+
+```yaml
+config:
+  kubernetes_executor:
+    worker_container_repository: '{{ .Values.images.airflow.repository | default .Values.defaultAirflowRepository }}'
+    worker_container_tag: '{{ .Values.images.airflow.tag | default .Values.defaultAirflowTag }}'
+```
+
+因此 API Server、Scheduler、Dag Processor、Triggerer、迁移 Job 和任务 Pod 都会使用同一版 Airflow / Task SDK 代码。
+
+### 3. 执行 Helm 升级
+
+```bash
+helm upgrade airflow deploy/helm/airflow \
+  -n bigdata \
+  -f deploy/helm/baidu-k8s.yaml
+```
+
+等待核心组件滚动完成：
+
+```bash
+kubectl -n bigdata rollout status deploy/airflow-api-server
+kubectl -n bigdata rollout status deploy/airflow-scheduler
+kubectl -n bigdata rollout status deploy/airflow-dag-processor
+kubectl -n bigdata rollout status deploy/airflow-triggerer
+```
+
+确认新镜像已生效：
+
+```bash
+kubectl -n bigdata get pods \
+  -l component=scheduler \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+```
+
+验证 Task SDK helper 已存在：
+
+```bash
+kubectl -n bigdata exec deploy/airflow-scheduler -- \
+  python -c "from airflow.sdk.execution_time.ray_dashboard import publish_metadata; print(publish_metadata.__name__)"
+```
+
+输出应为：
+
+```text
+publish_metadata
+```
+
+### 4. 发布 airflow_dags 仓库代码
+
+在 `/Users/storm/Documents/code/zerith/airflow_dags` 仓库提交并推送 DAG 代码：
+
+```bash
+git status --short
+git add utils/ray_dashboard_reporter.py tests/test_base_pipeline_dag.py
+git commit -m "Use Task SDK helper for Ray Dashboard reporting"
+git push origin <branch>
+```
+
+`baidu-k8s.yaml` 中 Dag Processor 使用 GitDagBundle 跟踪 `main`、`dev`、`test` 分支，`refresh_interval` 为 60 秒。推送到对应分支后，Dag Processor 会自动刷新：
+
+```bash
+kubectl -n bigdata logs deploy/airflow-dag-processor --tail=200
+```
+
+如果需要立即触发 Dag Processor 重新加载，可重启 Dag Processor：
+
+```bash
+kubectl -n bigdata rollout restart deploy/airflow-dag-processor
+kubectl -n bigdata rollout status deploy/airflow-dag-processor
+```
+
+### 5. 验证 Ray Dashboard 上报
+
+触发一个 RayJob DAG 后查看任务日志：
+
+```bash
+kubectl -n bigdata logs <task-pod-name> --tail=200
+```
+
+不应再出现以下旧日志：
+
+```text
+[ray_dashboard] 跳过上报：无法获取 Execution API token
+```
+
+成功时应看到类似日志：
+
+```text
+[ray_dashboard] 已上报 Ray Dashboard 概览数据: rayjob=..., namespace=..., status=..., ray_cluster=...
+```
+
+然后在 Airflow UI 打开对应 Task Instance 的 Ray Dashboard tab，确认 overview section 有 RayJob 状态数据。
 
 ## 验证部署
 
