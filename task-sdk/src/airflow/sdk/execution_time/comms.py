@@ -873,6 +873,50 @@ class DeleteVariable(BaseModel):
     type: Literal["DeleteVariable"] = "DeleteVariable"
 
 
+class RayDashboardMetadata(BaseModel):
+    """Publish Ray Dashboard metadata for the current task instance attempt."""
+
+    dashboard_url: str | None = None
+    ray_cluster_id: str | None = None
+    ray_cluster_name: str | None = None
+    ray_namespace: str | None = None
+    ray_job_id: str | None = None
+    ray_submission_id: str | None = None
+    status: str | None = None
+    collector_status: str | None = None
+    collector_error: str | None = None
+    collector_metadata: dict[str, JsonValue] | None = None
+    type: Literal["RayDashboardMetadata"] = "RayDashboardMetadata"
+
+
+class RayDashboardSnapshot(BaseModel):
+    """Publish a bounded Ray Dashboard section snapshot."""
+
+    section: str
+    payload: JsonValue | None = None
+    collected_at: AwareDatetime | None = None
+    source_status: str | None = None
+    source_error: str | None = None
+    type: Literal["RayDashboardSnapshot"] = "RayDashboardSnapshot"
+
+
+class RayDashboardMetricSample(BaseModel):
+    """A directly collected Ray metric sample."""
+
+    metric_name: str
+    metric_unit: str | None = None
+    labels: dict[str, JsonValue] | None = None
+    value: float
+    sampled_at: AwareDatetime
+
+
+class RayDashboardMetricSamples(BaseModel):
+    """Publish a bounded batch of directly collected Ray metric samples."""
+
+    samples: list[RayDashboardMetricSample]
+    type: Literal["RayDashboardMetricSamples"] = "RayDashboardMetricSamples"
+
+
 class ResendLoggingFD(BaseModel):
     type: Literal["ResendLoggingFD"] = "ResendLoggingFD"
 
@@ -1065,6 +1109,9 @@ ToSupervisor = Annotated[
     | GetXComSequenceItem
     | GetXComSequenceSlice
     | PutVariable
+    | RayDashboardMetadata
+    | RayDashboardMetricSamples
+    | RayDashboardSnapshot
     | RescheduleTask
     | RetryTask
     | SetRenderedFields

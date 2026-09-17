@@ -49,8 +49,23 @@ proxy, or another access path.
 Collector contract
 ------------------
 
-A collector must run with the task instance execution token and call the task-instance-scoped
-Execution API endpoints for the current task attempt:
+Collectors running inside task code should publish Ray Dashboard data through the Task SDK helper
+functions. The helper functions send the request to the task supervisor, and the supervisor forwards
+it to the task-instance-scoped Execution API with the current task attempt identity:
+
+.. code-block:: python
+
+   from airflow.sdk.execution_time.ray_dashboard import publish_metadata, publish_snapshot
+
+   publish_metadata(
+       dashboard_url="https://ray.example.com",
+       ray_cluster_name="example-ray",
+       collector_status="ok",
+   )
+   publish_snapshot(section="jobs", payload={"running": 1}, source_status="ok")
+
+Tasks do not need direct access to the Execution API token. The raw task-instance-scoped endpoints
+for the current task attempt are:
 
 * ``PUT /execution/task-instances/{task_instance_id}/ray-dashboard`` publishes dashboard metadata.
 * ``POST /execution/task-instances/{task_instance_id}/ray-dashboard/snapshots`` publishes one

@@ -1327,6 +1327,9 @@ class TestTriggererMessageTypes:
             "TriggerDagRun",
             "ResendLoggingFD",
             "CreateHITLDetailPayload",
+            "RayDashboardMetadata",
+            "RayDashboardMetricSamples",
+            "RayDashboardSnapshot",
             "SetRenderedMapIndex",
             "GetDag",
         }

@@ -109,6 +109,10 @@ from airflow.sdk.execution_time.comms import (
     PreviousTIResult,
     PrevSuccessfulDagRunResult,
     PutVariable,
+    RayDashboardMetadata,
+    RayDashboardMetricSample,
+    RayDashboardMetricSamples,
+    RayDashboardSnapshot,
     RescheduleTask,
     ResendLoggingFD,
     RetryTask,
@@ -1478,6 +1482,83 @@ REQUEST_TEST_CASES = [
             args=("test_key", "test_value", "test_description"),
             response=OKResponse(ok=True),
         ),
+    ),
+    RequestTestCase(
+        message=RayDashboardMetadata(
+            dashboard_url="https://ray.example",
+            ray_cluster_name="ray-cluster",
+            collector_status="ok",
+        ),
+        test_id="publish_ray_dashboard_metadata",
+        client_mock=ClientMock(
+            method_path="task_instances.publish_ray_dashboard_metadata",
+            args=(
+                TI_ID,
+                RayDashboardMetadata(
+                    dashboard_url="https://ray.example",
+                    ray_cluster_name="ray-cluster",
+                    collector_status="ok",
+                ),
+            ),
+            response=OKResponse(ok=True),
+        ),
+        expected_body={"ok": True, "type": "OKResponse"},
+    ),
+    RequestTestCase(
+        message=RayDashboardSnapshot(
+            section="jobs",
+            payload={"running": 1},
+            collected_at=timezone.parse("2026-09-17T00:00:00Z"),
+            source_status="ok",
+        ),
+        test_id="publish_ray_dashboard_snapshot",
+        client_mock=ClientMock(
+            method_path="task_instances.publish_ray_dashboard_snapshot",
+            args=(
+                TI_ID,
+                RayDashboardSnapshot(
+                    section="jobs",
+                    payload={"running": 1},
+                    collected_at=timezone.parse("2026-09-17T00:00:00Z"),
+                    source_status="ok",
+                ),
+            ),
+            response=OKResponse(ok=True),
+        ),
+        expected_body={"ok": True, "type": "OKResponse"},
+    ),
+    RequestTestCase(
+        message=RayDashboardMetricSamples(
+            samples=[
+                RayDashboardMetricSample(
+                    metric_name="ray_tasks",
+                    metric_unit="count",
+                    labels={"state": "running"},
+                    value=1.0,
+                    sampled_at=timezone.parse("2026-09-17T00:00:00Z"),
+                )
+            ]
+        ),
+        test_id="publish_ray_dashboard_metric_samples",
+        client_mock=ClientMock(
+            method_path="task_instances.publish_ray_dashboard_metric_samples",
+            args=(
+                TI_ID,
+                RayDashboardMetricSamples(
+                    samples=[
+                        RayDashboardMetricSample(
+                            metric_name="ray_tasks",
+                            metric_unit="count",
+                            labels={"state": "running"},
+                            value=1.0,
+                            sampled_at=timezone.parse("2026-09-17T00:00:00Z"),
+                        )
+                    ]
+                ),
+            ),
+            response=OKResponse(ok=True),
+        ),
+        expected_body={"ok": True, "type": "OKResponse"},
     ),
     RequestTestCase(
         message=DeleteVariable(key="test_key"),

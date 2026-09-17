@@ -54,6 +54,10 @@ from airflow.sdk.execution_time.comms import (
     OKResponse,
     PreviousDagRunResult,
     PreviousTIResult,
+    RayDashboardMetadata,
+    RayDashboardMetricSample,
+    RayDashboardMetricSamples,
+    RayDashboardSnapshot,
     RescheduleTask,
     TaskRescheduleStartDate,
 )
@@ -547,6 +551,95 @@ class TestTaskInstanceOperations:
 
         client = make_client(transport=httpx.MockTransport(handle_request))
         result = client.task_instances.set_rendered_map_index(id=TI_ID, rendered_map_index=rendered_map_index)
+
+        assert result == OKResponse(ok=True)
+
+    def test_publish_ray_dashboard_metadata(self):
+        ti_id = uuid6.uuid7()
+
+        def handle_request(request: httpx.Request) -> httpx.Response:
+            assert request.method == "PUT"
+            assert request.url.path == f"/task-instances/{ti_id}/ray-dashboard"
+            assert json.loads(request.read()) == {
+                "dashboard_url": "https://ray.example",
+                "ray_cluster_name": "ray-cluster",
+                "collector_status": "ok",
+            }
+            return httpx.Response(200, json={"dashboard_id": "1", "updated_at": "2026-09-17T00:00:00Z"})
+
+        client = make_client(transport=httpx.MockTransport(handle_request))
+        result = client.task_instances.publish_ray_dashboard_metadata(
+            ti_id,
+            RayDashboardMetadata(
+                dashboard_url="https://ray.example",
+                ray_cluster_name="ray-cluster",
+                collector_status="ok",
+            ),
+        )
+
+        assert result == OKResponse(ok=True)
+
+    def test_publish_ray_dashboard_snapshot(self):
+        ti_id = uuid6.uuid7()
+
+        def handle_request(request: httpx.Request) -> httpx.Response:
+            assert request.method == "POST"
+            assert request.url.path == f"/task-instances/{ti_id}/ray-dashboard/snapshots"
+            assert json.loads(request.read()) == {
+                "section": "jobs",
+                "payload": {"running": 1},
+                "collected_at": "2026-09-17T00:00:00Z",
+                "source_status": "ok",
+            }
+            return httpx.Response(201, json={"dashboard_id": "1", "updated_at": "2026-09-17T00:00:00Z"})
+
+        client = make_client(transport=httpx.MockTransport(handle_request))
+        result = client.task_instances.publish_ray_dashboard_snapshot(
+            ti_id,
+            RayDashboardSnapshot(
+                section="jobs",
+                payload={"running": 1},
+                collected_at=timezone.parse("2026-09-17T00:00:00Z"),
+                source_status="ok",
+            ),
+        )
+
+        assert result == OKResponse(ok=True)
+
+    def test_publish_ray_dashboard_metric_samples(self):
+        ti_id = uuid6.uuid7()
+
+        def handle_request(request: httpx.Request) -> httpx.Response:
+            assert request.method == "POST"
+            assert request.url.path == f"/task-instances/{ti_id}/ray-dashboard/metrics"
+            assert json.loads(request.read()) == {
+                "samples": [
+                    {
+                        "metric_name": "ray_tasks",
+                        "metric_unit": "count",
+                        "labels": {"state": "running"},
+                        "value": 1.0,
+                        "sampled_at": "2026-09-17T00:00:00Z",
+                    }
+                ]
+            }
+            return httpx.Response(201, json={"dashboard_id": "1", "updated_at": "2026-09-17T00:00:00Z"})
+
+        client = make_client(transport=httpx.MockTransport(handle_request))
+        result = client.task_instances.publish_ray_dashboard_metric_samples(
+            ti_id,
+            RayDashboardMetricSamples(
+                samples=[
+                    RayDashboardMetricSample(
+                        metric_name="ray_tasks",
+                        metric_unit="count",
+                        labels={"state": "running"},
+                        value=1.0,
+                        sampled_at=timezone.parse("2026-09-17T00:00:00Z"),
+                    )
+                ]
+            ),
+        )
 
         assert result == OKResponse(ok=True)
 

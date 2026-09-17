@@ -84,6 +84,9 @@ from airflow.sdk.execution_time.comms import (
     OKResponse,
     PreviousDagRunResult,
     PreviousTIResult,
+    RayDashboardMetadata,
+    RayDashboardMetricSamples,
+    RayDashboardSnapshot,
     SkipDownstreamTasks,
     TaskRescheduleStartDate,
     TICount,
@@ -398,6 +401,32 @@ class TaskInstanceOperations:
         """Validate whether there're inactive assets in inlets and outlets of a given task instance."""
         resp = self.client.get(f"task-instances/{id}/validate-inlets-and-outlets")
         return InactiveAssetsResponse.model_validate_json(resp.read())
+
+    def publish_ray_dashboard_metadata(self, id: uuid.UUID, msg: RayDashboardMetadata) -> OKResponse:
+        """Publish Ray Dashboard metadata via the API server."""
+        self.client.put(
+            f"task-instances/{id}/ray-dashboard",
+            content=msg.model_dump_json(exclude={"type"}, exclude_unset=True),
+        )
+        return OKResponse(ok=True)
+
+    def publish_ray_dashboard_snapshot(self, id: uuid.UUID, msg: RayDashboardSnapshot) -> OKResponse:
+        """Publish a Ray Dashboard section snapshot via the API server."""
+        self.client.post(
+            f"task-instances/{id}/ray-dashboard/snapshots",
+            content=msg.model_dump_json(exclude={"type"}, exclude_unset=True),
+        )
+        return OKResponse(ok=True)
+
+    def publish_ray_dashboard_metric_samples(
+        self, id: uuid.UUID, msg: RayDashboardMetricSamples
+    ) -> OKResponse:
+        """Publish Ray Dashboard metric samples via the API server."""
+        self.client.post(
+            f"task-instances/{id}/ray-dashboard/metrics",
+            content=msg.model_dump_json(exclude={"type"}, exclude_unset=True),
+        )
+        return OKResponse(ok=True)
 
 
 class ConnectionOperations:

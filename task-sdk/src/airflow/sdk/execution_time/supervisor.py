@@ -99,6 +99,9 @@ from airflow.sdk.execution_time.comms import (
     MaskSecret,
     PrevSuccessfulDagRunResult,
     PutVariable,
+    RayDashboardMetadata,
+    RayDashboardMetricSamples,
+    RayDashboardSnapshot,
     RescheduleTask,
     ResendLoggingFD,
     RetryTask,
@@ -1458,6 +1461,12 @@ class ActivitySubprocess(WatchedSubprocess):
             inactive_assets_resp = self.client.task_instances.validate_inlets_and_outlets(msg.ti_id)
             resp = InactiveAssetsResult.from_inactive_assets_response(inactive_assets_resp)
             dump_opts = {"exclude_unset": True}
+        elif isinstance(msg, RayDashboardMetadata):
+            resp = self.client.task_instances.publish_ray_dashboard_metadata(self.id, msg)
+        elif isinstance(msg, RayDashboardSnapshot):
+            resp = self.client.task_instances.publish_ray_dashboard_snapshot(self.id, msg)
+        elif isinstance(msg, RayDashboardMetricSamples):
+            resp = self.client.task_instances.publish_ray_dashboard_metric_samples(self.id, msg)
         elif isinstance(msg, ResendLoggingFD):
             # We need special handling here!
             if send_fds is not None:

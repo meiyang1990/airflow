@@ -1930,6 +1930,9 @@ class TestDagProcessingMessageTypes:
             "CreateHITLDetailPayload",
             "UpdateHITLDetail",
             "GetHITLDetailResponse",
+            "RayDashboardMetadata",
+            "RayDashboardMetricSamples",
+            "RayDashboardSnapshot",
             "SetRenderedMapIndex",
         }
 
