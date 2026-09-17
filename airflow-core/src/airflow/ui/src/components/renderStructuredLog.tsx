@@ -115,7 +115,7 @@ const renderStructuredLogImpl = ({
   logLink,
   logMessage,
   renderingMode = "jsx",
-  showSource = true,
+  showSource = false,
   showTimestamp = true,
   sourceFilters,
   translate,
@@ -222,7 +222,7 @@ const renderStructuredLogImpl = ({
     renderingMode === "text" ? (
       event
     ) : (
-      <chakra.span className="event" key={2} whiteSpace="pre-wrap">
+      <chakra.span className="event" key={2} whiteSpace="inherit">
         {addAnsiWithLinks(event)}
       </chakra.span>
     ),
@@ -263,7 +263,7 @@ const renderStructuredLogImpl = ({
     renderingMode === "text" ? (
       details
     ) : (
-      <chakra.span className="event" key={3} whiteSpace="pre-wrap">
+      <chakra.span className="event" key={3} whiteSpace="inherit">
         {details}
       </chakra.span>
     ),
@@ -292,7 +292,7 @@ const renderStructuredLogImpl = ({
       >
         {index}
       </RouterLink>
-      <chakra.span overflow="auto" whiteSpace="pre-wrap" width="100%">
+      <chakra.span overflow="auto" whiteSpace="inherit" width="100%">
         {elements}
       </chakra.span>
     </chakra.div>
