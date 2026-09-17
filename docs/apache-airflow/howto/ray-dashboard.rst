@@ -23,6 +23,29 @@ renders it on the task instance page. The feature does not require Prometheus or
 Ray task code, a Ray operator, or a task-owned collector reads Ray-owned sources directly and
 publishes bounded data through the Execution API.
 
+Ray task detection and dashboard URLs
+-------------------------------------
+
+Airflow does not infer whether a task is a Ray task from the operator class, logs, command line, or
+task code. A task attempt is considered to have Ray Dashboard data only after Ray task code, a Ray
+operator, or a task-owned collector publishes Ray Dashboard metadata for that exact task attempt
+through the Execution API.
+
+The dashboard URL is also supplied by the task side. Airflow stores and displays the
+``dashboard_url`` value that the collector publishes; it does not discover Ray clusters or scan
+Kubernetes services automatically. The collector can resolve the URL from sources such as:
+
+* an operator argument or Airflow connection that contains the Ray dashboard address,
+* an upstream task result or XCom produced when the Ray cluster was created,
+* a deployment-specific KubeRay service naming convention,
+* a cloud provider API response for managed Ray clusters,
+* or an environment variable injected into the task runtime.
+
+When publishing ``dashboard_url``, make sure the URL is useful for the Airflow UI user. A URL that
+is reachable from inside a worker pod, such as a Kubernetes ``*.svc`` address, might not be
+reachable from the user's browser unless the deployment exposes it through an ingress, gateway,
+proxy, or another access path.
+
 Collector contract
 ------------------
 
