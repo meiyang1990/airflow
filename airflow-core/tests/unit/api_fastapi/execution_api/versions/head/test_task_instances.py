@@ -24,6 +24,7 @@ from uuid import UUID, uuid4
 
 import pytest
 import uuid6
+from fastapi import Request
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -38,11 +39,14 @@ from airflow._shared.observability.traces import OverrideableRandomIdGenerator
 from airflow._shared.timezones import timezone
 from airflow.api_fastapi.auth.tokens import JWTValidator
 from airflow.api_fastapi.execution_api.app import lifespan
+from airflow.api_fastapi.execution_api.datamodels.token import TIToken
 from airflow.api_fastapi.execution_api.routes.task_instances import _emit_task_span
+from airflow.api_fastapi.execution_api.security import _jwt_bearer
 from airflow.exceptions import AirflowSkipException
 from airflow.models import RenderedTaskInstanceFields, TaskReschedule, Trigger
 from airflow.models.asset import AssetActive, AssetAliasModel, AssetEvent, AssetModel
 from airflow.models.log import Log
+from airflow.models.ray_dashboard import RayDashboardSnapshot, get_ray_dashboard_task_instance
 from airflow.models.taskinstance import TaskInstance
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.providers.standard.operators.empty import EmptyOperator
@@ -148,6 +152,169 @@ def test_id_matches_sub_claim(client, session, create_task_instance):
     resp = client.patch(f"/execution/task-instances/{ti.id}/run", json=payload)
     assert resp.status_code == 200, resp.json()
     validator.avalidated_claims.assert_awaited()
+
+
+def _set_ray_dashboard_ingestion_token(exec_app, ti, **claim_overrides):
+    async def mock_jwt_bearer(request: Request):
+        claims = {
+            "sub": str(ti.id),
+            "scope": "execution",
+            "ray_dashboard_ingestion": True,
+            "dag_id": ti.dag_id,
+            "run_id": ti.run_id,
+            "task_id": ti.task_id,
+            "map_index": ti.map_index,
+            "try_number": ti.try_number,
+        }
+        claims.update(claim_overrides)
+        return TIToken(id=ti.id, claims=claims)
+
+    exec_app.dependency_overrides[_jwt_bearer] = mock_jwt_bearer
+
+
+class TestRayDashboardIngestion:
+    def teardown_method(self):
+        clear_db_runs()
+
+    def test_ingest_ray_dashboard_snapshots(self, client, exec_app, session, create_task_instance):
+        ti = create_task_instance(task_id="ray_dashboard_ingest", state=State.RUNNING)
+        session.commit()
+        _set_ray_dashboard_ingestion_token(exec_app, ti)
+
+        resp = client.post(
+            f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+            json={
+                "try_number": ti.try_number,
+                "ray_cluster_name": "raycluster-a",
+                "ray_namespace": "default",
+                "ray_job_id": "ray-job-a",
+                "status": "RUNNING",
+                "collector_status": "ok",
+                "collector_metadata": {"collector": "ray-driver"},
+                "sections": [
+                    {
+                        "section": "jobs",
+                        "payload": {"jobs": [{"job_id": "ray-job-a", "status": "RUNNING"}]},
+                        "source_status": "ok",
+                    },
+                    {
+                        "section": "actors",
+                        "payload": {"actors": [], "total": 0},
+                        "source_status": "error",
+                        "source_error": "state api unavailable",
+                    },
+                ],
+            },
+        )
+
+        assert resp.status_code == 201, resp.json()
+        assert resp.json()["snapshots"] == 2
+        dashboard = get_ray_dashboard_task_instance(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=ti.try_number,
+            session=session,
+        )
+        assert dashboard is not None
+        assert dashboard.ray_cluster_name == "raycluster-a"
+        assert dashboard.ray_job_id == "ray-job-a"
+        snapshots = session.scalars(
+            select(RayDashboardSnapshot)
+            .where(RayDashboardSnapshot.dashboard_id == dashboard.id)
+            .order_by(RayDashboardSnapshot.section)
+        ).all()
+        assert [snapshot.section for snapshot in snapshots] == ["actors", "jobs"]
+        assert snapshots[0].source_status == "error"
+        assert snapshots[0].source_error == "state api unavailable"
+
+    def test_ingest_rejects_token_identity_mismatch(self, client, exec_app, session, create_task_instance):
+        ti = create_task_instance(task_id="ray_dashboard_claim_mismatch", state=State.RUNNING)
+        session.commit()
+        _set_ray_dashboard_ingestion_token(exec_app, ti, dag_id="other-dag")
+
+        resp = client.post(
+            f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+            json={"try_number": ti.try_number, "sections": [{"section": "jobs", "payload": {}}]},
+        )
+
+        assert resp.status_code == 403
+        assert (
+            get_ray_dashboard_task_instance(
+                dag_id=ti.dag_id,
+                run_id=ti.run_id,
+                task_id=ti.task_id,
+                map_index=ti.map_index,
+                try_number=ti.try_number,
+                session=session,
+            )
+            is None
+        )
+
+    @pytest.mark.usefixtures("_use_real_jwt_bearer")
+    def test_ingest_accepts_static_ingestion_token(self, client, session, create_task_instance):
+        ti = create_task_instance(task_id="ray_dashboard_static_token", state=State.RUNNING)
+        session.commit()
+
+        with conf_vars({("api_auth", "ray_dashboard_ingestion_token"): "static-token"}):
+            resp = client.post(
+                f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+                headers={"Authorization": "Bearer static-token"},
+                json={
+                    "try_number": ti.try_number,
+                    "collector_status": "ok",
+                    "sections": [{"section": "jobs", "payload": {"jobs": []}}],
+                },
+            )
+
+        assert resp.status_code == 201, resp.json()
+        assert resp.json()["snapshots"] == 1
+        assert (
+            get_ray_dashboard_task_instance(
+                dag_id=ti.dag_id,
+                run_id=ti.run_id,
+                task_id=ti.task_id,
+                map_index=ti.map_index,
+                try_number=ti.try_number,
+                session=session,
+            )
+            is not None
+        )
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"try_number": 1, "sections": [{"section": "not-a-section", "payload": {}}]},
+            {"try_number": 1, "sections": [{"section": "jobs", "payload": "x" * (1024 * 1024 + 1)}]},
+        ],
+    )
+    def test_ingest_rejects_invalid_section_payload(
+        self, client, exec_app, session, create_task_instance, payload
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_invalid_payload", state=State.RUNNING)
+        session.commit()
+        _set_ray_dashboard_ingestion_token(exec_app, ti)
+        payload["try_number"] = ti.try_number
+
+        resp = client.post(f"/execution/task-instances/{ti.id}/ray-dashboard/ingest", json=payload)
+
+        assert resp.status_code == 422
+
+    @pytest.mark.usefixtures("_use_real_jwt_bearer")
+    def test_ingest_rejects_expired_token(self, client, session, create_task_instance):
+        ti = create_task_instance(task_id="ray_dashboard_expired_token", state=State.RUNNING)
+        session.commit()
+        validator = mock.AsyncMock(spec=JWTValidator)
+        validator.avalidated_claims.side_effect = Exception("Signature has expired")
+        lifespan.registry.register_value(JWTValidator, validator)
+
+        resp = client.post(
+            f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+            json={"try_number": ti.try_number, "sections": [{"section": "jobs", "payload": {}}]},
+        )
+
+        assert resp.status_code == 403
 
 
 class TestTIRunState:

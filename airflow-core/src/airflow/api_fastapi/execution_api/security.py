@@ -78,6 +78,11 @@ from fastapi.security import HTTPBearer, SecurityScopes
 from airflow.api_fastapi.auth.tokens import JWTValidator
 from airflow.api_fastapi.execution_api.datamodels.token import TIToken
 from airflow.api_fastapi.execution_api.deps import DepContainer
+from airflow.api_fastapi.execution_api.ray_dashboard_tokens import (
+    RAY_DASHBOARD_INGESTION_CLAIM,
+    RAY_DASHBOARD_STATIC_INGESTION_CLAIM,
+    is_static_ray_dashboard_ingestion_token,
+)
 
 log = structlog.get_logger(logger_name=__name__)
 
@@ -118,6 +123,22 @@ class JWTBearer(HTTPBearer):
         creds = await super().__call__(request)
         if not creds:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth token")
+
+        if request.url.path.endswith("/ray-dashboard/ingest") and is_static_ray_dashboard_ingestion_token(
+            creds.credentials
+        ):
+            task_instance_id = str(request.path_params["task_instance_id"])
+            token = TIToken(
+                id=task_instance_id,
+                claims={
+                    "sub": task_instance_id,
+                    "scope": "execution",
+                    RAY_DASHBOARD_INGESTION_CLAIM: True,
+                    RAY_DASHBOARD_STATIC_INGESTION_CLAIM: True,
+                },
+            )
+            request.scope[_REQUEST_SCOPE_TOKEN_KEY] = token
+            return token
 
         validator: JWTValidator = await services.aget(JWTValidator)
 

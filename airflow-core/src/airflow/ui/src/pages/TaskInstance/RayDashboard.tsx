@@ -34,12 +34,11 @@ import {
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import { FiExternalLink } from "react-icons/fi";
+import { FiExternalLink, FiRefreshCw } from "react-icons/fi";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { OpenAPI } from "openapi/requests/core/OpenAPI";
-import Time from "src/components/Time";
 import { SearchParamsKeys } from "src/constants/searchParams";
 import { getRayDashboardAvailability, rayDashboardAvailabilityQueryKey } from "src/hooks/useRayDashboardTabs";
 
@@ -133,6 +132,9 @@ const CHART_COLORS = {
   border: "#d7dce5",
   muted: "#6b7280",
 };
+const UTC_PLUS_8_TIME_ZONE = "Asia/Shanghai";
+const TIME_LIKE_FIELD_PATTERN =
+  /(?:^|_)(?:time|timestamp|date|created|updated|started|ended|sampled|collected)(?:_|$)/u;
 
 const PANEL_BORDER = { borderColor: RAY_COLORS.border, borderStyle: "solid", borderWidth: 1 };
 
@@ -217,6 +219,28 @@ const isRecord = (value: unknown): value is JsonRecord =>
 
 const renderJson = (value: unknown) => JSON.stringify(value, undefined, 2);
 
+const formatUtcPlus8 = (datetime: string): string => {
+  const date = new Date(datetime);
+
+  if (isNaN(date.getTime())) {
+    return datetime;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    timeZone: UTC_PLUS_8_TIME_ZONE,
+    year: "numeric",
+  }).formatToParts(date);
+  const partsByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${partsByType.year}-${partsByType.month}-${partsByType.day} ${partsByType.hour}:${partsByType.minute}:${partsByType.second} UTC+8`;
+};
+
 const formatValue = (value: unknown): string => {
   if (value === undefined || value === null || value === "") {
     return "-";
@@ -237,6 +261,30 @@ const formatValue = (value: unknown): string => {
   }
 
   return renderJson(value);
+};
+
+const formatTableValue = (key: string, value: unknown): string =>
+  typeof value === "string" && TIME_LIKE_FIELD_PATTERN.test(key) ? formatUtcPlus8(value) : formatValue(value);
+
+const formatJsonValueForDisplay = (value: unknown, key = ""): unknown => {
+  if (typeof value === "string") {
+    return TIME_LIKE_FIELD_PATTERN.test(key) ? formatUtcPlus8(value) : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => formatJsonValueForDisplay(item));
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [
+        entryKey,
+        formatJsonValueForDisplay(entryValue, entryKey),
+      ]),
+    );
+  }
+
+  return value;
 };
 
 const getSectionLabel = (section: string) =>
@@ -527,7 +575,7 @@ const GenericSectionTable = ({
                 textOverflow="ellipsis"
                 whiteSpace="nowrap"
               >
-                {formatValue(row[column])}
+                {formatTableValue(column, row[column])}
               </Table.Cell>
             ))}
           </Table.Row>
@@ -573,6 +621,9 @@ const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => 
         position: "bottom",
       },
       tooltip: {
+        callbacks: {
+          title: (items) => formatUtcPlus8(String(labels[items[0]?.dataIndex ?? 0] ?? "")),
+        },
         intersect: false,
         mode: "index",
       },
@@ -584,6 +635,7 @@ const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => 
           color: CHART_COLORS.border,
         },
         ticks: {
+          callback: (value) => formatUtcPlus8(String(labels[Number(value)] ?? value)),
           color: CHART_COLORS.muted,
           maxRotation: 0,
         },
@@ -628,7 +680,12 @@ export const RayDashboard = () => {
   );
   const tryNumber = tryNumberParam === null ? taskInstance?.try_number : parseInt(tryNumberParam, 10);
 
-  const { data: availability, isLoading: isLoadingAvailability } = useQuery({
+  const {
+    data: availability,
+    isFetching: isFetchingAvailability,
+    isLoading: isLoadingAvailability,
+    refetch: refetchAvailability,
+  } = useQuery({
     enabled: tryNumber !== undefined,
     queryFn: () =>
       getRayDashboardAvailability({
@@ -653,7 +710,11 @@ export const RayDashboard = () => {
     }),
   });
 
-  const { data: snapshots } = useQuery({
+  const {
+    data: snapshots,
+    isFetching: isFetchingSnapshots,
+    refetch: refetchSnapshots,
+  } = useQuery({
     enabled: availability !== undefined && tryNumber !== undefined,
     queryFn: () =>
       axios
@@ -669,7 +730,11 @@ export const RayDashboard = () => {
     queryKey: ["ray-dashboard-snapshots", dagId, runId, taskId, parsedMapIndex, tryNumber],
   });
 
-  const { data: metricSamples } = useQuery({
+  const {
+    data: metricSamples,
+    isFetching: isFetchingMetricSamples,
+    refetch: refetchMetricSamples,
+  } = useQuery({
     enabled: availability !== undefined && tryNumber !== undefined,
     queryFn: () =>
       axios
@@ -723,9 +788,7 @@ export const RayDashboard = () => {
 
   const { dashboard, sections } = availability;
   const availableSections = SECTION_ORDER.filter((section) => sections.includes(section));
-  const activeSection = availableSections.includes(selectedSection)
-    ? selectedSection
-    : (availableSections[0] ?? "overview");
+  const activeSection = selectedSection;
   const activeSnapshot = snapshotBySection[activeSection];
   const activeRows = getRowsFromPayload(activeSnapshot?.payload);
   const activeStates = countStates(activeRows);
@@ -735,15 +798,17 @@ export const RayDashboard = () => {
   const actorRows = getRowsFromPayload(snapshotBySection.actors?.payload);
   const logRows = getRowsFromPayload(snapshotBySection.logs?.payload);
   const overviewStates = countStates(taskRows.length > 0 ? taskRows : activeRows);
-  const navSections =
-    availableSections.length === 0
-      ? PRIMARY_NAV_SECTIONS
-      : [
-          ...PRIMARY_NAV_SECTIONS.filter((section) => availableSections.includes(section)),
-          ...availableSections.filter((section) => !PRIMARY_NAV_SECTIONS.includes(section)),
-        ];
+  const navSections = [
+    ...PRIMARY_NAV_SECTIONS,
+    ...SECTION_ORDER.filter((section) => !PRIMARY_NAV_SECTIONS.includes(section)),
+  ];
   const statusColor = getStatusColor(dashboard.status);
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
+  const isRefreshing = isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples;
+  const refreshDashboard = async () => {
+    await refetchAvailability();
+    await Promise.all([refetchSnapshots(), refetchMetricSamples()]);
+  };
 
   return (
     <Box
@@ -803,6 +868,18 @@ export const RayDashboard = () => {
             </Text>
           </Flex>
           <Flex alignItems="center" gap={1.5} wrap="wrap">
+            <Button
+              aria-label="Refresh Ray Dashboard"
+              colorPalette="brand"
+              h="28px"
+              loading={isRefreshing}
+              onClick={() => void refreshDashboard()}
+              size="xs"
+              variant="outline"
+            >
+              <FiRefreshCw />
+              Refresh
+            </Button>
             <RayBadge kind={statusColor === "green" ? "green" : "muted"}>
               {normalizeStatus(dashboard.status)}
             </RayBadge>
@@ -876,7 +953,7 @@ export const RayDashboard = () => {
           <Flex alignItems="center" justifyContent="space-between" mb={3} wrap="wrap">
             <Text color={RAY_COLORS.muted} fontSize="12px">
               Job {formatValue(dashboard.ray_job_id)} / Task {taskId} / updated{" "}
-              <Time datetime={dashboard.updated_at} />
+              {formatUtcPlus8(dashboard.updated_at)}
             </Text>
           </Flex>
 
@@ -988,11 +1065,9 @@ export const RayDashboard = () => {
                                 ? undefined
                                 : ` ${sample.metric_unit}`}
                             </Table.Cell>
-                            <Table.Cell>
-                              <Time datetime={sample.sampled_at} />
-                            </Table.Cell>
+                            <Table.Cell>{formatUtcPlus8(sample.sampled_at)}</Table.Cell>
                             <Table.Cell maxW="320px" overflow="hidden" textOverflow="ellipsis">
-                              {formatValue(sample.labels)}
+                              {formatValue(formatJsonValueForDisplay(sample.labels))}
                             </Table.Cell>
                           </Table.Row>
                         ))}
@@ -1015,11 +1090,9 @@ export const RayDashboard = () => {
                 <SummaryCard
                   label="Collected At"
                   value={
-                    activeSnapshot?.collected_at === undefined ? (
-                      "-"
-                    ) : (
-                      <Time datetime={activeSnapshot.collected_at} />
-                    )
+                    activeSnapshot?.collected_at === undefined
+                      ? "-"
+                      : formatUtcPlus8(activeSnapshot.collected_at)
                   }
                 />
               </SimpleGrid>
@@ -1037,7 +1110,7 @@ export const RayDashboard = () => {
               />
               {activeRows.length === 0 && activeSnapshot?.payload !== undefined ? (
                 <Code display="block" maxH="280px" mt={4} overflow="auto" p={3} whiteSpace="pre-wrap">
-                  {renderJson(activeSnapshot.payload)}
+                  {renderJson(formatJsonValueForDisplay(activeSnapshot.payload))}
                 </Code>
               ) : undefined}
             </SectionFrame>

@@ -72,6 +72,49 @@ class RayDashboardSnapshotPayload(StrictBaseModel):
         return self
 
 
+class RayDashboardIngestionSectionPayload(StrictBaseModel):
+    """Payload for one Ray Dashboard section ingested by a Ray driver."""
+
+    section: str
+    payload: JsonValue | None = None
+    collected_at: AwareDatetime | None = None
+    source_status: str | None = None
+    source_error: str | None = None
+
+    @field_validator("section")
+    @classmethod
+    def validate_section(cls, section: str) -> str:
+        """Validate Ray Dashboard section name."""
+        if section not in RAY_DASHBOARD_SECTIONS:
+            raise ValueError(f"section must be one of: {', '.join(RAY_DASHBOARD_SECTIONS)}")
+        return section
+
+    @model_validator(mode="after")
+    def validate_payload_size(self):
+        """Reject unbounded section payloads."""
+        payload_bytes = len(json.dumps(self.payload, default=str).encode("utf-8"))
+        if payload_bytes > RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES:
+            raise ValueError(f"payload is larger than {RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES} bytes")
+        return self
+
+
+class RayDashboardIngestionPayload(StrictBaseModel):
+    """Payload for ingesting Ray Dashboard snapshots from a Ray driver."""
+
+    try_number: int
+    dashboard_url: str | None = None
+    ray_cluster_id: str | None = None
+    ray_cluster_name: str | None = None
+    ray_namespace: str | None = None
+    ray_job_id: str | None = None
+    ray_submission_id: str | None = None
+    status: str | None = None
+    collector_status: str | None = None
+    collector_error: str | None = None
+    collector_metadata: dict[str, Any] | None = None
+    sections: list[RayDashboardIngestionSectionPayload] = Field(default_factory=list)
+
+
 class RayDashboardMetricSamplePayload(StrictBaseModel):
     """Payload for a directly collected Ray metric sample."""
 
@@ -101,3 +144,9 @@ class RayDashboardWriteResponse(StrictBaseModel):
 
     dashboard_id: str
     updated_at: datetime
+
+
+class RayDashboardIngestionResponse(RayDashboardWriteResponse):
+    """Response for Ray Dashboard ingestion writes."""
+
+    snapshots: int

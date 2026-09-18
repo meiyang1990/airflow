@@ -47,6 +47,8 @@ from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.types import UtcDateTime
 from airflow.api_fastapi.compat import HTTP_422_UNPROCESSABLE_CONTENT
 from airflow.api_fastapi.execution_api.datamodels.ray_dashboard import (
+    RayDashboardIngestionPayload,
+    RayDashboardIngestionResponse,
     RayDashboardMetadataPayload,
     RayDashboardMetricSamplesPayload,
     RayDashboardSnapshotPayload,
@@ -69,7 +71,11 @@ from airflow.api_fastapi.execution_api.datamodels.taskinstance import (
     TISuccessStatePayload,
     TITerminalStatePayload,
 )
-from airflow.api_fastapi.execution_api.security import ExecutionAPIRoute, require_auth
+from airflow.api_fastapi.execution_api.ray_dashboard_tokens import (
+    RAY_DASHBOARD_STATIC_INGESTION_CLAIM,
+    validate_ray_dashboard_ingestion_claims,
+)
+from airflow.api_fastapi.execution_api.security import CurrentTIToken, ExecutionAPIRoute, require_auth
 from airflow.exceptions import TaskNotFound
 from airflow.models.asset import AssetActive
 from airflow.models.dag import DagModel
@@ -721,6 +727,80 @@ def put_ray_dashboard_metadata(
     )
     session.flush()
     return RayDashboardWriteResponse(dashboard_id=str(dashboard.id), updated_at=dashboard.updated_at)
+
+
+@ti_id_router.post(
+    "/{task_instance_id}/ray-dashboard/ingest",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Task Instance not found"},
+        status.HTTP_403_FORBIDDEN: {"description": "Invalid Ray Dashboard ingestion token"},
+    },
+)
+def ingest_ray_dashboard_snapshots(
+    task_instance_id: UUID,
+    payload: RayDashboardIngestionPayload,
+    session: SessionDep,
+    token=CurrentTIToken,
+) -> RayDashboardIngestionResponse:
+    """Ingest Ray Dashboard section snapshots collected by a Ray driver."""
+    bind_contextvars(ti_id=str(task_instance_id))
+    task_instance = session.scalar(select(TI).where(TI.id == task_instance_id))
+    if task_instance is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task Instance not found")
+
+    if not token.claims.get(RAY_DASHBOARD_STATIC_INGESTION_CLAIM):
+        validate_ray_dashboard_ingestion_claims(
+            claims=token.claims,
+            dag_id=task_instance.dag_id,
+            run_id=task_instance.run_id,
+            task_id=task_instance.task_id,
+            map_index=task_instance.map_index,
+            try_number=payload.try_number,
+        )
+
+    if payload.try_number != task_instance.try_number:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Ray Dashboard ingestion token does not match task instance try number",
+        )
+
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=payload.try_number,
+        dashboard_url=payload.dashboard_url,
+        ray_cluster_id=payload.ray_cluster_id,
+        ray_cluster_name=payload.ray_cluster_name,
+        ray_namespace=payload.ray_namespace,
+        ray_job_id=payload.ray_job_id,
+        ray_submission_id=payload.ray_submission_id,
+        status=payload.status,
+        collector_status=payload.collector_status,
+        collector_error=payload.collector_error,
+        collector_metadata=payload.collector_metadata,
+        session=session,
+    )
+    snapshots_written = 0
+    for section in payload.sections:
+        add_ray_dashboard_snapshot(
+            dashboard=dashboard,
+            section=section.section,
+            payload=section.payload,
+            collected_at=section.collected_at,
+            source_status=section.source_status,
+            source_error=section.source_error,
+            session=session,
+        )
+        snapshots_written += 1
+    session.flush()
+    return RayDashboardIngestionResponse(
+        dashboard_id=str(dashboard.id),
+        updated_at=dashboard.updated_at,
+        snapshots=snapshots_written,
+    )
 
 
 @ti_id_router.post(
