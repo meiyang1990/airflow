@@ -150,6 +150,7 @@
     "mappedTaskInstances_other": "Istanze di Task [{{count}}]",
     "mappedTaskInstances_zero": "Nessuna istanza di task mappata",
     "overview": "Panoramica",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Template Renderizzato",
     "requiredActions": "Azioni Richieste",
     "runs": "Run",

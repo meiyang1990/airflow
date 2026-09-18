@@ -28,6 +28,7 @@ import Time from "src/components/Time";
 import { urlRegex } from "src/constants/urlRegex";
 import { LogLevel, logLevelColorMapping } from "src/utils/logs";
 
+/* eslint-disable max-lines */
 type Frame = {
   filename: string;
   lineno: number;
@@ -107,8 +108,12 @@ const addAnsiWithLinks = (line: string) => {
   return elements;
 };
 
-const sourceFields = ["logger", "chan", "lineno", "filename", "loc"];
+const sourceFields = ["logger", "source", "chan", "lineno", "filename", "loc"];
+const getLogSource = (structured: Record<string, unknown>) => {
+  const source = structured.logger ?? structured.source;
 
+  return typeof source === "string" ? source : undefined;
+};
 const renderStructuredLogImpl = ({
   index,
   logLevelFilters,
@@ -133,7 +138,7 @@ const renderStructuredLogImpl = ({
   }
 
   const { event, level = undefined, timestamp, ...structured } = logMessage;
-
+  const source = getLogSource(structured);
   const elements = [];
 
   if (
@@ -147,8 +152,7 @@ const renderStructuredLogImpl = ({
   if (
     sourceFilters !== undefined &&
     Boolean(sourceFilters.length) &&
-    (("logger" in structured && !sourceFilters.includes(structured.logger as string)) ||
-      !("logger" in structured))
+    (source === undefined || !sourceFilters.includes(source))
   ) {
     return "";
   }
@@ -299,7 +303,6 @@ const renderStructuredLogImpl = ({
   );
 };
 
-// Overloads for renderStructuredLog function for stick type safety
 type RenderStructuredLogOverloads = {
   (props: { renderingMode: "jsx" } & Omit<RenderStructuredLogProps, "renderingMode">): JSX.Element | "";
   (props: { renderingMode: "text" } & Omit<RenderStructuredLogProps, "renderingMode">): string;

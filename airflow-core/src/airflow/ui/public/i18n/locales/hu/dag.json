@@ -176,6 +176,7 @@
     "mappedTaskInstances_one": "Feladatpéldány [{{count}}]",
     "mappedTaskInstances_other": "Feladatpéldányok [{{count}}]",
     "overview": "Áttekintés",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Renderelt sablonok",
     "requiredActions": "Szükséges műveletek",
     "runs": "Futások",

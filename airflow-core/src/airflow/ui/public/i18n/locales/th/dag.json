@@ -140,6 +140,7 @@
     "mappedTaskInstances_one": "Task Instance [{{count}}]",
     "mappedTaskInstances_other": "Task Instances [{{count}}]",
     "overview": "ภาพรวม",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "เทมเพลตที่เรนเดอร์แล้ว",
     "requiredActions": "การดำเนินการที่จำเป็น",
     "runs": "การทำงาน",

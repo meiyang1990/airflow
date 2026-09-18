@@ -166,6 +166,7 @@
     "mappedTaskInstances_one": "टास्क इंस्टेंस [{{count}}]",
     "mappedTaskInstances_other": "टास्क इंस्टेंसेज [{{count}}]",
     "overview": "ओवरव्यू",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "रेंडर किए गए टेम्प्लेट्स",
     "requiredActions": "आवश्यक क्रियाएं",
     "runs": "रन्स",

@@ -176,6 +176,7 @@
     "mappedTaskInstances_one": "Haritalanmış Görev Örneği [{{count}}]",
     "mappedTaskInstances_other": "Haritalanmış Görev Örnekleri [{{count}}]",
     "overview": "Genel Bakış",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "İşlenmiş Şablonlar",
     "requiredActions": "Gerekli Eylemler",
     "runs": "Çalıştırmalar",

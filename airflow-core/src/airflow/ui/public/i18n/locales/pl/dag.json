@@ -189,6 +189,7 @@
     "mappedTaskInstances_one": "Instancja zadania [{{count}}]",
     "mappedTaskInstances_other": "Instancje zadań [{{count}}]",
     "overview": "Przegląd",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Wyrenderowane szablony",
     "requiredActions": "Wymagane akcje",
     "runs": "Wykonania",

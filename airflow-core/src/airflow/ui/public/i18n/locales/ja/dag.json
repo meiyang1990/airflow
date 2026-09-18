@@ -152,6 +152,7 @@
     "mappedTaskInstances_one": "タスクインスタンス [{{count}}]",
     "mappedTaskInstances_other": "タスクインスタンス [{{count}}]",
     "overview": "概要",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "生成されたテンプレート",
     "requiredActions": "要対応項目",
     "runs": "実行",

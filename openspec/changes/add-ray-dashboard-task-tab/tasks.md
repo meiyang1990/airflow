@@ -32,7 +32,7 @@
 
 - [ ] 4.1 Regenerate or update the UI OpenAPI client artifacts for the new Ray dashboard endpoints.
 - [x] 4.2 Add a `RayDashboard` task instance page with internal sections for Overview, Jobs, Cluster, Actors, Tasks, Placement Groups, Metrics, Logs, Events, Serve, and Ray Data.
-- [ ] 4.3 Add chart/table components for metric time series, resource utilization, state breakdowns, autoscaler status, task/actor tables, and log/event lists.
+- [x] 4.3 Add chart/table components for metric time series, resource utilization, state breakdowns, autoscaler status, task/actor tables, and log/event lists.
 - [x] 4.4 Register the `ray_dashboard` task instance child route in the React router.
 - [x] 4.5 Add a conditional tab hook that shows `Ray Dashboard` only when Ray dashboard data exists for the selected task attempt.
 - [x] 4.6 Add translations and icons for the Ray Dashboard tab, sections, empty states, unavailable collector states, and page labels.

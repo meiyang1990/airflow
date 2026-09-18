@@ -145,6 +145,7 @@
     "mappedTaskInstances_one": "Task Instance [{{count}}]",
     "mappedTaskInstances_other": "Task Instances [{{count}}]",
     "overview": "Aperçu",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Modèles rendus",
     "requiredActions": "Actions requises",
     "runs": "Runs",

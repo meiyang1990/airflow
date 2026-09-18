@@ -177,6 +177,7 @@
     "mappedTaskInstances_one": "Экземпляр задачи [{{count}}]",
     "mappedTaskInstances_other": "Экземпляры задач [{{count}}]",
     "overview": "Обзор",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Отрендеренные шаблоны",
     "requiredActions": "Необходимые действия",
     "runs": "Запуски",

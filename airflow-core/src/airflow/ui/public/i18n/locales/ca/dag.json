@@ -179,6 +179,7 @@
     "mappedTaskInstances_one": "Instància de tasca [{{count}}]",
     "mappedTaskInstances_other": "Instàncies de tasca [{{count}}]",
     "overview": "Visió general",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Plantilles renderitzades",
     "requiredActions": "Accions requerides",
     "runs": "Execucions",

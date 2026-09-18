@@ -50,7 +50,11 @@ export const TaskInstance = () => {
       value: "rendered_templates",
     },
     { icon: <MdSyncAlt />, label: translate("tabs.xcom"), value: "xcom" },
-    { icon: <FiActivity />, label: translate("tabs.rayDashboard"), value: "ray_dashboard" },
+    {
+      icon: <FiActivity />,
+      label: translate("tabs.rayDashboard", { defaultValue: "Ray Dashboard" }),
+      value: "ray_dashboard",
+    },
     { icon: <FiDatabase />, label: translate("tabs.assetEvents"), value: "asset_events" },
     { icon: <MdOutlineEventNote />, label: translate("tabs.auditLog"), value: "events" },
     { icon: <FiCode />, label: translate("tabs.code"), value: "code" },

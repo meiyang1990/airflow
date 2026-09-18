@@ -140,6 +140,7 @@
     "mappedTaskInstances_one": "Στιγμιαία Κατάσταση Εργασίας [{{count}}]",
     "mappedTaskInstances_other": "Στιγμιαίες Καταστάσεις Εργασίας [{{count}}]",
     "overview": "Επισκόπηση",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Αποδοθέντα Πρότυπα",
     "requiredActions": "Απαιτούμενες Ενέργειες",
     "runs": "Εκτελέσεις",

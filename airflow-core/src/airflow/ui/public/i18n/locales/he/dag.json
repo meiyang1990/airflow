@@ -157,6 +157,7 @@
     "mappedTaskInstances_other": "מופעי משימה [{{count}}]",
     "mappedTaskInstances_two": "מופעי משימה [{{count}}]",
     "overview": "סקירה כללית",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "תבניות מעובדות",
     "requiredActions": "פעולות נדרשות",
     "runs": "הרצות",

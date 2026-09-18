@@ -145,6 +145,7 @@
     "mappedTaskInstances_one": "Instancia de Tarea [{{count}}]",
     "mappedTaskInstances_other": "Instancias de Tarea [{{count}}]",
     "overview": "Resumen",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Plantillas Renderizadas",
     "requiredActions": "Acciones Requeridas",
     "runs": "Ejecuciones",

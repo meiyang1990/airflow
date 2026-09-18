@@ -179,6 +179,7 @@
     "mappedTaskInstances_one": "Task Instanz [{{count}}]",
     "mappedTaskInstances_other": "Task Instanzen [{{count}}]",
     "overview": "Übersicht",
+    "rayDashboard": "Ray Dashboard",
     "renderedTemplates": "Ausgefüllte Vorlagen",
     "requiredActions": "Interaktionen",
     "runs": "Läufe",

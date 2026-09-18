@@ -8,6 +8,8 @@
 - 已登录百度云 CCR 镜像仓库。
 - 在 Airflow 源码根目录执行命令。
 - 构建部署镜像必须使用全量源码构建，不使用热修补镜像、前端 `dist` 覆盖或局部文件覆盖。
+- 每次构建部署镜像都必须重新打包前端代码，不能复用旧的 `airflow-core/src/airflow/ui/dist`。即使只改了 Python 代码，也要重新生成前端静态资源，避免镜像内源码已更新但 Web UI 仍加载旧 bundle。
+- 线上服务器是Linux架构，需要构建amd64架构的镜像
 
 ## 构建并推送镜像
 
@@ -34,6 +36,14 @@ Airflow image is ready: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:3.2
 
 ```bash
 cat /tmp/airflow-source-image-tags.env
+```
+
+构建完成后，应确认镜像内前端静态资源是本次构建生成的，而不是旧的 `dist`：
+
+```bash
+source /tmp/airflow-source-image-tags.env
+docker run --rm "$AIRFLOW_IMAGE" \
+  stat -c '%y %n' /opt/airflow/airflow-core/src/airflow/ui/dist/assets/index-*.js
 ```
 
 ## 默认加速源

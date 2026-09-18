@@ -56,6 +56,12 @@ type ParseLogsProps = {
   tryNumber: number;
 };
 
+const getSource = (datum: Exclude<TaskInstancesLogResponse["content"][number], string>) => {
+  const source = datum.logger ?? datum.source;
+
+  return typeof source === "string" ? source : undefined;
+};
+
 const parseLogs = ({
   data,
   expanded,
@@ -91,10 +97,10 @@ const parseLogs = ({
 
     parsedLines = data
       .map((datum, index) => {
-        if (typeof datum !== "string" && "logger" in datum) {
-          const source = datum.logger as string;
+        if (typeof datum !== "string") {
+          const source = getSource(datum);
 
-          if (!sources.includes(source)) {
+          if (source !== undefined && !sources.includes(source)) {
             sources.push(source);
           }
         }

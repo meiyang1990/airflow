@@ -65,7 +65,7 @@ airflowHome: /opt/airflow
 defaultAirflowRepository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow
 
 # Default Airflow tag to deploy
-defaultAirflowTag: "3.2.1-source-ray-dashboard-20260917184440"
+defaultAirflowTag: "3.2.1-source-20260918114130"
 
 # Default Airflow digest. If specified, it takes precedence over tag
 defaultAirflowDigest: ~
@@ -77,7 +77,7 @@ airflowVersion: "3.2.1"
 images:
   airflow:
     repository: ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow
-    tag: "3.2.1-source-ray-dashboard-20260917184440"
+    tag: "3.2.1-source-20260918114130"
     # Specifying digest takes precedence over tag.
     digest: ~
     pullPolicy: Always
