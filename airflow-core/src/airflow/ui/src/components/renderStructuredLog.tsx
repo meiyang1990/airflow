@@ -253,10 +253,10 @@ const renderStructuredLogImpl = ({
       } else {
         elements.push(
           <React.Fragment key={`space_${key}`}> </React.Fragment>,
-          <span data-key={key} key={`struct_${key}`}>
+          <chakra.span data-key={key} key={`struct_${key}`} overflowWrap="anywhere" wordBreak="break-word">
             <chakra.span color="fg.info">{key === "logger" ? "source" : key}</chakra.span>=
             <span data-value>{stringifiedValue}</span>
-          </span>,
+          </chakra.span>,
         );
       }
     }
@@ -277,7 +277,7 @@ const renderStructuredLogImpl = ({
   }
 
   return (
-    <chakra.div alignItems="flex-start" display="flex" key={index} lineHeight={1.5}>
+    <chakra.div alignItems="flex-start" display="flex" key={index} lineHeight={1.5} minW={0}>
       <RouterLink
         id={index.toString()}
         key={`line_${index}`}
@@ -295,7 +295,7 @@ const renderStructuredLogImpl = ({
       >
         {index}
       </RouterLink>
-      <chakra.span overflow="auto" whiteSpace="inherit" width="100%">
+      <chakra.span minW={0} overflowWrap="anywhere" whiteSpace="inherit" width="100%" wordBreak="break-word">
         {elements}
       </chakra.span>
     </chakra.div>

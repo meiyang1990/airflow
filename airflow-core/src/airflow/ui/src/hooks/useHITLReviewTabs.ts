@@ -25,6 +25,7 @@ import { OpenAPI } from "openapi/requests/core/OpenAPI";
 import type { TabItem } from "src/hooks/useRequiredActionTabs";
 
 const HITL_REVIEW_PLUGIN_TAB = "plugin/hitl-review";
+const HITL_REVIEW_NOT_FOUND_CACHE_MS = 5 * 60 * 1000;
 
 export type UseHITLReviewTabsOptions = {
   enabled?: boolean;
@@ -89,7 +90,9 @@ export const useHITLReviewTabs = (
           return Promise.reject(error);
         }),
     queryKey: ["hitl-review-session", dagId, dagRunId, taskId, mapIndex],
-    refetchInterval,
+    refetchInterval: (query) => (query.state.data === false ? false : refetchInterval),
+    retry: false,
+    staleTime: HITL_REVIEW_NOT_FOUND_CACHE_MS,
   });
 
   useEffect(() => {

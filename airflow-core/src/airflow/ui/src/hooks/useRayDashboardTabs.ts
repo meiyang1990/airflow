@@ -30,14 +30,21 @@ export const RAY_DASHBOARD_TAB_LABEL = "Ray Dashboard";
 export type RayDashboardAvailability = {
   dashboard: {
     collector_error?: string | null;
+    collector_metadata?: Record<string, unknown> | null;
     collector_status?: string | null;
+    created_at: string;
+    dag_id: string;
     dashboard_url?: string | null;
+    id: string;
+    map_index: number;
     ray_cluster_id?: string | null;
     ray_cluster_name?: string | null;
     ray_job_id?: string | null;
     ray_namespace?: string | null;
     ray_submission_id?: string | null;
+    run_id: string;
     status?: string | null;
+    task_id: string;
     try_number: number;
     updated_at: string;
   };
