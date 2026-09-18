@@ -25,6 +25,7 @@ import { OpenAPI } from "openapi/requests/core/OpenAPI";
 import type { TabItem } from "src/hooks/useRequiredActionTabs";
 
 export const RAY_DASHBOARD_TAB = "ray_dashboard";
+export const RAY_DASHBOARD_TAB_LABEL = "Ray Dashboard";
 
 export type RayDashboardAvailability = {
   dashboard: {
@@ -42,6 +43,16 @@ export type RayDashboardAvailability = {
   };
   metrics: Array<string>;
   sections: Array<string>;
+};
+
+const isRayDashboardAvailability = (value: unknown): value is RayDashboardAvailability => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const { dashboard } = value as { dashboard?: unknown };
+
+  return typeof dashboard === "object" && dashboard !== null;
 };
 
 export const rayDashboardAvailabilityQueryKey = ({
@@ -73,14 +84,14 @@ export const getRayDashboardAvailability = async ({
 }) =>
   axios
     .get<RayDashboardAvailability>(
-      `${OpenAPI.BASE}/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+      `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
         runId,
       )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard`,
       {
         params: { try_number: tryNumber },
       },
     )
-    .then((response) => response.data);
+    .then((response) => (isRayDashboardAvailability(response.data) ? response.data : undefined));
 
 const filterRayDashboardTabs = (tabs: Array<TabItem>, hasRayDashboardData: boolean): Array<TabItem> =>
   tabs.filter((tab) => tab.value !== RAY_DASHBOARD_TAB || hasRayDashboardData);
@@ -111,7 +122,7 @@ export const useRayDashboardTabs = (
       ? `/dags/${dagId}/runs/${runId}/tasks/${taskId}${mapIndex >= 0 ? `/mapped/${mapIndex}` : ""}`
       : location.pathname.replace(`/${RAY_DASHBOARD_TAB}`, "");
 
-  const { data, isLoading, isSuccess } = useQuery({
+  const { data, isLoading } = useQuery({
     enabled: enabled && hasRayDashboardTab && tryNumber !== undefined,
     queryFn: () =>
       getRayDashboardAvailability({
@@ -141,13 +152,18 @@ export const useRayDashboardTabs = (
     refetchInterval,
   });
 
-  const hasRayDashboardData = data !== undefined;
+  const hasRayDashboardData =
+    data?.dashboard.dag_id === dagId &&
+    data.dashboard.run_id === runId &&
+    data.dashboard.task_id === taskId &&
+    data.dashboard.map_index === mapIndex &&
+    data.dashboard.try_number === tryNumber;
 
   useEffect(() => {
-    if (!hasRayDashboardData && !isLoading && isSuccess && location.pathname.includes(RAY_DASHBOARD_TAB)) {
+    if (!hasRayDashboardData && !isLoading && location.pathname.includes(RAY_DASHBOARD_TAB)) {
       void Promise.resolve(navigate(redirectPath));
     }
-  }, [hasRayDashboardData, isLoading, isSuccess, location.pathname, navigate, redirectPath]);
+  }, [hasRayDashboardData, isLoading, location.pathname, navigate, redirectPath]);
 
   return {
     hasRayDashboardData,

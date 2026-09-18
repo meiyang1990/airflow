@@ -27,7 +27,7 @@ import { useParams } from "react-router-dom";
 import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { useHITLReviewTabs } from "src/hooks/useHITLReviewTabs";
 import { usePluginTabs } from "src/hooks/usePluginTabs";
-import { useRayDashboardTabs } from "src/hooks/useRayDashboardTabs";
+import { RAY_DASHBOARD_TAB_LABEL, useRayDashboardTabs } from "src/hooks/useRayDashboardTabs";
 import { useRequiredActionTabs } from "src/hooks/useRequiredActionTabs";
 import { DetailsLayout } from "src/layouts/Details/DetailsLayout";
 import { useGridTiSummariesStream } from "src/queries/useGridTISummaries.ts";
@@ -52,7 +52,7 @@ export const TaskInstance = () => {
     { icon: <MdSyncAlt />, label: translate("tabs.xcom"), value: "xcom" },
     {
       icon: <FiActivity />,
-      label: translate("tabs.rayDashboard", { defaultValue: "Ray Dashboard" }),
+      label: RAY_DASHBOARD_TAB_LABEL,
       value: "ray_dashboard",
     },
     { icon: <FiDatabase />, label: translate("tabs.assetEvents"), value: "asset_events" },

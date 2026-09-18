@@ -55,7 +55,11 @@ import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { OpenAPI } from "openapi/requests/core/OpenAPI";
 import Time from "src/components/Time";
 import { SearchParamsKeys } from "src/constants/searchParams";
-import { getRayDashboardAvailability, rayDashboardAvailabilityQueryKey } from "src/hooks/useRayDashboardTabs";
+import {
+  getRayDashboardAvailability,
+  RAY_DASHBOARD_TAB_LABEL,
+  rayDashboardAvailabilityQueryKey,
+} from "src/hooks/useRayDashboardTabs";
 
 /* eslint-disable max-lines */
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -400,7 +404,7 @@ export const RayDashboard = () => {
     queryFn: () =>
       axios
         .get<{ snapshots: Array<Snapshot>; total_entries: number }>(
-          `${OpenAPI.BASE}/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
             runId,
           )}/taskInstances/${encodeURIComponent(taskId)}/${parsedMapIndex}/rayDashboard/snapshots`,
           {
@@ -416,7 +420,7 @@ export const RayDashboard = () => {
     queryFn: () =>
       axios
         .get<{ samples: Array<MetricSample>; total_entries: number }>(
-          `${OpenAPI.BASE}/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
             runId,
           )}/taskInstances/${encodeURIComponent(taskId)}/${parsedMapIndex}/rayDashboard/metrics`,
           {
@@ -479,7 +483,7 @@ export const RayDashboard = () => {
       <Flex alignItems="flex-start" gap={4} justifyContent="space-between" mb={4} wrap="wrap">
         <Box>
           <Flex alignItems="center" gap={2} mb={1} wrap="wrap">
-            <Heading size="lg">{translate("tabs.rayDashboard")}</Heading>
+            <Heading size="lg">{RAY_DASHBOARD_TAB_LABEL}</Heading>
             <Badge colorPalette={dashboard.status === "running" ? "green" : "gray"} variant="surface">
               {dashboard.status ?? translate("rayDashboard.unknown")}
             </Badge>

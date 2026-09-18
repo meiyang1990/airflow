@@ -42,7 +42,7 @@ describe("renderStructuredLog", () => {
     expect(rendered).toBe("[2026-09-18T10:57:14Z] INFO - [config] runtime_env:");
   });
 
-  it("shows source metadata when requested", () => {
+  it("keeps source metadata hidden when source display is requested", () => {
     const rendered = renderStructuredLog({
       index: 0,
       logLink: "",
@@ -58,7 +58,6 @@ describe("renderStructuredLog", () => {
       translate,
     });
 
-    expect(rendered).toContain("source=dags.pipeline.algo_operator_configurable_dag");
-    expect(rendered).toContain("loc=algo_operator_configurable_dag.py:928");
+    expect(rendered).toBe("[2026-09-18T10:57:14Z] INFO - [config] runtime_env:");
   });
 });

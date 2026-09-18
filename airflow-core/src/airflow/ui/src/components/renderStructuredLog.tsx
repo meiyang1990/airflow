@@ -108,7 +108,7 @@ const addAnsiWithLinks = (line: string) => {
   return elements;
 };
 
-const sourceFields = ["logger", "source", "chan", "lineno", "filename", "loc"];
+const hiddenInlineMetadataFields = ["logger", "source", "chan", "lineno", "filename", "loc"];
 const getLogSource = (structured: Record<string, unknown>) => {
   const source = structured.logger ?? structured.source;
 
@@ -120,7 +120,6 @@ const renderStructuredLogImpl = ({
   logLink,
   logMessage,
   renderingMode = "jsx",
-  showSource = false,
   showTimestamp = true,
   sourceFilters,
   translate,
@@ -241,7 +240,7 @@ const renderStructuredLogImpl = ({
 
   for (const key in reStructured) {
     if (Object.hasOwn(reStructured, key)) {
-      if (!showSource && sourceFields.includes(key)) {
+      if (hiddenInlineMetadataFields.includes(key)) {
         continue; // eslint-disable-line no-continue
       }
       const val = reStructured[key] as boolean | number | object | string | null;
