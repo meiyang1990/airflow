@@ -27,6 +27,47 @@ import { Wrapper } from "src/utils/Wrapper";
 
 import { RayDashboard } from "./RayDashboard";
 
+/* eslint-disable max-lines */
+
+const manyMetricSamples = Array.from({ length: 101 }, (_, index) => ({
+  id: `many-sample-${index}`,
+  labels: { instance: "worker-1" },
+  metric_name: "ray_many_samples",
+  sampled_at: new Date(Date.UTC(2026, 8, 18, 9, index, 0)).toISOString(),
+  value: index,
+}));
+const defaultActorRankings = {
+  cpu: [
+    {
+      actor_id: "actor-1",
+      actor_key: "actor-1",
+      actor_name: "trainer-1",
+      class_name: "Trainer",
+      labels: { actor_id: "actor-1" },
+      metric_name: "ray_actor_cpu_percentage",
+      metric_unit: "%",
+      sampled_at: "2026-09-18T09:01:00Z",
+      state: "ALIVE",
+      value: 91,
+    },
+  ],
+  memory: [
+    {
+      actor_id: "actor-2",
+      actor_key: "actor-2",
+      actor_name: "loader-2",
+      class_name: "Loader",
+      labels: { actor_id: "actor-2" },
+      metric_name: "ray_actor_memory_used",
+      metric_unit: "MiB",
+      sampled_at: "2026-09-18T09:02:00Z",
+      state: "ALIVE",
+      value: 2048,
+    },
+  ],
+};
+let currentActorRankings = defaultActorRankings;
+
 vi.mock("axios");
 vi.mock("openapi/queries");
 vi.mock("react-router-dom", async () => {
@@ -42,6 +83,7 @@ vi.mock("react-router-dom", async () => {
 describe("RayDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentActorRankings = defaultActorRankings;
     vi.mocked(useParams).mockReturnValue({
       dagId: "test-dag",
       mapIndex: "-1",
@@ -119,7 +161,7 @@ describe("RayDashboard", () => {
                 collected_at: "2026-09-18T09:00:00Z",
                 id: "actors-snapshot-id",
                 payload: {
-                  actors: [
+                  records: [
                     {
                       actor_id: "actor-1",
                       class_name: "Trainer",
@@ -134,6 +176,10 @@ describe("RayDashboard", () => {
             total_entries: 1,
           },
         });
+      }
+
+      if (url.endsWith("/rayDashboard/actorRankings")) {
+        return Promise.resolve({ data: currentActorRankings });
       }
 
       return Promise.resolve({
@@ -163,8 +209,9 @@ describe("RayDashboard", () => {
               sampled_at: "2026-09-18T09:00:00Z",
               value: 27.8,
             },
+            ...manyMetricSamples,
           ],
-          total_entries: 2,
+          total_entries: 104,
         },
       });
     });
@@ -195,15 +242,16 @@ describe("RayDashboard", () => {
 
     const refreshButton = await screen.findByRole("button", { name: /Refresh Ray Dashboard/u });
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
 
     vi.mocked(axios.get).mockClear();
     fireEvent.click(refreshButton);
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
     expect(vi.mocked(axios.get).mock.calls.map(([url]) => url)).toEqual(
       expect.arrayContaining([
         expect.stringContaining("/rayDashboard"),
+        expect.stringContaining("/rayDashboard/actorRankings"),
         expect.stringContaining("/rayDashboard/snapshots"),
         expect.stringContaining("/rayDashboard/metrics"),
       ]),
@@ -231,5 +279,43 @@ describe("RayDashboard", () => {
     expect(screen.getAllByText("84 %").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ray_object_store_memory").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ray_node_mem_used").length).toBeGreaterThan(0);
+    expect(screen.getByText("ray_many_samples")).toBeInTheDocument();
+    expect(screen.getByText("100 sampled / 101 samples")).toBeInTheDocument();
+  });
+
+  it("renders Ray State API records payloads", async () => {
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
+
+    expect(await screen.findByText("Trainer")).toBeInTheDocument();
+    expect(screen.getByText("actor-1")).toBeInTheDocument();
+    expect(screen.getAllByText("ALIVE").length).toBeGreaterThan(0);
+    expect(screen.getByText("Actor CPU leaderboard")).toBeInTheDocument();
+    expect(screen.getByText("trainer-1")).toBeInTheDocument();
+    expect(screen.getByText("91 %")).toBeInTheDocument();
+    expect(screen.getByText("Actor memory leaderboard")).toBeInTheDocument();
+    expect(screen.getByText("loader-2")).toBeInTheDocument();
+    expect(screen.getByText("2,048 MiB")).toBeInTheDocument();
+  });
+
+  it("renders empty actor ranking states", async () => {
+    currentActorRankings = { cpu: [], memory: [] };
+
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
+
+    expect(await screen.findByText("暂无 Actor CPU ranking data。")).toBeInTheDocument();
+    expect(screen.getByText("暂无 Actor memory ranking data。")).toBeInTheDocument();
+    expect(screen.getByText("actor-1")).toBeInTheDocument();
   });
 });

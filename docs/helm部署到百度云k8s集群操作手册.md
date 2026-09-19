@@ -30,7 +30,7 @@
 | 配置项 | 当前值 |
 | --- | --- |
 | Airflow 版本 | `3.2.1` |
-| Airflow 镜像 | `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:<tag>` |
+| Airflow 镜像 | `ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:3.2.1-source-20260919123407` |
 | Executor | `KubernetesExecutor` |
 | PostgreSQL | 使用外部数据库，Chart 内置 PostgreSQL 关闭 |
 | 数据库地址 | `192.168.48.2:5432/airflow_meta` |

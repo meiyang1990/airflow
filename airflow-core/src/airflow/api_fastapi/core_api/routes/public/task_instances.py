@@ -67,6 +67,8 @@ from airflow.api_fastapi.common.parameters import (
 from airflow.api_fastapi.common.router import AirflowRouter
 from airflow.api_fastapi.core_api.datamodels.common import BulkBody, BulkResponse
 from airflow.api_fastapi.core_api.datamodels.ray_dashboard import (
+    RayDashboardActorRankingsResponse,
+    RayDashboardActorResourceRankingRow,
     RayDashboardAvailabilityResponse,
     RayDashboardMetricSampleCollectionResponse,
     RayDashboardSnapshotCollectionResponse,
@@ -111,6 +113,113 @@ log = structlog.get_logger(__name__)
 
 task_instances_router = AirflowRouter(tags=["Task Instance"], prefix="/dags/{dag_id}")
 task_instances_prefix = "/dagRuns/{dag_run_id}/taskInstances"
+RAY_DASHBOARD_ACTOR_RANKING_LIMIT = 20
+RAY_DASHBOARD_ACTOR_RANKING_SAMPLE_LIMIT = 5000
+RAY_DASHBOARD_ACTOR_LABEL_KEYS = ("actor_id", "ActorID", "actor", "ActorName", "Name")
+RAY_DASHBOARD_ACTOR_ID_KEYS = ("actor_id", "ActorID", "id")
+RAY_DASHBOARD_ACTOR_NAME_KEYS = ("name", "Name", "actor_name", "ActorName", "actor")
+RAY_DASHBOARD_ACTOR_CLASS_KEYS = ("class_name", "ClassName", "actor_class", "ActorClass")
+RAY_DASHBOARD_ACTOR_STATE_KEYS = ("state", "State", "status", "actor_state")
+RAY_DASHBOARD_ACTOR_TABLE_KEYS = ("records", "actors", "data", "results", "rows")
+
+
+def _first_string_value(mapping: dict[str, object] | None, keys: tuple[str, ...]) -> str | None:
+    if not mapping:
+        return None
+    for key in keys:
+        value = mapping.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _get_actor_key(labels: dict[str, object] | None) -> str | None:
+    return _first_string_value(labels, RAY_DASHBOARD_ACTOR_LABEL_KEYS)
+
+
+def _is_actor_cpu_metric(sample: RayDashboardMetricSample, actor_key: str | None) -> bool:
+    if actor_key is None:
+        return False
+    metric_name = sample.metric_name.lower()
+    return "cpu" in metric_name
+
+
+def _is_actor_memory_metric(sample: RayDashboardMetricSample, actor_key: str | None) -> bool:
+    if actor_key is None:
+        return False
+    metric_name = sample.metric_name.lower()
+    return any(token in metric_name for token in ("mem", "memory", "rss", "uss"))
+
+
+def _get_rows_from_ray_dashboard_payload(payload: object | None) -> list[dict[str, object]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for key in RAY_DASHBOARD_ACTOR_TABLE_KEYS:
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def _get_actor_context_by_key(dashboard_id, session) -> dict[str, dict[str, str | None]]:
+    snapshot = session.scalar(
+        select(RayDashboardSnapshot)
+        .where(RayDashboardSnapshot.dashboard_id == dashboard_id, RayDashboardSnapshot.section == "actors")
+        .order_by(RayDashboardSnapshot.collected_at.desc())
+        .limit(1)
+    )
+    context_by_key: dict[str, dict[str, str | None]] = {}
+    for row in _get_rows_from_ray_dashboard_payload(snapshot.payload if snapshot is not None else None):
+        actor_id = _first_string_value(row, RAY_DASHBOARD_ACTOR_ID_KEYS)
+        actor_name = _first_string_value(row, RAY_DASHBOARD_ACTOR_NAME_KEYS)
+        context = {
+            "actor_id": actor_id,
+            "actor_name": actor_name,
+            "class_name": _first_string_value(row, RAY_DASHBOARD_ACTOR_CLASS_KEYS),
+            "state": _first_string_value(row, RAY_DASHBOARD_ACTOR_STATE_KEYS),
+        }
+        for key in (actor_id, actor_name):
+            if key:
+                context_by_key[key] = context
+    return context_by_key
+
+
+def _actor_ranking_row(
+    *,
+    actor_key: str,
+    context_by_key: dict[str, dict[str, str | None]],
+    sample: RayDashboardMetricSample,
+) -> RayDashboardActorResourceRankingRow:
+    context = context_by_key.get(actor_key, {})
+    labels = sample.labels or {}
+    actor_id = context.get("actor_id") or _first_string_value(labels, RAY_DASHBOARD_ACTOR_ID_KEYS)
+    actor_name = context.get("actor_name") or _first_string_value(labels, RAY_DASHBOARD_ACTOR_NAME_KEYS)
+    return RayDashboardActorResourceRankingRow(
+        actor_key=actor_key,
+        actor_id=actor_id,
+        actor_name=actor_name,
+        class_name=context.get("class_name"),
+        state=context.get("state"),
+        metric_name=sample.metric_name,
+        metric_unit=sample.metric_unit,
+        labels=sample.labels,
+        value=sample.value,
+        sampled_at=sample.sampled_at,
+    )
+
+
+def _top_actor_ranking_rows(
+    samples_by_actor: dict[str, RayDashboardMetricSample],
+    context_by_key: dict[str, dict[str, str | None]],
+) -> list[RayDashboardActorResourceRankingRow]:
+    return [
+        _actor_ranking_row(actor_key=actor_key, context_by_key=context_by_key, sample=sample)
+        for actor_key, sample in sorted(samples_by_actor.items(), key=lambda item: (-item[1].value, item[0]))[
+            :RAY_DASHBOARD_ACTOR_RANKING_LIMIT
+        ]
+    ]
 
 
 @task_instances_router.get(
@@ -477,6 +586,59 @@ def get_ray_dashboard_snapshots(
         query.order_by(RayDashboardSnapshot.collected_at.desc()).limit(limit).offset(offset)
     ).all()
     return RayDashboardSnapshotCollectionResponse(snapshots=snapshots, total_entries=total_entries)
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/rayDashboard/actorRankings",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_INSTANCE))],
+)
+def get_ray_dashboard_actor_rankings(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    try_number: Annotated[int, Query(ge=1)],
+    session: SessionDep,
+) -> RayDashboardActorRankingsResponse:
+    """Get actor CPU and memory rankings for a Ray Dashboard task attempt."""
+    dashboard = get_ray_dashboard_task_instance(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        try_number=try_number,
+        session=session,
+    )
+    if dashboard is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ray Dashboard data not found")
+
+    context_by_key = _get_actor_context_by_key(dashboard.id, session)
+    samples = session.scalars(
+        select(RayDashboardMetricSample)
+        .where(
+            RayDashboardMetricSample.dashboard_id == dashboard.id,
+            RayDashboardMetricSample.labels.is_not(None),
+        )
+        .order_by(RayDashboardMetricSample.sampled_at.desc())
+        .limit(RAY_DASHBOARD_ACTOR_RANKING_SAMPLE_LIMIT)
+    )
+
+    cpu_samples_by_actor: dict[str, RayDashboardMetricSample] = {}
+    memory_samples_by_actor: dict[str, RayDashboardMetricSample] = {}
+    for sample in samples:
+        actor_key = _get_actor_key(sample.labels)
+        if actor_key is None:
+            continue
+        if _is_actor_cpu_metric(sample, actor_key) and actor_key not in cpu_samples_by_actor:
+            cpu_samples_by_actor[actor_key] = sample
+        if _is_actor_memory_metric(sample, actor_key) and actor_key not in memory_samples_by_actor:
+            memory_samples_by_actor[actor_key] = sample
+
+    return RayDashboardActorRankingsResponse(
+        cpu=_top_actor_ranking_rows(cpu_samples_by_actor, context_by_key),
+        memory=_top_actor_ranking_rows(memory_samples_by_actor, context_by_key),
+    )
 
 
 @task_instances_router.get(

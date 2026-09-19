@@ -67,6 +67,24 @@ type MetricSample = {
   value: number;
 };
 
+type ActorRankingRow = {
+  actor_id?: string | null;
+  actor_key: string;
+  actor_name?: string | null;
+  class_name?: string | null;
+  labels?: Record<string, unknown> | null;
+  metric_name: string;
+  metric_unit?: string | null;
+  sampled_at: string;
+  state?: string | null;
+  value: number;
+};
+
+type ActorRankings = {
+  cpu: Array<ActorRankingRow>;
+  memory: Array<ActorRankingRow>;
+};
+
 type RaySection =
   | "actors"
   | "cluster"
@@ -99,6 +117,7 @@ const SECTION_ORDER: Array<RaySection> = [
 ];
 
 const TABLE_KEYS = [
+  "records",
   "jobs",
   "tasks",
   "actors",
@@ -126,6 +145,8 @@ const MEMORY_METRIC_PATTERN = /(?:memory|mem)(?:_|$)/u;
 const OBJECT_STORE_METRIC_PATTERN = /object_store|object_spill/u;
 const TASK_METRIC_PATTERN = /(?:^|_)tasks?(?:_|$)/u;
 const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
+const MAX_METRIC_ROWS_PER_NAME = 100;
+const MAX_ACTOR_RANKING_ROWS = 20;
 const RAY_COLORS = {
   amber: "#f59e0b",
   bg: "light-dark(#edf1f5, #111827)",
@@ -339,10 +360,13 @@ const getLatestMetricSample = (samples: Array<MetricSample>, pattern: RegExp) =>
     right.sampled_at.localeCompare(left.sampled_at),
   )[0];
 
+const formatMetricValue = (value: number, unit?: string | null) =>
+  `${formatValue(value)}${unit === undefined || unit === null ? "" : ` ${unit}`}`;
+
 const formatMetricSample = (sample: MetricSample | undefined) =>
   sample === undefined
     ? "-"
-    : `${formatValue(sample.value)}${sample.metric_unit === undefined || sample.metric_unit === null ? "" : ` ${sample.metric_unit}`}`;
+    : formatMetricValue(sample.value, sample.metric_unit);
 
 const getMetricTrend = (samples: Array<MetricSample>, metricName: string) => {
   const metricSamples = samples
@@ -369,6 +393,39 @@ const getMetricSource = (sample: MetricSample) => {
 
   return formatValue(source);
 };
+
+const sortMetricSamplesNewestFirst = (samples: Array<MetricSample>) =>
+  [...samples].sort((left, right) => right.sampled_at.localeCompare(left.sampled_at));
+
+const sampleMetricRowsByTime = (samples: Array<MetricSample>, maxRows = MAX_METRIC_ROWS_PER_NAME) => {
+  const sortedSamples = sortMetricSamplesNewestFirst(samples);
+
+  if (sortedSamples.length <= maxRows) {
+    return sortedSamples;
+  }
+
+  const lastIndex = sortedSamples.length - 1;
+
+  return Array.from({ length: maxRows }, (_, index) => {
+    const sourceIndex = Math.round((index * lastIndex) / (maxRows - 1));
+
+    return sortedSamples[sourceIndex];
+  }).filter((sample): sample is MetricSample => sample !== undefined);
+};
+
+const getMetricSampleGroups = (samples: Array<MetricSample>) =>
+  Object.entries(
+    samples.reduce<Record<string, Array<MetricSample>>>((groups, sample) => {
+      const metricSamples = groups[sample.metric_name] ?? [];
+
+      return { ...groups, [sample.metric_name]: [...metricSamples, sample] };
+    }, {}),
+  ).sort(([leftName, leftSamples], [rightName, rightSamples]) => {
+    const leftLatest = sortMetricSamplesNewestFirst(leftSamples)[0]?.sampled_at ?? "";
+    const rightLatest = sortMetricSamplesNewestFirst(rightSamples)[0]?.sampled_at ?? "";
+
+    return rightLatest.localeCompare(leftLatest) || leftName.localeCompare(rightName);
+  });
 
 const getRowsFromPayload = (payload: unknown): Array<JsonRecord> => {
   if (Array.isArray(payload)) {
@@ -706,35 +763,124 @@ const GenericSectionTable = ({
   );
 };
 
-const MetricSampleTable = ({ samples }: { readonly samples: Array<MetricSample> }) => (
-  <RayTable>
-    <Table.Header>
-      <Table.Row>
-        <Table.ColumnHeader>Metric</Table.ColumnHeader>
-        <Table.ColumnHeader>Value</Table.ColumnHeader>
-        <Table.ColumnHeader>Sampled At</Table.ColumnHeader>
-        <Table.ColumnHeader>Labels</Table.ColumnHeader>
-        <Table.ColumnHeader>Source</Table.ColumnHeader>
-        <Table.ColumnHeader>Trend</Table.ColumnHeader>
-      </Table.Row>
-    </Table.Header>
-    <Table.Body>
-      {samples.slice(0, 20).map((sample) => (
-        <Table.Row key={sample.id}>
-          <Table.Cell>{sample.metric_name}</Table.Cell>
-          <Table.Cell>{formatMetricSample(sample)}</Table.Cell>
-          <Table.Cell>{formatUtcPlus8(sample.sampled_at)}</Table.Cell>
-          <Table.Cell maxW="320px" overflow="hidden" textOverflow="ellipsis">
-            {formatValue(formatJsonValueForDisplay(sample.labels))}
-          </Table.Cell>
-          <Table.Cell>{getMetricSource(sample)}</Table.Cell>
-          <Table.Cell>
-            <StatusText value={getMetricTrend(samples, sample.metric_name)} />
-          </Table.Cell>
-        </Table.Row>
+const MetricSampleTable = ({
+  metricName,
+  samples,
+}: {
+  readonly metricName: string;
+  readonly samples: Array<MetricSample>;
+}) => {
+  const sampledRows = sampleMetricRowsByTime(samples);
+  const trend = getMetricTrend(samples, metricName);
+
+  return (
+    <Box {...PANEL_BORDER} bg={RAY_COLORS.panelSoft} p={2.5}>
+      <Flex alignItems="baseline" justifyContent="space-between" mb={2.5} wrap="wrap">
+        <Text color={RAY_COLORS.text} fontSize="13px" fontWeight="750" overflowWrap="anywhere">
+          {metricName}
+        </Text>
+        <Text color={RAY_COLORS.muted} fontSize="11px">
+          {sampledRows.length === samples.length
+            ? `${formatValue(samples.length)} samples`
+            : `${formatValue(sampledRows.length)} sampled / ${formatValue(samples.length)} samples`}
+        </Text>
+      </Flex>
+      <RayTable>
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnHeader>Value</Table.ColumnHeader>
+            <Table.ColumnHeader>Sampled At</Table.ColumnHeader>
+            <Table.ColumnHeader>Labels</Table.ColumnHeader>
+            <Table.ColumnHeader>Source</Table.ColumnHeader>
+            <Table.ColumnHeader>Trend</Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {sampledRows.map((sample) => (
+            <Table.Row key={sample.id}>
+              <Table.Cell>{formatMetricSample(sample)}</Table.Cell>
+              <Table.Cell>{formatUtcPlus8(sample.sampled_at)}</Table.Cell>
+              <Table.Cell maxW="320px" overflow="hidden" textOverflow="ellipsis">
+                {formatValue(formatJsonValueForDisplay(sample.labels))}
+              </Table.Cell>
+              <Table.Cell>{getMetricSource(sample)}</Table.Cell>
+              <Table.Cell>
+                <StatusText value={trend} />
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </RayTable>
+    </Box>
+  );
+};
+
+const MetricSampleTables = ({ samples }: { readonly samples: Array<MetricSample> }) => {
+  const groups = getMetricSampleGroups(samples);
+
+  return (
+    <Flex direction="column" gap={3}>
+      {groups.map(([metricName, metricSamples]) => (
+        <MetricSampleTable key={metricName} metricName={metricName} samples={metricSamples} />
       ))}
-    </Table.Body>
-  </RayTable>
+    </Flex>
+  );
+};
+
+const getActorRankingName = (row: ActorRankingRow) =>
+  row.actor_name ?? row.actor_id ?? row.actor_key;
+
+const ActorResourceRankingTable = ({
+  emptyText,
+  rows,
+  title,
+}: {
+  readonly emptyText: string;
+  readonly rows: Array<ActorRankingRow>;
+  readonly title: string;
+}) => (
+  <Box {...PANEL_BORDER} bg={RAY_COLORS.panelSoft} p={2.5}>
+    <Flex alignItems="baseline" justifyContent="space-between" mb={2.5} wrap="wrap">
+      <Text color={RAY_COLORS.text} fontSize="13px" fontWeight="750">
+        {title}
+      </Text>
+      <Text color={RAY_COLORS.muted} fontSize="11px">
+        Top {MAX_ACTOR_RANKING_ROWS}
+      </Text>
+    </Flex>
+    {rows.length === 0 ? (
+      <Text color={RAY_COLORS.muted}>{emptyText}</Text>
+    ) : (
+      <RayTable>
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnHeader>Actor</Table.ColumnHeader>
+            <Table.ColumnHeader>Value</Table.ColumnHeader>
+            <Table.ColumnHeader>Metric</Table.ColumnHeader>
+            <Table.ColumnHeader>Sampled At</Table.ColumnHeader>
+            <Table.ColumnHeader>State</Table.ColumnHeader>
+            <Table.ColumnHeader>Labels</Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {rows.slice(0, MAX_ACTOR_RANKING_ROWS).map((row) => (
+            <Table.Row key={`${row.actor_key}-${row.metric_name}-${row.sampled_at}`}>
+              <Table.Cell>{getActorRankingName(row)}</Table.Cell>
+              <Table.Cell>{formatMetricValue(row.value, row.metric_unit)}</Table.Cell>
+              <Table.Cell>{row.metric_name}</Table.Cell>
+              <Table.Cell>{formatUtcPlus8(row.sampled_at)}</Table.Cell>
+              <Table.Cell>
+                <StatusText value={row.state} />
+              </Table.Cell>
+              <Table.Cell maxW="320px" overflow="hidden" textOverflow="ellipsis">
+                {formatValue(formatJsonValueForDisplay(row.labels))}
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </RayTable>
+    )}
+  </Box>
 );
 
 const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => {
@@ -897,11 +1043,32 @@ export const RayDashboard = () => {
             runId,
           )}/taskInstances/${encodeURIComponent(taskId)}/${parsedMapIndex}/rayDashboard/metrics`,
           {
-            params: { limit: 200, try_number: tryNumber },
+            params: { limit: 5000, try_number: tryNumber },
           },
         )
         .then((response) => response.data),
     queryKey: ["ray-dashboard-metrics", dagId, runId, taskId, parsedMapIndex, tryNumber],
+    ...MANUAL_REFRESH_QUERY_OPTIONS,
+  });
+
+  const {
+    data: actorRankings,
+    isFetching: isFetchingActorRankings,
+    refetch: refetchActorRankings,
+  } = useQuery({
+    enabled: availability !== undefined && tryNumber !== undefined,
+    queryFn: () =>
+      axios
+        .get<ActorRankings>(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+            runId,
+          )}/taskInstances/${encodeURIComponent(taskId)}/${parsedMapIndex}/rayDashboard/actorRankings`,
+          {
+            params: { try_number: tryNumber },
+          },
+        )
+        .then((response) => response.data),
+    queryKey: ["ray-dashboard-actor-rankings", dagId, runId, taskId, parsedMapIndex, tryNumber],
     ...MANUAL_REFRESH_QUERY_OPTIONS,
   });
 
@@ -972,11 +1139,12 @@ export const RayDashboard = () => {
   ];
   const statusColor = getStatusColor(dashboard.status);
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
-  const isRefreshing = isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples;
+  const isRefreshing =
+    isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples || isFetchingActorRankings;
   const hasDedicatedSection = ["actors", "jobs", "metrics", "overview", "tasks"].includes(activeSection);
   const refreshDashboard = async () => {
     await refetchAvailability();
-    await Promise.all([refetchSnapshots(), refetchMetricSamples()]);
+    await Promise.all([refetchSnapshots(), refetchMetricSamples(), refetchActorRankings()]);
   };
 
   return (
@@ -1283,6 +1451,20 @@ export const RayDashboard = () => {
                   />
                 </SimpleGrid>
                 <GenericSectionTable emptyText="暂无 Actor records。" rows={actorRows} />
+                <Box mt={4}>
+                  <Flex direction="column" gap={3}>
+                    <ActorResourceRankingTable
+                      emptyText="暂无 Actor CPU ranking data。"
+                      rows={actorRankings?.cpu ?? []}
+                      title="Actor CPU leaderboard"
+                    />
+                    <ActorResourceRankingTable
+                      emptyText="暂无 Actor memory ranking data。"
+                      rows={actorRankings?.memory ?? []}
+                      title="Actor memory leaderboard"
+                    />
+                  </Flex>
+                </Box>
               </SectionFrame>
 
               <Flex direction="column" gap={3}>
@@ -1396,7 +1578,7 @@ export const RayDashboard = () => {
                   <>
                     <MetricChart samples={samples} />
                     <Box mt={4}>
-                      <MetricSampleTable samples={samples} />
+                      <MetricSampleTables samples={samples} />
                     </Box>
                   </>
                 )}

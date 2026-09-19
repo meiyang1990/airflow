@@ -95,3 +95,25 @@ class RayDashboardMetricSampleCollectionResponse(BaseModel):
 
     samples: list[RayDashboardMetricSampleResponse]
     total_entries: int
+
+
+class RayDashboardActorResourceRankingRow(BaseModel):
+    """Actor-scoped Ray resource ranking row."""
+
+    actor_key: str
+    actor_id: str | None = None
+    actor_name: str | None = None
+    class_name: str | None = None
+    state: str | None = None
+    metric_name: str
+    metric_unit: str | None
+    labels: dict[str, Any] | None
+    value: float
+    sampled_at: datetime
+
+
+class RayDashboardActorRankingsResponse(BaseModel):
+    """Actor CPU and memory rankings for a task attempt."""
+
+    cpu: list[RayDashboardActorResourceRankingRow] = Field(default_factory=list)
+    memory: list[RayDashboardActorResourceRankingRow] = Field(default_factory=list)

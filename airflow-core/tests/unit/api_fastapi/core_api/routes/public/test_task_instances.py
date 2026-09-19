@@ -35,6 +35,11 @@ from airflow.jobs.job import Job
 from airflow.jobs.triggerer_job_runner import TriggererJobRunner
 from airflow.models import DagRun, Log, TaskInstance
 from airflow.models.dag_version import DagVersion
+from airflow.models.ray_dashboard import (
+    add_ray_dashboard_metric_samples,
+    add_ray_dashboard_snapshot,
+    upsert_ray_dashboard_task_instance,
+)
 from airflow.models.renderedtifields import RenderedTaskInstanceFields as RTIF
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.models.taskmap import TaskMap
@@ -6012,3 +6017,138 @@ class TestBulkTaskInstances(TestTaskInstanceEndpoint):
     def test_should_respond_422(self, test_client):
         response = test_client.patch(self.ENDPOINT_URL, json={})
         assert response.status_code == 422
+
+
+class TestRayDashboardActorRankings:
+    TRY_NUMBER = 1
+
+    def teardown_method(self):
+        clear_db_runs()
+
+    @staticmethod
+    def _rankings_url(ti):
+        return (
+            f"/dags/{ti.dag_id}/dagRuns/{ti.run_id}/taskInstances/"
+            f"{ti.task_id}/{ti.map_index}/rayDashboard/actorRankings?try_number={TestRayDashboardActorRankings.TRY_NUMBER}"
+        )
+
+    @staticmethod
+    def _create_dashboard(session, ti):
+        return upsert_ray_dashboard_task_instance(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=TestRayDashboardActorRankings.TRY_NUMBER,
+            session=session,
+        )
+
+    def test_actor_rankings_return_top_twenty_latest_actor_samples(
+        self, test_client, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_rankings", state=State.RUNNING)
+        dashboard = self._create_dashboard(session, ti)
+        collected_at = pendulum.datetime(2026, 9, 19, 3, 20, tz="UTC")
+        add_ray_dashboard_snapshot(
+            dashboard=dashboard,
+            section="actors",
+            payload={
+                "records": [
+                    {
+                        "actor_id": "actor-20",
+                        "class_name": "Trainer",
+                        "name": "trainer-20",
+                        "state": "ALIVE",
+                    }
+                ]
+            },
+            collected_at=collected_at,
+            source_status="ok",
+            session=session,
+        )
+        samples = [
+            {
+                "metric_name": "ray_actor_cpu_percentage",
+                "metric_unit": "%",
+                "labels": {"actor_id": f"actor-{index:02d}"},
+                "value": float(index),
+                "sampled_at": collected_at.add(minutes=index),
+            }
+            for index in range(21)
+        ]
+        samples.extend(
+            [
+                {
+                    "metric_name": "ray_actor_cpu_percentage",
+                    "metric_unit": "%",
+                    "labels": {"actor_id": "actor-20"},
+                    "value": 999.0,
+                    "sampled_at": collected_at.subtract(minutes=1),
+                },
+                {
+                    "metric_name": "ray_actor_memory_used",
+                    "metric_unit": "MiB",
+                    "labels": {"ActorName": "loader-1"},
+                    "value": 512.0,
+                    "sampled_at": collected_at.add(minutes=30),
+                },
+                {
+                    "metric_name": "ray_node_cpu_utilization",
+                    "metric_unit": "%",
+                    "labels": {"instance": "worker-1"},
+                    "value": 10000.0,
+                    "sampled_at": collected_at.add(minutes=31),
+                },
+            ]
+        )
+        add_ray_dashboard_metric_samples(dashboard=dashboard, samples=samples, session=session)
+        session.commit()
+
+        response = test_client.get(self._rankings_url(ti))
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert len(body["cpu"]) == 20
+        assert [row["value"] for row in body["cpu"]] == sorted(
+            [row["value"] for row in body["cpu"]], reverse=True
+        )
+        assert body["cpu"][0]["actor_key"] == "actor-20"
+        assert body["cpu"][0]["actor_id"] == "actor-20"
+        assert body["cpu"][0]["actor_name"] == "trainer-20"
+        assert body["cpu"][0]["class_name"] == "Trainer"
+        assert body["cpu"][0]["state"] == "ALIVE"
+        assert body["cpu"][0]["value"] == 20.0
+        assert "actor-00" not in {row["actor_key"] for row in body["cpu"]}
+        assert body["memory"][0]["actor_key"] == "loader-1"
+        assert body["memory"][0]["value"] == 512.0
+
+    def test_actor_rankings_exclude_non_actor_samples(self, test_client, session, create_task_instance):
+        ti = create_task_instance(task_id="ray_dashboard_non_actor_rankings", state=State.RUNNING)
+        dashboard = self._create_dashboard(session, ti)
+        add_ray_dashboard_metric_samples(
+            dashboard=dashboard,
+            samples=[
+                {
+                    "metric_name": "ray_node_mem_used",
+                    "metric_unit": "bytes",
+                    "labels": {"instance": "worker-1"},
+                    "value": 2048.0,
+                    "sampled_at": pendulum.datetime(2026, 9, 19, 3, 20, tz="UTC"),
+                }
+            ],
+            session=session,
+        )
+        session.commit()
+
+        response = test_client.get(self._rankings_url(ti))
+
+        assert response.status_code == 200, response.json()
+        assert response.json() == {"cpu": [], "memory": []}
+
+    def test_actor_rankings_return_404_without_dashboard(self, test_client, session, create_task_instance):
+        ti = create_task_instance(task_id="ray_dashboard_missing_rankings", state=State.RUNNING)
+        session.commit()
+
+        response = test_client.get(self._rankings_url(ti))
+
+        assert response.status_code == 404
