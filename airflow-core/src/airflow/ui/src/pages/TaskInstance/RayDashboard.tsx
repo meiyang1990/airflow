@@ -167,6 +167,7 @@ const CHART_COLORS = {
 const UTC_PLUS_8_TIME_ZONE = "Asia/Shanghai";
 const TIME_LIKE_FIELD_PATTERN =
   /(?:^|_)(?:time|timestamp|date|created|updated|started|ended|sampled|collected)(?:_|$)/u;
+const NODE_RESOURCE_PREFIX = "node:";
 
 const PANEL_BORDER = { borderColor: RAY_COLORS.border, borderStyle: "solid", borderWidth: 1 };
 const MANUAL_REFRESH_QUERY_OPTIONS = {
@@ -495,6 +496,42 @@ const getTableColumns = (rows: Array<JsonRecord>) => {
   });
 
   return [...columns].slice(0, 8);
+};
+
+const isNodeResourceKey = (key: string) => key.startsWith(NODE_RESOURCE_PREFIX);
+
+const getNodeAddressFromResourceKey = (key: string) => key.slice(NODE_RESOURCE_PREFIX.length);
+
+const getClusterResourceRows = (rows: Array<JsonRecord>) =>
+  rows.map((row) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => !isNodeResourceKey(key))),
+  );
+
+const getClusterNodeRows = (rows: Array<JsonRecord>) => {
+  const nodesByAddress = rows.reduce<Map<string, JsonRecord>>((nodes, row) => {
+    Object.entries(row)
+      .filter(([key]) => isNodeResourceKey(key))
+      .forEach(([key, value]) => {
+        const address = getNodeAddressFromResourceKey(key);
+        const existingNode = nodes.get(address);
+
+        const formattedValue = formatValue(value);
+
+        nodes.set(address, {
+          ip: address,
+          resources:
+            existingNode?.resources === undefined || existingNode.resources === "-"
+              ? formattedValue
+              : existingNode.resources,
+        });
+      });
+
+    return nodes;
+  }, new Map<string, JsonRecord>());
+
+  return [...nodesByAddress.values()].sort((left, right) =>
+    formatValue(left.ip).localeCompare(formatValue(right.ip)),
+  );
 };
 
 const SummaryCard = ({
@@ -1123,6 +1160,9 @@ export const RayDashboard = () => {
   const activeSnapshot = snapshotBySection[activeSection];
   const activeRows = getRowsFromPayload(activeSnapshot?.payload);
   const activeStates = countStates(activeRows);
+  const clusterRows = getRowsFromPayload(snapshotBySection.cluster?.payload);
+  const clusterResourceRows = getClusterResourceRows(clusterRows);
+  const clusterNodeRows = getClusterNodeRows(clusterRows);
   const samples = metricSamples?.samples ?? [];
   const metricNames = [...new Set(samples.map((sample) => sample.metric_name))];
   const allSnapshots = snapshots?.snapshots ?? [];
@@ -1156,7 +1196,9 @@ export const RayDashboard = () => {
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
   const isRefreshing =
     isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples || isFetchingActorRankings;
-  const hasDedicatedSection = ["actors", "jobs", "metrics", "overview", "tasks"].includes(activeSection);
+  const hasDedicatedSection = ["actors", "cluster", "jobs", "metrics", "overview", "tasks"].includes(
+    activeSection,
+  );
   const refreshDashboard = async () => {
     await refetchAvailability();
     await Promise.all([refetchSnapshots(), refetchMetricSamples(), refetchActorRankings()]);
@@ -1443,6 +1485,53 @@ export const RayDashboard = () => {
                 </SectionFrame>
               </Flex>
             </Box>
+          ) : undefined}
+
+          {activeSection === "cluster" ? (
+            <SectionFrame meta="Latest published snapshot" title="Cluster">
+              <SimpleGrid columns={{ base: 1, md: 3 }} gap={2.5} mb={4}>
+                <SummaryCard label="Records" value={formatValue(clusterRows.length)} />
+                <SummaryCard
+                  label="Source Status"
+                  value={<StatusText value={snapshotBySection.cluster?.source_status} />}
+                />
+                <SummaryCard
+                  label="Collected At"
+                  value={
+                    snapshotBySection.cluster?.collected_at === undefined
+                      ? "-"
+                      : formatUtcPlus8(snapshotBySection.cluster.collected_at)
+                  }
+                />
+              </SimpleGrid>
+              {Object.keys(countStates(clusterRows)).length === 0 ? undefined : (
+                <Box mb={4}>
+                  <Text color={RAY_COLORS.text} fontSize="15px" fontWeight="750" mb={2.5}>
+                    State breakdown
+                  </Text>
+                  <StateBreakdown states={countStates(clusterRows)} />
+                </Box>
+              )}
+              <Flex direction="column" gap={4}>
+                <Box>
+                  <Text color={RAY_COLORS.text} fontSize="13px" fontWeight="750" mb={2}>
+                    Resources
+                  </Text>
+                  <GenericSectionTable emptyText="暂无 Cluster records。" rows={clusterResourceRows} />
+                </Box>
+                <Box>
+                  <Text color={RAY_COLORS.text} fontSize="13px" fontWeight="750" mb={2}>
+                    Nodes
+                  </Text>
+                  <GenericSectionTable emptyText="暂无 Cluster node records。" rows={clusterNodeRows} />
+                </Box>
+              </Flex>
+              {clusterRows.length === 0 && snapshotBySection.cluster?.payload !== undefined ? (
+                <Code display="block" maxH="280px" mt={4} overflow="auto" p={3} whiteSpace="pre-wrap">
+                  {renderJson(formatJsonValueForDisplay(snapshotBySection.cluster.payload))}
+                </Code>
+              ) : undefined}
+            </SectionFrame>
           ) : undefined}
 
           {activeSection === "actors" ? (

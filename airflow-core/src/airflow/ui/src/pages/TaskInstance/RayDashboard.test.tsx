@@ -197,6 +197,35 @@ describe("RayDashboard", () => {
                 section: "actors",
                 source_status: "ok",
               },
+              {
+                collected_at: "2026-09-18T09:00:00Z",
+                id: "cluster-snapshot-id",
+                payload: {
+                  records: [
+                    {
+                      CPU: 42,
+                      id: "cluster_resources",
+                      memory: 124_554_051_584,
+                      "node:192.168.64.3": 1,
+                      "node:192.168.65.44": 1,
+                      "node:192.168.66.7": 1,
+                      object_store_memory: 37_251_599_153,
+                      [String("node:__internal_head__")]: 1,
+                    },
+                    {
+                      CPU: 40,
+                      id: "available_resources",
+                      memory: 120_000_000_000,
+                      "node:192.168.64.3": 1,
+                      "node:192.168.65.44": 1,
+                      "node:192.168.66.7": 1,
+                      object_store_memory: 37_000_000_000,
+                    },
+                  ],
+                },
+                section: "cluster",
+                source_status: "ok",
+              },
             ],
             total_entries: 1,
           },
@@ -365,5 +394,26 @@ describe("RayDashboard", () => {
     expect(await screen.findByText("暂无 Actor CPU ranking data。")).toBeInTheDocument();
     expect(screen.getByText("暂无 Actor memory ranking data。")).toBeInTheDocument();
     expect(screen.getByText("actor-1")).toBeInTheDocument();
+  });
+
+  it("renders cluster node resources in a dedicated nodes table", async () => {
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Cluster/u }));
+
+    expect(await screen.findByText("Resources")).toBeInTheDocument();
+    expect(screen.getByText("Nodes")).toBeInTheDocument();
+    expect(screen.getByText("cluster_resources")).toBeInTheDocument();
+    expect(screen.getByText("object_store_memory")).toBeInTheDocument();
+    expect(screen.queryByText("node:192.168.64.3")).not.toBeInTheDocument();
+    expect(screen.queryByText("node:__internal_head__")).not.toBeInTheDocument();
+    expect(screen.getByText("192.168.64.3")).toBeInTheDocument();
+    expect(screen.getByText("192.168.65.44")).toBeInTheDocument();
+    expect(screen.getByText("192.168.66.7")).toBeInTheDocument();
+    expect(screen.getByText("__internal_head__")).toBeInTheDocument();
   });
 });
