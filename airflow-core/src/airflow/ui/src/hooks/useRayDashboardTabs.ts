@@ -118,9 +118,9 @@ export const useRayDashboardTabs = (
     tryNumber?: number;
   },
   tabs: Array<TabItem>,
-  options: { enabled?: boolean; refetchInterval?: number | false } = {},
+  options: { enabled?: boolean } = {},
 ) => {
-  const { enabled = true, refetchInterval } = options;
+  const { enabled = true } = options;
   const location = useLocation();
   const navigate = useNavigate();
   const hasRayDashboardTab = tabs.some((tab) => tab.value === RAY_DASHBOARD_TAB);
@@ -156,7 +156,7 @@ export const useRayDashboardTabs = (
         return Promise.reject(error);
       }),
     queryKey: rayDashboardAvailabilityQueryKey({ dagId, mapIndex, runId, taskId, tryNumber }),
-    refetchInterval,
+    refetchInterval: false,
   });
 
   const hasRayDashboardData =

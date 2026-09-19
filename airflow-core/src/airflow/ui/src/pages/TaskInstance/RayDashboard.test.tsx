@@ -60,6 +60,9 @@ describe("RayDashboard", () => {
         return Promise.resolve({
           data: {
             dashboard: {
+              collector_metadata: {
+                runtime_env: "pip://requirements.txt",
+              },
               collector_status: "ok",
               created_at: "2026-09-18T09:00:00Z",
               dag_id: "test-dag",
@@ -68,6 +71,7 @@ describe("RayDashboard", () => {
               ray_cluster_name: "cluster",
               ray_job_id: "job-id",
               ray_namespace: "default",
+              ray_submission_id: "raysubmit_84f2",
               run_id: "test-run",
               status: "running",
               task_id: "test-task",
@@ -91,13 +95,78 @@ describe("RayDashboard", () => {
                 section: "overview",
                 source_status: "ok",
               },
+              {
+                collected_at: "2026-09-18T09:00:00Z",
+                id: "tasks-snapshot-id",
+                payload: {
+                  tasks: [
+                    {
+                      name: "TrainShard.map_batches",
+                      state: "RUNNING",
+                      task_id: "task-1",
+                    },
+                    {
+                      name: "ValidateBatch",
+                      state: "FAILED",
+                      task_id: "task-2",
+                    },
+                  ],
+                },
+                section: "tasks",
+                source_status: "ok",
+              },
+              {
+                collected_at: "2026-09-18T09:00:00Z",
+                id: "actors-snapshot-id",
+                payload: {
+                  actors: [
+                    {
+                      actor_id: "actor-1",
+                      class_name: "Trainer",
+                      state: "ALIVE",
+                    },
+                  ],
+                },
+                section: "actors",
+                source_status: "ok",
+              },
             ],
             total_entries: 1,
           },
         });
       }
 
-      return Promise.resolve({ data: { samples: [], total_entries: 0 } });
+      return Promise.resolve({
+        data: {
+          samples: [
+            {
+              id: "cpu-sample-id",
+              labels: { instance: "worker-1", JobId: "job-id" },
+              metric_name: "ray_node_cpu_utilization",
+              metric_unit: "%",
+              sampled_at: "2026-09-18T09:00:00Z",
+              value: 84,
+            },
+            {
+              id: "object-sample-id",
+              labels: { instance: "worker-1", JobId: "job-id" },
+              metric_name: "ray_object_store_memory",
+              metric_unit: "%",
+              sampled_at: "2026-09-18T09:00:00Z",
+              value: 68,
+            },
+            {
+              id: "memory-sample-id",
+              labels: { instance: "worker-1", JobId: "job-id" },
+              metric_name: "ray_node_mem_used",
+              metric_unit: "GiB",
+              sampled_at: "2026-09-18T09:00:00Z",
+              value: 27.8,
+            },
+          ],
+          total_entries: 2,
+        },
+      });
     });
   });
 
@@ -139,5 +208,28 @@ describe("RayDashboard", () => {
         expect.stringContaining("/rayDashboard/metrics"),
       ]),
     );
+  });
+
+  it("renders task and metric indicators from Ray dashboard data", async () => {
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Tasks/u }));
+
+    expect(await screen.findByText("Total tasks")).toBeInTheDocument();
+    expect(screen.getByText("TrainShard.map_batches")).toBeInTheDocument();
+    expect(screen.getByText("ValidateBatch")).toBeInTheDocument();
+    expect(screen.getAllByText("FAILED").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Metrics/u }));
+
+    expect(await screen.findByText("CPU utilization")).toBeInTheDocument();
+    expect(screen.getAllByText("ray_node_cpu_utilization").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("84 %").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("ray_object_store_memory").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("ray_node_mem_used").length).toBeGreaterThan(0);
   });
 });

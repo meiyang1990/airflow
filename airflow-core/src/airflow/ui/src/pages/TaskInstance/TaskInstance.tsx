@@ -122,7 +122,6 @@ export const TaskInstance = () => {
     requiredActionTabs,
     {
       enabled: taskInstance !== undefined,
-      refetchInterval: isStatePending(taskInstance?.state) ? refetchInterval : false,
     },
   );
 

@@ -982,7 +982,9 @@ html&gt;body{padding:0}&lt;/style&gt;
     #ray-task-dashboard-prototype .ray-top-actions {
       align-items: center;
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
+      justify-content: flex-end;
     }
 
     #ray-task-dashboard-prototype .ray-select,
@@ -1022,18 +1024,29 @@ html&gt;body{padding:0}&lt;/style&gt;
 
     #ray-task-dashboard-prototype .ray-nav-item {
       align-items: center;
+      background: transparent;
+      border: 0;
       color: var(--ray-muted);
+      cursor: pointer;
       display: flex;
+      font: inherit;
       font-size: 13px;
       font-weight: 600;
       justify-content: space-between;
       min-height: 34px;
       padding: 0 10px;
+      text-align: left;
+      width: 100%;
     }
 
     #ray-task-dashboard-prototype .ray-nav-item[data-active=&quot;true&quot;] {
       background: light-dark(#e8f0ff, #1d3b6d);
       color: light-dark(#174ea6, #dbeafe);
+    }
+
+    #ray-task-dashboard-prototype .ray-nav-item:focus-visible {
+      outline: 2px solid var(--ray-blue);
+      outline-offset: 2px;
     }
 
     #ray-task-dashboard-prototype .ray-dot {
@@ -1048,6 +1061,10 @@ html&gt;body{padding:0}&lt;/style&gt;
 
     #ray-task-dashboard-prototype .ray-dot[data-state=&quot;warn&quot;] {
       background: var(--ray-amber);
+    }
+
+    #ray-task-dashboard-prototype .ray-dot[data-state=&quot;bad&quot;] {
+      background: var(--ray-red);
     }
 
     #ray-task-dashboard-prototype .ray-main {
@@ -1102,6 +1119,12 @@ html&gt;body{padding:0}&lt;/style&gt;
       color: light-dark(#174ea6, #bfdbfe);
     }
 
+    #ray-task-dashboard-prototype .ray-badge[data-kind=&quot;amber&quot;] {
+      background: light-dark(#fff7ed, #3f2a10);
+      border-color: light-dark(#fed7aa, #9a5a16);
+      color: light-dark(#9a3412, #fdba74);
+    }
+
     #ray-task-dashboard-prototype .ray-summary {
       display: grid;
       gap: 10px;
@@ -1139,18 +1162,20 @@ html&gt;body{padding:0}&lt;/style&gt;
     #ray-task-dashboard-prototype .ray-grid {
       display: grid;
       gap: 12px;
-      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
+      grid-template-columns: minmax(0, 1.38fr) minmax(300px, 0.82fr);
     }
 
     #ray-task-dashboard-prototype .ray-panel {
       background: var(--ray-panel);
       border: 1px solid var(--ray-border);
+      min-width: 0;
       padding: 14px;
     }
 
     #ray-task-dashboard-prototype .ray-panel-head {
       align-items: baseline;
       display: flex;
+      gap: 12px;
       justify-content: space-between;
       margin-bottom: 10px;
     }
@@ -1163,6 +1188,24 @@ html&gt;body{padding:0}&lt;/style&gt;
     #ray-task-dashboard-prototype .ray-panel-meta {
       color: var(--ray-muted);
       font-size: 12px;
+      text-align: right;
+    }
+
+    #ray-task-dashboard-prototype .ray-filterbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    #ray-task-dashboard-prototype .ray-filter {
+      background: var(--ray-panel-soft);
+      border: 1px solid var(--ray-border);
+      color: var(--ray-muted);
+      font-size: 12px;
+      font-weight: 650;
+      padding: 6px 8px;
+      white-space: nowrap;
     }
 
     #ray-task-dashboard-prototype .ray-chart {
@@ -1203,6 +1246,12 @@ html&gt;body{padding:0}&lt;/style&gt;
       transform: skewY(-3deg);
     }
 
+    #ray-task-dashboard-prototype .ray-line[data-series=&quot;tasks&quot;] {
+      border-color: var(--ray-purple);
+      top: 58px;
+      transform: skewY(4deg);
+    }
+
     #ray-task-dashboard-prototype .ray-axis-label {
       color: var(--ray-muted);
       font-size: 11px;
@@ -1239,8 +1288,14 @@ html&gt;body{padding:0}&lt;/style&gt;
       width: 18px;
     }
 
+    #ray-task-dashboard-prototype .ray-table-wrap {
+      overflow-x: auto;
+      width: 100%;
+    }
+
     #ray-task-dashboard-prototype .ray-table {
       border-collapse: collapse;
+      min-width: 720px;
       width: 100%;
     }
 
@@ -1263,19 +1318,33 @@ html&gt;body{padding:0}&lt;/style&gt;
       color: var(--ray-text);
     }
 
+    #ray-task-dashboard-prototype .ray-table tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    #ray-task-dashboard-prototype .ray-id {
+      color: var(--ray-muted);
+      font-family: &quot;SFMono-Regular&quot;, Consolas, &quot;Liberation Mono&quot;, monospace;
+      font-size: 11px;
+    }
+
     #ray-task-dashboard-prototype .ray-status {
       font-weight: 750;
     }
 
-    #ray-task-dashboard-prototype .ray-status[data-state=&quot;running&quot;] {
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;running&quot;],
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;alive&quot;],
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;succeeded&quot;] {
       color: var(--ray-green);
     }
 
-    #ray-task-dashboard-prototype .ray-status[data-state=&quot;pending&quot;] {
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;pending&quot;],
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;restarting&quot;] {
       color: var(--ray-amber);
     }
 
-    #ray-task-dashboard-prototype .ray-status[data-state=&quot;failed&quot;] {
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;failed&quot;],
+    #ray-task-dashboard-prototype .ray-status[data-state=&quot;dead&quot;] {
       color: var(--ray-red);
     }
 
@@ -1290,11 +1359,11 @@ html&gt;body{padding:0}&lt;/style&gt;
     }
 
     #ray-task-dashboard-prototype .ray-bar-row {
+      align-items: center;
       display: grid;
       gap: 8px;
-      grid-template-columns: 82px minmax(0, 1fr) 40px;
+      grid-template-columns: 92px minmax(0, 1fr) 48px;
       line-height: 1;
-      align-items: center;
     }
 
     #ray-task-dashboard-prototype .ray-bar-name,
@@ -1311,6 +1380,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
     #ray-task-dashboard-prototype .ray-bar-fill {
       background: var(--ray-blue);
+      display: block;
       height: 100%;
     }
 
@@ -1320,6 +1390,14 @@ html&gt;body{padding:0}&lt;/style&gt;
 
     #ray-task-dashboard-prototype .ray-bar-fill[data-color=&quot;amber&quot;] {
       background: var(--ray-amber);
+    }
+
+    #ray-task-dashboard-prototype .ray-bar-fill[data-color=&quot;red&quot;] {
+      background: var(--ray-red);
+    }
+
+    #ray-task-dashboard-prototype .ray-bar-fill[data-color=&quot;purple&quot;] {
+      background: var(--ray-purple);
     }
 
     #ray-task-dashboard-prototype .ray-log {
@@ -1337,6 +1415,53 @@ html&gt;body{padding:0}&lt;/style&gt;
       color: #93c5fd;
     }
 
+    #ray-task-dashboard-prototype .ray-kv {
+      display: grid;
+      gap: 8px;
+    }
+
+    #ray-task-dashboard-prototype .ray-kv-row {
+      border-bottom: 1px solid var(--ray-border);
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 120px minmax(0, 1fr);
+      padding: 8px 0;
+    }
+
+    #ray-task-dashboard-prototype .ray-kv-row:last-child {
+      border-bottom: 0;
+    }
+
+    #ray-task-dashboard-prototype .ray-kv-key {
+      color: var(--ray-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    #ray-task-dashboard-prototype .ray-kv-value {
+      color: var(--ray-text);
+      font-size: 12px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    #ray-task-dashboard-prototype .ray-panel-copy {
+      color: var(--ray-muted);
+      font-size: 12px;
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+
+    #ray-task-dashboard-prototype [data-panel][hidden] {
+      display: none;
+    }
+
+    @media (max-width: 980px) {
+      #ray-task-dashboard-prototype .ray-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 860px) {
       #ray-task-dashboard-prototype .ray-content,
       #ray-task-dashboard-prototype .ray-grid {
@@ -1348,10 +1473,6 @@ html&gt;body{padding:0}&lt;/style&gt;
         border-right: 0;
       }
 
-      #ray-task-dashboard-prototype .ray-summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
       #ray-task-dashboard-prototype .ray-page-head,
       #ray-task-dashboard-prototype .ray-topbar {
         align-items: flex-start;
@@ -1360,7 +1481,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       }
     }
   &lt;/style&gt;
-  &lt;div class=&quot;ray-window&quot; role=&quot;img&quot; aria-label=&quot;Ray Dashboard task metrics prototype&quot;&gt;
+  &lt;div class=&quot;ray-window&quot; aria-label=&quot;Ray Dashboard task metrics prototype&quot;&gt;
     &lt;div class=&quot;ray-topbar&quot;&gt;
       &lt;div class=&quot;ray-brand&quot;&gt;
         &lt;div class=&quot;ray-mark&quot;&gt;R&lt;/div&gt;
@@ -1373,30 +1494,30 @@ html&gt;body{padding:0}&lt;/style&gt;
         &lt;div class=&quot;ray-select&quot;&gt;DAG: ray_training_pipeline&lt;/div&gt;
         &lt;div class=&quot;ray-select&quot;&gt;Task: train_model&lt;/div&gt;
         &lt;div class=&quot;ray-select&quot;&gt;Try #2&lt;/div&gt;
-        &lt;div class=&quot;ray-link-button&quot;&gt;Open Ray Dashboard ↗&lt;/div&gt;
+        &lt;div class=&quot;ray-link-button&quot;&gt;Open Ray Dashboard&lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;ray-content&quot;&gt;
-      &lt;aside class=&quot;ray-sidebar&quot;&gt;
+      &lt;aside class=&quot;ray-sidebar&quot; aria-label=&quot;Ray dashboard views&quot;&gt;
         &lt;div class=&quot;ray-nav-heading&quot;&gt;Ray views&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot; data-active=&quot;true&quot;&gt;&lt;span&gt;Overview&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Jobs&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Cluster&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Actors&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Tasks&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;warn&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Placement Groups&lt;/span&gt;&lt;span class=&quot;ray-dot&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Objects&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Metrics&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Logs&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Events&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Serve&lt;/span&gt;&lt;span class=&quot;ray-dot&quot;&gt;&lt;/span&gt;&lt;/div&gt;
-        &lt;div class=&quot;ray-nav-item&quot;&gt;&lt;span&gt;Ray Data&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;overview&quot; data-active=&quot;true&quot;&gt;&lt;span&gt;Overview&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;jobs&quot;&gt;&lt;span&gt;Jobs&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;cluster&quot;&gt;&lt;span&gt;Cluster&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;actors&quot;&gt;&lt;span&gt;Actors&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;warn&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;tasks&quot;&gt;&lt;span&gt;Tasks&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;warn&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;placement&quot;&gt;&lt;span&gt;Placement Groups&lt;/span&gt;&lt;span class=&quot;ray-dot&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;objects&quot;&gt;&lt;span&gt;Objects&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;metrics&quot;&gt;&lt;span&gt;Metrics&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;logs&quot;&gt;&lt;span&gt;Logs&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;events&quot;&gt;&lt;span&gt;Events&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;serve&quot;&gt;&lt;span&gt;Serve&lt;/span&gt;&lt;span class=&quot;ray-dot&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;ray-nav-item&quot; type=&quot;button&quot; data-tab=&quot;data&quot;&gt;&lt;span&gt;Ray Data&lt;/span&gt;&lt;span class=&quot;ray-dot&quot; data-state=&quot;ok&quot;&gt;&lt;/span&gt;&lt;/button&gt;
       &lt;/aside&gt;
       &lt;main class=&quot;ray-main&quot;&gt;
         &lt;div class=&quot;ray-page-head&quot;&gt;
           &lt;div&gt;
-            &lt;h1&gt;Ray task dashboard&lt;/h1&gt;
-            &lt;div class=&quot;ray-subtitle&quot;&gt;Mirrors native Ray Dashboard categories, filtered to metrics published by this task attempt.&lt;/div&gt;
+            &lt;h1 data-view-title&gt;Ray task dashboard&lt;/h1&gt;
+            &lt;div class=&quot;ray-subtitle&quot; data-view-subtitle&gt;Mirrors native Ray Dashboard categories, filtered to metrics published by this task attempt.&lt;/div&gt;
           &lt;/div&gt;
           &lt;div class=&quot;ray-badges&quot;&gt;
             &lt;span class=&quot;ray-badge&quot; data-kind=&quot;green&quot;&gt;running&lt;/span&gt;
@@ -1404,154 +1525,361 @@ html&gt;body{padding:0}&lt;/style&gt;
             &lt;span class=&quot;ray-badge&quot;&gt;updated 12s ago&lt;/span&gt;
           &lt;/div&gt;
         &lt;/div&gt;
-        &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Task scoped Ray summary&quot;&gt;
-          &lt;div class=&quot;ray-stat&quot;&gt;
-            &lt;div class=&quot;ray-stat-label&quot;&gt;Ray job&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-value&quot;&gt;raysubmit_84f2&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-meta&quot;&gt;namespace airflow&lt;/div&gt;
-          &lt;/div&gt;
-          &lt;div class=&quot;ray-stat&quot;&gt;
-            &lt;div class=&quot;ray-stat-label&quot;&gt;CPU used&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-value&quot;&gt;13.4 / 16&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-meta&quot;&gt;logical task resources&lt;/div&gt;
-          &lt;/div&gt;
-          &lt;div class=&quot;ray-stat&quot;&gt;
-            &lt;div class=&quot;ray-stat-label&quot;&gt;Memory&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-value&quot;&gt;27.8 GiB&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-meta&quot;&gt;task actors + workers&lt;/div&gt;
-          &lt;/div&gt;
-          &lt;div class=&quot;ray-stat&quot;&gt;
-            &lt;div class=&quot;ray-stat-label&quot;&gt;Tasks&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-value&quot;&gt;1,284&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-meta&quot;&gt;1,221 done · 52 running&lt;/div&gt;
-          &lt;/div&gt;
-          &lt;div class=&quot;ray-stat&quot;&gt;
-            &lt;div class=&quot;ray-stat-label&quot;&gt;Actors&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-value&quot;&gt;18&lt;/div&gt;
-            &lt;div class=&quot;ray-stat-meta&quot;&gt;16 alive · 2 restarting&lt;/div&gt;
-          &lt;/div&gt;
+
+        &lt;section data-panel=&quot;overview&quot;&gt;
+          &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Task scoped Ray summary&quot;&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;
+              &lt;div class=&quot;ray-stat-label&quot;&gt;Ray job&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-value&quot;&gt;raysubmit_84f2&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-meta&quot;&gt;namespace airflow&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;
+              &lt;div class=&quot;ray-stat-label&quot;&gt;CPU used&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-value&quot;&gt;13.4 / 16&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-meta&quot;&gt;logical task resources&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;
+              &lt;div class=&quot;ray-stat-label&quot;&gt;Memory&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-value&quot;&gt;27.8 GiB&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-meta&quot;&gt;task actors + workers&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;
+              &lt;div class=&quot;ray-stat-label&quot;&gt;Tasks&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-value&quot;&gt;1,284&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-meta&quot;&gt;1,221 done / 52 running&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;
+              &lt;div class=&quot;ray-stat-label&quot;&gt;Actors&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-value&quot;&gt;18&lt;/div&gt;
+              &lt;div class=&quot;ray-stat-meta&quot;&gt;16 alive / 2 restarting&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;ray-grid&quot;&gt;
+            &lt;div class=&quot;ray-panel&quot;&gt;
+              &lt;div class=&quot;ray-panel-head&quot;&gt;
+                &lt;div class=&quot;ray-panel-title&quot;&gt;Metrics&lt;/div&gt;
+                &lt;div class=&quot;ray-panel-meta&quot;&gt;Task-owned samples / last 30 min&lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-chart&quot;&gt;
+                &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;y&quot;&gt;usage&lt;/div&gt;
+                &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;x&quot;&gt;time&lt;/div&gt;
+                &lt;div class=&quot;ray-chart-grid&quot;&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;cpu&quot;&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;memory&quot;&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;objects&quot;&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-legend&quot;&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-blue)&quot;&gt;&lt;/span&gt;CPU&lt;/span&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-green)&quot;&gt;&lt;/span&gt;Memory&lt;/span&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-amber)&quot;&gt;&lt;/span&gt;Object store&lt;/span&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-side-stack&quot;&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;
+                  &lt;div class=&quot;ray-panel-title&quot;&gt;Ray Status&lt;/div&gt;
+                  &lt;div class=&quot;ray-panel-meta&quot;&gt;autoscaler snapshot&lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;ray-breakdown&quot;&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Active CPUs&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; style=&quot;width: 84%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;13.4&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;GPU queue&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;amber&quot; style=&quot;width: 18%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;1&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Demands&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;purple&quot; style=&quot;width: 28%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;3&lt;/span&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;
+                  &lt;div class=&quot;ray-panel-title&quot;&gt;Recent events&lt;/div&gt;
+                  &lt;div class=&quot;ray-panel-meta&quot;&gt;task attempt log&lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;ray-log&quot;&gt;
+                  &lt;div&gt;&lt;span&gt;12:42:11&lt;/span&gt; train_model started Ray job raysubmit_84f2&lt;/div&gt;
+                  &lt;div&gt;&lt;span&gt;12:43:08&lt;/span&gt; autoscaler requested 2 worker slots&lt;/div&gt;
+                  &lt;div&gt;&lt;span&gt;12:51:33&lt;/span&gt; checkpoint written to s3://airflow-ray/run_62&lt;/div&gt;
+                  &lt;div&gt;&lt;span&gt;12:56:40&lt;/span&gt; retry scheduled for ValidateBatch shard=17&lt;/div&gt;
+                  &lt;div&gt;&lt;span&gt;13:01:02&lt;/span&gt; object store utilization 68%&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
         &lt;/section&gt;
-        &lt;section class=&quot;ray-grid&quot;&gt;
-          &lt;div class=&quot;ray-panel&quot;&gt;
-            &lt;div class=&quot;ray-panel-head&quot;&gt;
-              &lt;div class=&quot;ray-panel-title&quot;&gt;Metrics&lt;/div&gt;
-              &lt;div class=&quot;ray-panel-meta&quot;&gt;Task-owned samples · last 30 min&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-chart&quot;&gt;
-              &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;y&quot;&gt;usage&lt;/div&gt;
-              &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;x&quot;&gt;time&lt;/div&gt;
-              &lt;div class=&quot;ray-chart-grid&quot;&gt;
-                &lt;div class=&quot;ray-line&quot; data-series=&quot;cpu&quot;&gt;&lt;/div&gt;
-                &lt;div class=&quot;ray-line&quot; data-series=&quot;memory&quot;&gt;&lt;/div&gt;
-                &lt;div class=&quot;ray-line&quot; data-series=&quot;objects&quot;&gt;&lt;/div&gt;
-              &lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-legend&quot;&gt;
-              &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-blue)&quot;&gt;&lt;/span&gt;CPU&lt;/span&gt;
-              &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-green)&quot;&gt;&lt;/span&gt;Memory&lt;/span&gt;
-              &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-amber)&quot;&gt;&lt;/span&gt;Object store&lt;/span&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-panel-head&quot; style=&quot;margin-top: 18px&quot;&gt;
-              &lt;div class=&quot;ray-panel-title&quot;&gt;Tasks&lt;/div&gt;
-              &lt;div class=&quot;ray-panel-meta&quot;&gt;Latest task snapshot&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;table class=&quot;ray-table&quot;&gt;
-              &lt;thead&gt;
-                &lt;tr&gt;
-                  &lt;th&gt;Task name&lt;/th&gt;
-                  &lt;th&gt;State&lt;/th&gt;
-                  &lt;th&gt;CPU&lt;/th&gt;
-                  &lt;th&gt;Duration&lt;/th&gt;
-                  &lt;th&gt;Node&lt;/th&gt;
-                &lt;/tr&gt;
-              &lt;/thead&gt;
-              &lt;tbody&gt;
-                &lt;tr&gt;
-                  &lt;td&gt;TrainShard.map_batches&lt;/td&gt;
-                  &lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;RUNNING&lt;/td&gt;
-                  &lt;td&gt;8.0&lt;/td&gt;
-                  &lt;td&gt;18m 42s&lt;/td&gt;
-                  &lt;td&gt;worker-03&lt;/td&gt;
-                &lt;/tr&gt;
-                &lt;tr&gt;
-                  &lt;td&gt;GradientReduce&lt;/td&gt;
-                  &lt;td class=&quot;ray-status&quot; data-state=&quot;pending&quot;&gt;PENDING&lt;/td&gt;
-                  &lt;td&gt;2.0&lt;/td&gt;
-                  &lt;td&gt;03m 11s&lt;/td&gt;
-                  &lt;td&gt;worker-01&lt;/td&gt;
-                &lt;/tr&gt;
-                &lt;tr&gt;
-                  &lt;td&gt;CheckpointWriter&lt;/td&gt;
-                  &lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;RUNNING&lt;/td&gt;
-                  &lt;td&gt;1.0&lt;/td&gt;
-                  &lt;td&gt;08m 05s&lt;/td&gt;
-                  &lt;td&gt;worker-02&lt;/td&gt;
-                &lt;/tr&gt;
-                &lt;tr&gt;
-                  &lt;td&gt;ValidateBatch&lt;/td&gt;
-                  &lt;td class=&quot;ray-status&quot; data-state=&quot;failed&quot;&gt;RETRYING&lt;/td&gt;
-                  &lt;td&gt;0.5&lt;/td&gt;
-                  &lt;td&gt;00m 44s&lt;/td&gt;
-                  &lt;td&gt;worker-04&lt;/td&gt;
-                &lt;/tr&gt;
-              &lt;/tbody&gt;
-            &lt;/table&gt;
-          &lt;/div&gt;
-          &lt;div class=&quot;ray-side-stack&quot;&gt;
+
+        &lt;section data-panel=&quot;jobs&quot; hidden&gt;
+          &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Ray jobs summary&quot;&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Submission ID&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;raysubmit_84f2&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;Ray Jobs API&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Status&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;RUNNING&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;entrypoint active&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Runtime env&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;sha256:8a4e&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;pip + working_dir&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Duration&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;22m 14s&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;started 12:42:11&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Resource demands&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;3&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;1 GPU bundle pending&lt;/div&gt;&lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;ray-grid&quot;&gt;
             &lt;div class=&quot;ray-panel&quot;&gt;
               &lt;div class=&quot;ray-panel-head&quot;&gt;
-                &lt;div class=&quot;ray-panel-title&quot;&gt;State breakdown&lt;/div&gt;
-                &lt;div class=&quot;ray-panel-meta&quot;&gt;task-only&lt;/div&gt;
+                &lt;div class=&quot;ray-panel-title&quot;&gt;Jobs&lt;/div&gt;
+                &lt;div class=&quot;ray-panel-meta&quot;&gt;Dashboard job view filtered by Airflow context&lt;/div&gt;
               &lt;/div&gt;
-              &lt;div class=&quot;ray-breakdown&quot;&gt;
-                &lt;div class=&quot;ray-bar-row&quot;&gt;
-                  &lt;span class=&quot;ray-bar-name&quot;&gt;Finished&lt;/span&gt;
-                  &lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 82%&quot;&gt;&lt;/span&gt;&lt;/span&gt;
-                  &lt;span class=&quot;ray-bar-value&quot;&gt;1221&lt;/span&gt;
+              &lt;div class=&quot;ray-filterbar&quot;&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;JobId: 01000000&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;Namespace: airflow&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;Entrypoint: python train.py&lt;/span&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-table-wrap&quot;&gt;
+                &lt;table class=&quot;ray-table&quot;&gt;
+                  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Submission ID&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;th&gt;Job ID&lt;/th&gt;&lt;th&gt;Entrypoint&lt;/th&gt;&lt;th&gt;Started&lt;/th&gt;&lt;th&gt;Driver node&lt;/th&gt;&lt;th&gt;Logs&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+                  &lt;tbody&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;raysubmit_84f2&lt;/span&gt;&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;RUNNING&lt;/td&gt;&lt;td&gt;01000000&lt;/td&gt;&lt;td&gt;python train.py --epochs 6&lt;/td&gt;&lt;td&gt;12:42:11&lt;/td&gt;&lt;td&gt;head-0&lt;/td&gt;&lt;td&gt;driver.log&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;raysubmit_839d&lt;/span&gt;&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;succeeded&quot;&gt;SUCCEEDED&lt;/td&gt;&lt;td&gt;fe000000&lt;/td&gt;&lt;td&gt;python preprocess.py&lt;/td&gt;&lt;td&gt;12:21:09&lt;/td&gt;&lt;td&gt;head-0&lt;/td&gt;&lt;td&gt;driver.log&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;raysubmit_82ac&lt;/span&gt;&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;failed&quot;&gt;FAILED&lt;/td&gt;&lt;td&gt;f4000000&lt;/td&gt;&lt;td&gt;python validate.py&lt;/td&gt;&lt;td&gt;12:08:44&lt;/td&gt;&lt;td&gt;worker-02&lt;/td&gt;&lt;td&gt;traceback.log&lt;/td&gt;&lt;/tr&gt;
+                  &lt;/tbody&gt;
+                &lt;/table&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-side-stack&quot;&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Ray Status&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;from ray status&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-kv&quot;&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Active nodes&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;1 head, 4 workers&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Pending nodes&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;g5.xlarge requested for GPU trainer&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Failed nodes&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;0 in this job window&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Demands&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;{&quot;CPU&quot;: 2, &quot;GPU&quot;: 1} cannot be scheduled yet&lt;/div&gt;&lt;/div&gt;
                 &lt;/div&gt;
-                &lt;div class=&quot;ray-bar-row&quot;&gt;
-                  &lt;span class=&quot;ray-bar-name&quot;&gt;Running&lt;/span&gt;
-                  &lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; style=&quot;width: 36%&quot;&gt;&lt;/span&gt;&lt;/span&gt;
-                  &lt;span class=&quot;ray-bar-value&quot;&gt;52&lt;/span&gt;
-                &lt;/div&gt;
-                &lt;div class=&quot;ray-bar-row&quot;&gt;
-                  &lt;span class=&quot;ray-bar-name&quot;&gt;Pending&lt;/span&gt;
-                  &lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;amber&quot; style=&quot;width: 20%&quot;&gt;&lt;/span&gt;&lt;/span&gt;
-                  &lt;span class=&quot;ray-bar-value&quot;&gt;9&lt;/span&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Runtime environment&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;install + upload state&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-breakdown&quot;&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Setup&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 100%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;done&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Packages&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 100%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;42&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Upload&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 100%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;118M&lt;/span&gt;&lt;/div&gt;
                 &lt;/div&gt;
               &lt;/div&gt;
             &lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/section&gt;
+
+        &lt;section data-panel=&quot;actors&quot; hidden&gt;
+          &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Ray actors summary&quot;&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Actors&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;18&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;owned by this job&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Alive&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;16&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;methods schedulable&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Restarting&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;max_restarts not exhausted&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Actor CPU&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;9.0&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;reserved logical CPUs&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Max queue&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;37&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;Trainer actor backlog&lt;/div&gt;&lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;ray-grid&quot;&gt;
             &lt;div class=&quot;ray-panel&quot;&gt;
-              &lt;div class=&quot;ray-panel-head&quot;&gt;
-                &lt;div class=&quot;ray-panel-title&quot;&gt;Actors&lt;/div&gt;
-                &lt;div class=&quot;ray-panel-meta&quot;&gt;owned by this job&lt;/div&gt;
+              &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Actors&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;State API actor table&lt;/div&gt;&lt;/div&gt;
+              &lt;div class=&quot;ray-filterbar&quot;&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;Class&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;State&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;Node&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;Namespace&lt;/span&gt;
               &lt;/div&gt;
-              &lt;table class=&quot;ray-table&quot;&gt;
-                &lt;tbody&gt;
-                  &lt;tr&gt;&lt;td&gt;Trainer&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;ALIVE&lt;/td&gt;&lt;td&gt;8 replicas&lt;/td&gt;&lt;/tr&gt;
-                  &lt;tr&gt;&lt;td&gt;DataLoader&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;ALIVE&lt;/td&gt;&lt;td&gt;6 replicas&lt;/td&gt;&lt;/tr&gt;
-                  &lt;tr&gt;&lt;td&gt;Evaluator&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;pending&quot;&gt;RESTARTING&lt;/td&gt;&lt;td&gt;2 replicas&lt;/td&gt;&lt;/tr&gt;
-                &lt;/tbody&gt;
-              &lt;/table&gt;
+              &lt;div class=&quot;ray-table-wrap&quot;&gt;
+                &lt;table class=&quot;ray-table&quot;&gt;
+                  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Actor ID&lt;/th&gt;&lt;th&gt;Class&lt;/th&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;State&lt;/th&gt;&lt;th&gt;Node&lt;/th&gt;&lt;th&gt;PID&lt;/th&gt;&lt;th&gt;Resources&lt;/th&gt;&lt;th&gt;Queued calls&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+                  &lt;tbody&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;a8f3...091c&lt;/span&gt;&lt;/td&gt;&lt;td&gt;Trainer&lt;/td&gt;&lt;td&gt;trainer:0&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;alive&quot;&gt;ALIVE&lt;/td&gt;&lt;td&gt;worker-03&lt;/td&gt;&lt;td&gt;18442&lt;/td&gt;&lt;td&gt;CPU 4 / GPU 1&lt;/td&gt;&lt;td&gt;37&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;bc17...94aa&lt;/span&gt;&lt;/td&gt;&lt;td&gt;DataLoader&lt;/td&gt;&lt;td&gt;loader:4&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;alive&quot;&gt;ALIVE&lt;/td&gt;&lt;td&gt;worker-01&lt;/td&gt;&lt;td&gt;19763&lt;/td&gt;&lt;td&gt;CPU 1&lt;/td&gt;&lt;td&gt;6&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;d902...12ef&lt;/span&gt;&lt;/td&gt;&lt;td&gt;Evaluator&lt;/td&gt;&lt;td&gt;eval:0&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;restarting&quot;&gt;RESTARTING&lt;/td&gt;&lt;td&gt;worker-04&lt;/td&gt;&lt;td&gt;pending&lt;/td&gt;&lt;td&gt;CPU 1&lt;/td&gt;&lt;td&gt;12&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;e771...44b8&lt;/span&gt;&lt;/td&gt;&lt;td&gt;CheckpointWriter&lt;/td&gt;&lt;td&gt;ckpt:0&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;alive&quot;&gt;ALIVE&lt;/td&gt;&lt;td&gt;worker-02&lt;/td&gt;&lt;td&gt;20518&lt;/td&gt;&lt;td&gt;CPU 0.5&lt;/td&gt;&lt;td&gt;0&lt;/td&gt;&lt;/tr&gt;
+                  &lt;/tbody&gt;
+                &lt;/table&gt;
+              &lt;/div&gt;
             &lt;/div&gt;
+            &lt;div class=&quot;ray-side-stack&quot;&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Actor state breakdown&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;current snapshot&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-breakdown&quot;&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;ALIVE&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 89%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;16&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;RESTARTING&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;amber&quot; style=&quot;width: 11%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;2&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;DEAD&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;red&quot; style=&quot;width: 0%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;0&lt;/span&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Selected actor&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;Trainer / trainer:0&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-kv&quot;&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Namespace&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;airflow&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Constructor&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;remote(num_cpus=4, num_gpus=1)&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Method&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;Trainer.step(batch_ref)&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Log file&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;worker-03/python-core-worker-18442.log&lt;/div&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/section&gt;
+
+        &lt;section data-panel=&quot;tasks&quot; hidden&gt;
+          &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Ray tasks summary&quot;&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Total tasks&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;1,284&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;State API snapshot&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Finished&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;1,221&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;95.1% complete&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Running&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;52&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;across 4 workers&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Pending&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;9&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;resource constrained&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Retries&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;ValidateBatch shard failures&lt;/div&gt;&lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;ray-grid&quot;&gt;
             &lt;div class=&quot;ray-panel&quot;&gt;
-              &lt;div class=&quot;ray-panel-head&quot;&gt;
-                &lt;div class=&quot;ray-panel-title&quot;&gt;Logs&lt;/div&gt;
-                &lt;div class=&quot;ray-panel-meta&quot;&gt;sampled from Ray log sources&lt;/div&gt;
+              &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Tasks&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;Latest task and actor-method calls&lt;/div&gt;&lt;/div&gt;
+              &lt;div class=&quot;ray-filterbar&quot;&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;Name: all&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;State: running + pending + failed&lt;/span&gt;
+                &lt;span class=&quot;ray-filter&quot;&gt;JobId: 01000000&lt;/span&gt;
               &lt;/div&gt;
-              &lt;div class=&quot;ray-log&quot;&gt;
-                &lt;div&gt;&lt;span&gt;12:42:11&lt;/span&gt; train_model started Ray job raysubmit_84f2&lt;/div&gt;
-                &lt;div&gt;&lt;span&gt;12:43:08&lt;/span&gt; autoscaler requested 2 worker slots&lt;/div&gt;
-                &lt;div&gt;&lt;span&gt;12:51:33&lt;/span&gt; checkpoint written to s3://airflow-ray/run_62&lt;/div&gt;
-                &lt;div&gt;&lt;span&gt;12:56:40&lt;/span&gt; retry scheduled for ValidateBatch shard=17&lt;/div&gt;
-                &lt;div&gt;&lt;span&gt;13:01:02&lt;/span&gt; object store utilization 68%&lt;/div&gt;
+              &lt;div class=&quot;ray-table-wrap&quot;&gt;
+                &lt;table class=&quot;ray-table&quot;&gt;
+                  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Task ID&lt;/th&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Type&lt;/th&gt;&lt;th&gt;State&lt;/th&gt;&lt;th&gt;Duration&lt;/th&gt;&lt;th&gt;Resources&lt;/th&gt;&lt;th&gt;Worker&lt;/th&gt;&lt;th&gt;Error&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+                  &lt;tbody&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;f113...ca2e&lt;/span&gt;&lt;/td&gt;&lt;td&gt;TrainShard.map_batches&lt;/td&gt;&lt;td&gt;NORMAL_TASK&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;RUNNING&lt;/td&gt;&lt;td&gt;18m 42s&lt;/td&gt;&lt;td&gt;CPU 8&lt;/td&gt;&lt;td&gt;worker-03&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;0bc8...7a91&lt;/span&gt;&lt;/td&gt;&lt;td&gt;Trainer.step&lt;/td&gt;&lt;td&gt;ACTOR_TASK&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;RUNNING&lt;/td&gt;&lt;td&gt;06m 13s&lt;/td&gt;&lt;td&gt;CPU 4 / GPU 1&lt;/td&gt;&lt;td&gt;worker-03&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;44b0...9031&lt;/span&gt;&lt;/td&gt;&lt;td&gt;GradientReduce&lt;/td&gt;&lt;td&gt;NORMAL_TASK&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;pending&quot;&gt;PENDING_ARGS_AVAIL&lt;/td&gt;&lt;td&gt;03m 11s&lt;/td&gt;&lt;td&gt;CPU 2&lt;/td&gt;&lt;td&gt;worker-01&lt;/td&gt;&lt;td&gt;waiting for object refs&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;95ef...61d0&lt;/span&gt;&lt;/td&gt;&lt;td&gt;ValidateBatch&lt;/td&gt;&lt;td&gt;NORMAL_TASK&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;failed&quot;&gt;FAILED&lt;/td&gt;&lt;td&gt;00m 44s&lt;/td&gt;&lt;td&gt;CPU 0.5&lt;/td&gt;&lt;td&gt;worker-04&lt;/td&gt;&lt;td&gt;ValueError: bad shard 17&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;ray-id&quot;&gt;a002...88f1&lt;/span&gt;&lt;/td&gt;&lt;td&gt;CheckpointWriter.write&lt;/td&gt;&lt;td&gt;ACTOR_TASK&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;succeeded&quot;&gt;FINISHED&lt;/td&gt;&lt;td&gt;08m 05s&lt;/td&gt;&lt;td&gt;CPU 1&lt;/td&gt;&lt;td&gt;worker-02&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+                  &lt;/tbody&gt;
+                &lt;/table&gt;
               &lt;/div&gt;
             &lt;/div&gt;
-          &lt;/div&gt;
+            &lt;div class=&quot;ray-side-stack&quot;&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Task state breakdown&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;task-only&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-breakdown&quot;&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;FINISHED&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 95%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;1221&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;RUNNING&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; style=&quot;width: 40%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;52&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;PENDING&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;amber&quot; style=&quot;width: 16%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;9&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;FAILED&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;red&quot; style=&quot;width: 4%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;2&lt;/span&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Debug context&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;selected failure&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-kv&quot;&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Attempt&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;Retrying ValidateBatch shard=17, max_retries=3&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Object refs&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;3 dependencies, 1 spilled to external storage&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Caller&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;train_model Airflow task try #2&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Logs&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;worker-04/python-core-worker-21102.log&lt;/div&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/section&gt;
+
+        &lt;section data-panel=&quot;metrics&quot; hidden&gt;
+          &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Ray metrics summary&quot;&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;CPU utilization&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;84%&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;ray_node_cpu_utilization&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Memory used&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;27.8 GiB&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;workers + actors&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Object store&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;68%&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;spill rising&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Task throughput&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;74/min&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;last 5 min avg&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;ray-stat&quot;&gt;&lt;div class=&quot;ray-stat-label&quot;&gt;Scrape lag&lt;/div&gt;&lt;div class=&quot;ray-stat-value&quot;&gt;12s&lt;/div&gt;&lt;div class=&quot;ray-stat-meta&quot;&gt;Prometheus endpoint&lt;/div&gt;&lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;ray-grid&quot;&gt;
+            &lt;div class=&quot;ray-panel&quot;&gt;
+              &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;System metrics&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;Dashboard agent / Prometheus series&lt;/div&gt;&lt;/div&gt;
+              &lt;div class=&quot;ray-chart&quot;&gt;
+                &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;y&quot;&gt;normalized&lt;/div&gt;
+                &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;x&quot;&gt;last 30 min&lt;/div&gt;
+                &lt;div class=&quot;ray-chart-grid&quot;&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;cpu&quot;&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;memory&quot;&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;objects&quot;&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-line&quot; data-series=&quot;tasks&quot;&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-legend&quot;&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-blue)&quot;&gt;&lt;/span&gt;ray_node_cpu_utilization&lt;/span&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-green)&quot;&gt;&lt;/span&gt;ray_node_mem_used&lt;/span&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-amber)&quot;&gt;&lt;/span&gt;ray_object_store_memory&lt;/span&gt;
+                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-purple)&quot;&gt;&lt;/span&gt;ray_tasks&lt;/span&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-panel-head&quot; style=&quot;margin-top: 18px&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Metric samples&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;labels include SessionName, instance, JobId&lt;/div&gt;&lt;/div&gt;
+              &lt;div class=&quot;ray-table-wrap&quot;&gt;
+                &lt;table class=&quot;ray-table&quot;&gt;
+                  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Metric&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;th&gt;Labels&lt;/th&gt;&lt;th&gt;Source&lt;/th&gt;&lt;th&gt;Trend&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+                  &lt;tbody&gt;
+                    &lt;tr&gt;&lt;td&gt;ray_node_cpu_utilization&lt;/td&gt;&lt;td&gt;84%&lt;/td&gt;&lt;td&gt;instance=worker-03, JobId=01000000&lt;/td&gt;&lt;td&gt;dashboard agent&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;up&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;ray_node_mem_used&lt;/td&gt;&lt;td&gt;27.8 GiB&lt;/td&gt;&lt;td&gt;instance=worker-03, SessionName=session_62&lt;/td&gt;&lt;td&gt;dashboard agent&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;flat&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;ray_object_store_memory&lt;/td&gt;&lt;td&gt;68%&lt;/td&gt;&lt;td&gt;instance=head-0, JobId=01000000&lt;/td&gt;&lt;td&gt;raylet&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;pending&quot;&gt;rising&lt;/td&gt;&lt;/tr&gt;
+                    &lt;tr&gt;&lt;td&gt;ray_tasks&lt;/td&gt;&lt;td&gt;52 running&lt;/td&gt;&lt;td&gt;name=TrainShard.map_batches&lt;/td&gt;&lt;td&gt;core worker&lt;/td&gt;&lt;td class=&quot;ray-status&quot; data-state=&quot;running&quot;&gt;active&lt;/td&gt;&lt;/tr&gt;
+                  &lt;/tbody&gt;
+                &lt;/table&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;ray-side-stack&quot;&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Grafana panels&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;embedded equivalent&lt;/div&gt;&lt;/div&gt;
+                &lt;p class=&quot;ray-panel-copy&quot;&gt;Ray exposes system and workload metrics for cluster introspection. This task-scoped view keeps the same signals but narrows them to the Ray job, node, actor, and task labels emitted during this Airflow attempt.&lt;/p&gt;
+                &lt;div class=&quot;ray-breakdown&quot;&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;CPU&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; style=&quot;width: 84%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;84%&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Memory&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;green&quot; style=&quot;width: 73%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;73%&lt;/span&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Objects&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;amber&quot; style=&quot;width: 68%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;68%&lt;/span&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ray-panel&quot;&gt;
+                &lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Alert hints&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;operator signals&lt;/div&gt;&lt;/div&gt;
+                &lt;div class=&quot;ray-kv&quot;&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Object spilling&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;Above 65% for 9 minutes; inspect object refs and batch size.&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Scheduling&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;GPU resource demand unsatisfied; autoscaler pending capacity.&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-kv-row&quot;&gt;&lt;div class=&quot;ray-kv-key&quot;&gt;Logs&lt;/div&gt;&lt;div class=&quot;ray-kv-value&quot;&gt;Link metric spikes to worker and actor logs for the same JobId.&lt;/div&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/section&gt;
+
+        &lt;section data-panel=&quot;cluster&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Cluster&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;ray-panel-copy&quot;&gt;Cluster-level node inventory remains available in the native dashboard. This task prototype emphasizes Jobs, Actors, Tasks, and Metrics for the selected Airflow task attempt.&lt;/p&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section data-panel=&quot;placement&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Placement Groups&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;ray-panel-copy&quot;&gt;Placement group details would list bundles, scheduling strategy, and pending resource demands when the selected Ray job creates them.&lt;/p&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section data-panel=&quot;objects&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Objects&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;ray-panel-copy&quot;&gt;Object store and reference details are represented in Metrics and Tasks for this prototype.&lt;/p&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section data-panel=&quot;logs&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Logs&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;ray-log&quot;&gt;&lt;div&gt;&lt;span&gt;13:01:02&lt;/span&gt; object store utilization 68%&lt;/div&gt;&lt;div&gt;&lt;span&gt;13:03:18&lt;/span&gt; worker-04 retrying ValidateBatch shard=17&lt;/div&gt;&lt;div&gt;&lt;span&gt;13:04:25&lt;/span&gt; trainer:0 completed step 138&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section data-panel=&quot;events&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Events&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;ray-panel-copy&quot;&gt;Task events can be exported by Ray for external analytics; this view would show the same event stream filtered by JobId and Airflow task attempt.&lt;/p&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section data-panel=&quot;serve&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Serve&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;ray-panel-copy&quot;&gt;No Ray Serve deployment is attached to this Airflow task.&lt;/p&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section data-panel=&quot;data&quot; hidden&gt;
+          &lt;div class=&quot;ray-panel&quot;&gt;&lt;div class=&quot;ray-panel-head&quot;&gt;&lt;div class=&quot;ray-panel-title&quot;&gt;Ray Data&lt;/div&gt;&lt;div class=&quot;ray-panel-meta&quot;&gt;placeholder&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;ray-panel-copy&quot;&gt;Dataset operators can be added here when the Ray job emits Ray Data execution stats.&lt;/p&gt;&lt;/div&gt;
         &lt;/section&gt;
       &lt;/main&gt;
     &lt;/div&gt;
   &lt;/div&gt;
+  &lt;script&gt;
+    (() =&gt; {
+      const root = document.getElementById(&quot;ray-task-dashboard-prototype&quot;);
+      const titles = {
+        overview: [&quot;Ray task dashboard&quot;, &quot;Mirrors native Ray Dashboard categories, filtered to metrics published by this task attempt.&quot;],
+        jobs: [&quot;Jobs&quot;, &quot;Ray Jobs API and Ray Status information scoped to the Airflow task attempt.&quot;],
+        actors: [&quot;Actors&quot;, &quot;State API actor inventory, lifecycle states, queues, resources, and logs.&quot;],
+        tasks: [&quot;Tasks&quot;, &quot;Task and actor-method calls with scheduler state, resources, worker, and failure context.&quot;],
+        metrics: [&quot;Metrics&quot;, &quot;Ray system and workload metrics narrowed by SessionName, instance, and JobId labels.&quot;],
+        cluster: [&quot;Cluster&quot;, &quot;Cluster overview placeholder for the selected Ray task attempt.&quot;],
+        placement: [&quot;Placement Groups&quot;, &quot;Placement group bundle and scheduling placeholder.&quot;],
+        objects: [&quot;Objects&quot;, &quot;Object store and reference placeholder.&quot;],
+        logs: [&quot;Logs&quot;, &quot;Ray log sources filtered to this Airflow task attempt.&quot;],
+        events: [&quot;Events&quot;, &quot;Task event stream placeholder.&quot;],
+        serve: [&quot;Serve&quot;, &quot;Serve deployment placeholder.&quot;],
+        data: [&quot;Ray Data&quot;, &quot;Ray Data execution statistics placeholder.&quot;],
+      };
+
+      const setTab = (tab) =&gt; {
+        root.querySelectorAll(&quot;[data-tab]&quot;).forEach((button) =&gt; {
+          button.dataset.active = String(button.dataset.tab === tab);
+        });
+        root.querySelectorAll(&quot;[data-panel]&quot;).forEach((panel) =&gt; {
+          panel.hidden = panel.dataset.panel !== tab;
+        });
+        const [title, subtitle] = titles[tab] ?? titles.overview;
+        root.querySelector(&quot;[data-view-title]&quot;).textContent = title;
+        root.querySelector(&quot;[data-view-subtitle]&quot;).textContent = subtitle;
+      };
+
+      root.querySelectorAll(&quot;[data-tab]&quot;).forEach((button) =&gt; {
+        button.addEventListener(&quot;click&quot;, () =&gt; setTab(button.dataset.tab));
+      });
+    })();
+  &lt;/script&gt;
 &lt;/div&gt;
 
 &lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
