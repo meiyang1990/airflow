@@ -360,6 +360,9 @@ const getLatestMetricSample = (samples: Array<MetricSample>, pattern: RegExp) =>
     right.sampled_at.localeCompare(left.sampled_at),
   )[0];
 
+const getPeakMetricSample = (samples: Array<MetricSample>, pattern: RegExp) =>
+  getMetricSamplesByPattern(samples, pattern).sort((left, right) => right.value - left.value)[0];
+
 const formatMetricValue = (value: number, unit?: string | null) =>
   `${formatValue(value)}${unit === undefined || unit === null ? "" : ` ${unit}`}`;
 
@@ -446,6 +449,12 @@ const getRowsFromPayload = (payload: unknown): Array<JsonRecord> => {
 
   return [];
 };
+
+const getPeakRowsFromSnapshots = (snapshots: Array<Snapshot>, section: RaySection) =>
+  snapshots
+    .filter((snapshot) => snapshot.section === section)
+    .map((snapshot) => getRowsFromPayload(snapshot.payload))
+    .sort((left, right) => right.length - left.length)[0] ?? [];
 
 const getJobRows = (dashboard: RayDashboardAvailability["dashboard"], payload: unknown) => {
   const rows = getRowsFromPayload(payload);
@@ -1116,20 +1125,26 @@ export const RayDashboard = () => {
   const activeStates = countStates(activeRows);
   const samples = metricSamples?.samples ?? [];
   const metricNames = [...new Set(samples.map((sample) => sample.metric_name))];
+  const allSnapshots = snapshots?.snapshots ?? [];
   const taskRows = getRowsFromPayload(snapshotBySection.tasks?.payload);
+  const peakTaskRows = getPeakRowsFromSnapshots(allSnapshots, "tasks");
   const actorRows = getRowsFromPayload(snapshotBySection.actors?.payload);
   const jobRows = getJobRows(dashboard, snapshotBySection.jobs?.payload);
   const logRows = getRowsFromPayload(snapshotBySection.logs?.payload);
   const overviewStates = countStates(taskRows.length > 0 ? taskRows : activeRows);
-  const finishedTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/finish/u, /success/u, /done/u]);
-  const runningTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/run/u]);
+  const overviewTaskRows = peakTaskRows.length > 0 ? peakTaskRows : taskRows;
+  const finishedTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/finish/u, /success/u, /done/u]);
+  const runningTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/run/u]);
   const pendingTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/pending/u, /waiting/u, /sched/u]);
   const failedTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/fail/u, /error/u]);
   const aliveActors = countRowsByState(actorRows, ACTOR_STATE_KEYS, [/alive/u, /run/u]);
   const restartingActors = countRowsByState(actorRows, ACTOR_STATE_KEYS, [/restart/u, /pending/u]);
   const actorCpu = sumNumericFields(actorRows, ["required_resources.CPU", "num_cpus", "cpus", "cpu"]);
-  const cpuSample = getLatestMetricSample(samples, CPU_METRIC_PATTERN);
-  const memorySample = getLatestMetricSample(samples, MEMORY_METRIC_PATTERN);
+  const cpuSample = getPeakMetricSample(samples, CPU_METRIC_PATTERN);
+  const memorySample = getPeakMetricSample(
+    samples.filter((sample) => !OBJECT_STORE_METRIC_PATTERN.test(sample.metric_name.toLowerCase())),
+    MEMORY_METRIC_PATTERN,
+  );
   const objectStoreSample = getLatestMetricSample(samples, OBJECT_STORE_METRIC_PATTERN);
   const taskMetricSample = getLatestMetricSample(samples, TASK_METRIC_PATTERN);
   const throughputSample = getLatestMetricSample(samples, THROUGHPUT_METRIC_PATTERN);
@@ -1302,18 +1317,18 @@ export const RayDashboard = () => {
             />
             <SummaryCard
               label="CPU used"
-              meta="latest Ray metric sample"
+              meta="peak during task run"
               value={formatMetricSample(cpuSample)}
             />
             <SummaryCard
               label="Memory"
-              meta="latest Ray metric sample"
+              meta="peak during task run"
               value={formatMetricSample(memorySample)}
             />
             <SummaryCard
               label="Tasks"
               meta={`${finishedTasks} finished / ${runningTasks} running`}
-              value={formatValue(taskRows.length)}
+              value={formatValue(overviewTaskRows.length)}
             />
             <SummaryCard
               label="Actors"

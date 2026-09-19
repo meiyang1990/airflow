@@ -139,6 +139,31 @@ describe("RayDashboard", () => {
               },
               {
                 collected_at: "2026-09-18T09:00:00Z",
+                id: "peak-tasks-snapshot-id",
+                payload: {
+                  tasks: [
+                    {
+                      name: "TrainShard.map_batches",
+                      state: "RUNNING",
+                      task_id: "task-1",
+                    },
+                    {
+                      name: "ValidateBatch",
+                      state: "FAILED",
+                      task_id: "task-2",
+                    },
+                    {
+                      name: "LoadBatch",
+                      state: "FINISHED",
+                      task_id: "task-3",
+                    },
+                  ],
+                },
+                section: "tasks",
+                source_status: "ok",
+              },
+              {
+                collected_at: "2026-09-18T09:01:00Z",
                 id: "tasks-snapshot-id",
                 payload: {
                   tasks: [
@@ -194,6 +219,14 @@ describe("RayDashboard", () => {
               value: 84,
             },
             {
+              id: "latest-cpu-sample-id",
+              labels: { instance: "worker-1", JobId: "job-id" },
+              metric_name: "ray_node_cpu_utilization",
+              metric_unit: "%",
+              sampled_at: "2026-09-18T09:01:00Z",
+              value: 0,
+            },
+            {
               id: "object-sample-id",
               labels: { instance: "worker-1", JobId: "job-id" },
               metric_name: "ray_object_store_memory",
@@ -209,9 +242,17 @@ describe("RayDashboard", () => {
               sampled_at: "2026-09-18T09:00:00Z",
               value: 27.8,
             },
+            {
+              id: "latest-memory-sample-id",
+              labels: { instance: "worker-1", JobId: "job-id" },
+              metric_name: "ray_node_mem_used",
+              metric_unit: "GiB",
+              sampled_at: "2026-09-18T09:01:00Z",
+              value: 0,
+            },
             ...manyMetricSamples,
           ],
-          total_entries: 104,
+          total_entries: 106,
         },
       });
     });
@@ -264,6 +305,13 @@ describe("RayDashboard", () => {
         <RayDashboard />
       </Wrapper>,
     );
+
+    expect(await screen.findByText("CPU used")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("84 %").length).toBeGreaterThan(0));
+    expect(screen.getAllByText("27.8 GiB").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("peak during task run")).toHaveLength(2);
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("1 finished / 1 running")).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole("button", { name: /Tasks/u }));
 
