@@ -67,6 +67,17 @@ const defaultActorRankings = {
   ],
 };
 let currentActorRankings = defaultActorRankings;
+const defaultActorRecords = [
+  {
+    actor_id: "actor-1",
+    actor_ip: "10.0.0.1",
+    class_name: "Trainer",
+    job_id: "job-id",
+    node_id: "node-1",
+    state: "ALIVE",
+  },
+];
+let currentActorRecords = defaultActorRecords;
 
 vi.mock("axios");
 vi.mock("openapi/queries");
@@ -84,6 +95,7 @@ describe("RayDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentActorRankings = defaultActorRankings;
+    currentActorRecords = defaultActorRecords;
     vi.mocked(useParams).mockReturnValue({
       dagId: "test-dag",
       mapIndex: "-1",
@@ -186,13 +198,7 @@ describe("RayDashboard", () => {
                 collected_at: "2026-09-18T09:00:00Z",
                 id: "actors-snapshot-id",
                 payload: {
-                  records: [
-                    {
-                      actor_id: "actor-1",
-                      class_name: "Trainer",
-                      state: "ALIVE",
-                    },
-                  ],
+                  records: currentActorRecords,
                 },
                 section: "actors",
                 source_status: "ok",
@@ -335,10 +341,10 @@ describe("RayDashboard", () => {
       </Wrapper>,
     );
 
-    expect(await screen.findByText("CPU used")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByText("84 %").length).toBeGreaterThan(0));
-    expect(screen.getAllByText("27.8 GiB").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("peak during task run")).toHaveLength(2);
+    expect(await screen.findByText("CPU TOTAL")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("42").length).toBeGreaterThan(0));
+    expect(screen.getAllByText("116 GB").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("cluster resources")).toHaveLength(2);
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("1 finished / 1 running")).toBeInTheDocument();
 
@@ -369,15 +375,52 @@ describe("RayDashboard", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
 
-    expect(await screen.findByText("Trainer")).toBeInTheDocument();
+    expect(await screen.findByText("node-1")).toBeInTheDocument();
     expect(screen.getByText("actor-1")).toBeInTheDocument();
+    expect(screen.getByText("10.0.0.1")).toBeInTheDocument();
+    expect(screen.getAllByText("job-id").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ALIVE").length).toBeGreaterThan(0);
+    expect(screen.getByRole("columnheader", { name: "node_id" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "actor_id" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "actor_ip" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "state" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "job_id" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "class_name" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Trainer")).not.toBeInTheDocument();
     expect(screen.getByText("Actor CPU leaderboard")).toBeInTheDocument();
     expect(screen.getByText("trainer-1")).toBeInTheDocument();
     expect(screen.getByText("91 %")).toBeInTheDocument();
     expect(screen.getByText("Actor memory leaderboard")).toBeInTheDocument();
     expect(screen.getByText("loader-2")).toBeInTheDocument();
-    expect(screen.getByText("2,048 MiB")).toBeInTheDocument();
+    expect(screen.getByText("2 GB")).toBeInTheDocument();
+  });
+
+  it("paginates actor records on the client with 50 rows per page", async () => {
+    currentActorRecords = Array.from({ length: 51 }, (_, index) => ({
+      actor_id: `actor-${index + 1}`,
+      actor_ip: `10.0.0.${index + 1}`,
+      job_id: "job-id",
+      node_id: `node-${index + 1}`,
+      state: "ALIVE",
+    }));
+
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
+
+    expect(await screen.findByText("actor-50")).toBeInTheDocument();
+    expect(screen.queryByText("actor-51")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1-50 of 51 actors")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("actor-table-next"));
+
+    expect(await screen.findByText("actor-51")).toBeInTheDocument();
+    expect(screen.queryByText("actor-1")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 51-51 of 51 actors")).toBeInTheDocument();
   });
 
   it("renders empty actor ranking states", async () => {

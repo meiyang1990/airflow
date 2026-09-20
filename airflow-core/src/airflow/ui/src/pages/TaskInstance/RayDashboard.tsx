@@ -16,7 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Box, Button, Code, Flex, Heading, Link, SimpleGrid, Spinner, Table, Text } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Code,
+  Flex,
+  Heading,
+  HStack,
+  Link,
+  SimpleGrid,
+  Spinner,
+  Table,
+  Text,
+} from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
@@ -39,6 +51,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 
 import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { OpenAPI } from "openapi/requests/core/OpenAPI";
+import { Pagination } from "src/components/ui/Pagination";
 import { SearchParamsKeys } from "src/constants/searchParams";
 import {
   getRayDashboardAvailability,
@@ -140,9 +153,24 @@ const TABLE_KEYS = [
 const STATE_KEYS = ["state", "status", "job_status", "actor_state", "task_status"];
 const TASK_STATE_KEYS = ["state", "status", "task_status", "scheduling_state"];
 const ACTOR_STATE_KEYS = ["state", "status", "actor_state"];
+const ACTOR_TABLE_PAGE_SIZE = 50;
+const ACTOR_TABLE_COLUMNS = ["node_id", "actor_id", "actor_ip", "state", "job_id"] as const;
+const ACTOR_FIELD_ALIASES: Record<(typeof ACTOR_TABLE_COLUMNS)[number], Array<string>> = {
+  actor_id: ["actor_id", "ActorID", "id"],
+  actor_ip: ["actor_ip", "actorIp", "actorIPAddress", "ip", "ip_address", "node_ip_address"],
+  job_id: ["job_id", "JobID"],
+  node_id: ["node_id", "NodeID"],
+  state: ["state", "status", "actor_state"],
+};
 const CPU_METRIC_PATTERN = /(?:^|_)(?:cpu|cpus)(?:_|$)|cpu_utilization/u;
 const MEMORY_METRIC_PATTERN = /(?:memory|mem)(?:_|$)/u;
 const OBJECT_STORE_METRIC_PATTERN = /object_store|object_spill/u;
+const MEMORY_VALUE_KEY_PATTERN = /(?:memory|mem|rss|uss|object_store|object_spill)/iu;
+const BYTE_UNITS = new Set(["b", "byte", "bytes"]);
+const MB_UNITS = new Set(["mb", "mib"]);
+const GB_UNITS = new Set(["gb", "gib"]);
+const BYTES_PER_MB = 1024 * 1024;
+const BYTES_PER_GB = 1024 * BYTES_PER_MB;
 const TASK_METRIC_PATTERN = /(?:^|_)tasks?(?:_|$)/u;
 const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
 const MAX_METRIC_ROWS_PER_NAME = 100;
@@ -301,12 +329,99 @@ const formatValue = (value: unknown): string => {
   return renderJson(value);
 };
 
+const normalizeUnit = (unit?: string | null) => unit?.trim().toLowerCase();
+
+const formatDecimal = (value: number) =>
+  Number.isInteger(value)
+    ? value.toLocaleString()
+    : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+const formatMetricValue = (value: number, unit?: string | null) =>
+  `${formatValue(value)}${unit === undefined || unit === null ? "" : ` ${unit}`}`;
+
+const getMemoryBytes = (value: number, unit?: string | null) => {
+  const normalizedUnit = normalizeUnit(unit);
+
+  if (normalizedUnit === undefined || BYTE_UNITS.has(normalizedUnit)) {
+    return value;
+  }
+
+  if (MB_UNITS.has(normalizedUnit)) {
+    return value * BYTES_PER_MB;
+  }
+
+  if (GB_UNITS.has(normalizedUnit)) {
+    return value * BYTES_PER_GB;
+  }
+
+  return undefined;
+};
+
+const formatMemoryValue = (value: number, unit?: string | null) => {
+  const bytes = getMemoryBytes(value, unit);
+
+  if (bytes === undefined) {
+    return formatMetricValue(value, unit);
+  }
+
+  if (Math.abs(bytes) >= BYTES_PER_GB) {
+    return `${formatDecimal(bytes / BYTES_PER_GB)} GB`;
+  }
+
+  return `${formatDecimal(bytes / BYTES_PER_MB)} MB`;
+};
+
+const isMemoryValueKey = (key: string) => MEMORY_VALUE_KEY_PATTERN.test(key.toLowerCase());
+
+const isMemoryMetricSample = (sample: MetricSample) =>
+  isMemoryValueKey(sample.metric_name) && normalizeUnit(sample.metric_unit) !== "%";
+
+const getMetricComparableValue = (sample: MetricSample) =>
+  isMemoryMetricSample(sample)
+    ? (getMemoryBytes(sample.value, sample.metric_unit) ?? sample.value)
+    : sample.value;
+
+const getMemoryChartUnit = (samples: Array<MetricSample>, metricName: string) => {
+  const memoryBytes = samples
+    .filter((sample) => sample.metric_name === metricName && isMemoryMetricSample(sample))
+    .map((sample) => Math.abs(getMemoryBytes(sample.value, sample.metric_unit) ?? sample.value));
+  const maxBytes = Math.max(...memoryBytes);
+
+  return maxBytes >= BYTES_PER_GB ? "GB" : "MB";
+};
+
+const getMetricChartValue = (sample: MetricSample | undefined, chartUnit: string | undefined) => {
+  if (sample === undefined) {
+    return Number.NaN;
+  }
+
+  if (!isMemoryMetricSample(sample) || chartUnit === undefined) {
+    return sample.value;
+  }
+
+  const bytes = getMemoryBytes(sample.value, sample.metric_unit);
+
+  if (bytes === undefined) {
+    return sample.value;
+  }
+
+  return chartUnit === "GB" ? bytes / BYTES_PER_GB : bytes / BYTES_PER_MB;
+};
+
 const formatTableValue = (key: string, value: unknown): string =>
-  typeof value === "string" && TIME_LIKE_FIELD_PATTERN.test(key) ? formatUtcPlus8(value) : formatValue(value);
+  typeof value === "string" && TIME_LIKE_FIELD_PATTERN.test(key)
+    ? formatUtcPlus8(value)
+    : typeof value === "number" && isMemoryValueKey(key)
+      ? formatMemoryValue(value)
+      : formatValue(value);
 
 const formatJsonValueForDisplay = (value: unknown, key = ""): unknown => {
   if (typeof value === "string") {
     return TIME_LIKE_FIELD_PATTERN.test(key) ? formatUtcPlus8(value) : value;
+  }
+
+  if (typeof value === "number" && isMemoryValueKey(key)) {
+    return formatMemoryValue(value);
   }
 
   if (Array.isArray(value)) {
@@ -353,6 +468,15 @@ const getNumericField = (row: JsonRecord, keys: Array<string>) =>
 const sumNumericFields = (rows: Array<JsonRecord>, keys: Array<string>) =>
   rows.reduce((total, row) => total + (getNumericField(row, keys) ?? 0), 0);
 
+const getClusterResourceTotals = (rows: Array<JsonRecord>) => {
+  const resourceRow = rows.find((row) => row.id === "cluster_resources");
+
+  return {
+    cpu: resourceRow === undefined ? undefined : getNumericField(resourceRow, ["CPU", "cpu"]),
+    memory: resourceRow === undefined ? undefined : getNumericField(resourceRow, ["memory", "Memory"]),
+  };
+};
+
 const getMetricSamplesByPattern = (samples: Array<MetricSample>, pattern: RegExp) =>
   samples.filter((sample) => pattern.test(sample.metric_name.toLowerCase()));
 
@@ -362,15 +486,16 @@ const getLatestMetricSample = (samples: Array<MetricSample>, pattern: RegExp) =>
   )[0];
 
 const getPeakMetricSample = (samples: Array<MetricSample>, pattern: RegExp) =>
-  getMetricSamplesByPattern(samples, pattern).sort((left, right) => right.value - left.value)[0];
-
-const formatMetricValue = (value: number, unit?: string | null) =>
-  `${formatValue(value)}${unit === undefined || unit === null ? "" : ` ${unit}`}`;
+  getMetricSamplesByPattern(samples, pattern).sort(
+    (left, right) => getMetricComparableValue(right) - getMetricComparableValue(left),
+  )[0];
 
 const formatMetricSample = (sample: MetricSample | undefined) =>
   sample === undefined
     ? "-"
-    : formatMetricValue(sample.value, sample.metric_unit);
+    : isMemoryMetricSample(sample)
+      ? formatMemoryValue(sample.value, sample.metric_unit)
+      : formatMetricValue(sample.value, sample.metric_unit);
 
 const getMetricTrend = (samples: Array<MetricSample>, metricName: string) => {
   const metricSamples = samples
@@ -503,9 +628,7 @@ const isNodeResourceKey = (key: string) => key.startsWith(NODE_RESOURCE_PREFIX);
 const getNodeAddressFromResourceKey = (key: string) => key.slice(NODE_RESOURCE_PREFIX.length);
 
 const getClusterResourceRows = (rows: Array<JsonRecord>) =>
-  rows.map((row) =>
-    Object.fromEntries(Object.entries(row).filter(([key]) => !isNodeResourceKey(key))),
-  );
+  rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => !isNodeResourceKey(key))));
 
 const getClusterNodeRows = (rows: Array<JsonRecord>) => {
   const nodesByAddress = rows.reduce<Map<string, JsonRecord>>((nodes, row) => {
@@ -809,6 +932,86 @@ const GenericSectionTable = ({
   );
 };
 
+const getActorTableValue = (row: JsonRecord, column: (typeof ACTOR_TABLE_COLUMNS)[number]) => {
+  const value = ACTOR_FIELD_ALIASES[column]
+    .map((key) => row[key])
+    .find((candidate) => candidate !== undefined && candidate !== null && candidate !== "");
+
+  return formatTableValue(column, value);
+};
+
+const ActorTable = ({
+  emptyText,
+  rows,
+}: {
+  readonly emptyText: string;
+  readonly rows: Array<JsonRecord>;
+}) => {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / ACTOR_TABLE_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * ACTOR_TABLE_PAGE_SIZE;
+  const pageRows = rows.slice(startIndex, startIndex + ACTOR_TABLE_PAGE_SIZE);
+
+  if (rows.length === 0) {
+    return <Text color={RAY_COLORS.muted}>{emptyText}</Text>;
+  }
+
+  return (
+    <Flex direction="column" gap={3}>
+      <RayTable>
+        <Table.Header>
+          <Table.Row>
+            {ACTOR_TABLE_COLUMNS.map((column) => (
+              <Table.ColumnHeader key={column}>{column}</Table.ColumnHeader>
+            ))}
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {pageRows.map((row, index) => (
+            // eslint-disable-next-line react/no-array-index-key
+            <Table.Row key={`${getActorTableValue(row, "actor_id")}-${startIndex + index}`}>
+              {ACTOR_TABLE_COLUMNS.map((column) => (
+                <Table.Cell
+                  key={column}
+                  maxW="280px"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                >
+                  {getActorTableValue(row, column)}
+                </Table.Cell>
+              ))}
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </RayTable>
+      {rows.length > ACTOR_TABLE_PAGE_SIZE ? (
+        <Flex alignItems="center" justifyContent="space-between" wrap="wrap">
+          <Text color={RAY_COLORS.muted} fontSize="11px">
+            Showing {formatValue(startIndex + 1)}-{formatValue(startIndex + pageRows.length)} of{" "}
+            {formatValue(rows.length)} actors
+          </Text>
+          <Pagination.Root
+            count={rows.length}
+            onPageChange={(event) => setPage(event.page)}
+            page={currentPage}
+            pageSize={ACTOR_TABLE_PAGE_SIZE}
+            siblingCount={1}
+            size="xs"
+          >
+            <HStack>
+              <Pagination.PrevTrigger data-testid="actor-table-prev" />
+              <Pagination.Items />
+              <Pagination.NextTrigger data-testid="actor-table-next" />
+            </HStack>
+          </Pagination.Root>
+        </Flex>
+      ) : undefined}
+    </Flex>
+  );
+};
+
 const MetricSampleTable = ({
   metricName,
   samples,
@@ -873,8 +1076,7 @@ const MetricSampleTables = ({ samples }: { readonly samples: Array<MetricSample>
   );
 };
 
-const getActorRankingName = (row: ActorRankingRow) =>
-  row.actor_name ?? row.actor_id ?? row.actor_key;
+const getActorRankingName = (row: ActorRankingRow) => row.actor_name ?? row.actor_id ?? row.actor_key;
 
 const ActorResourceRankingTable = ({
   emptyText,
@@ -912,7 +1114,12 @@ const ActorResourceRankingTable = ({
           {rows.slice(0, MAX_ACTOR_RANKING_ROWS).map((row) => (
             <Table.Row key={`${row.actor_key}-${row.metric_name}-${row.sampled_at}`}>
               <Table.Cell>{getActorRankingName(row)}</Table.Cell>
-              <Table.Cell>{formatMetricValue(row.value, row.metric_unit)}</Table.Cell>
+              <Table.Cell>
+                {MEMORY_VALUE_KEY_PATTERN.test(row.metric_name.toLowerCase()) &&
+                normalizeUnit(row.metric_unit) !== "%"
+                  ? formatMemoryValue(row.value, row.metric_unit)
+                  : formatMetricValue(row.value, row.metric_unit)}
+              </Table.Cell>
               <Table.Cell>{row.metric_name}</Table.Cell>
               <Table.Cell>{formatUtcPlus8(row.sampled_at)}</Table.Cell>
               <Table.Cell>
@@ -933,17 +1140,29 @@ const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => 
   const metricNames = [...new Set(samples.map((sample) => sample.metric_name))].slice(0, 4);
   const labels = [...new Set(samples.map((sample) => sample.sampled_at))].sort();
   const colors = ["#2563eb", "#16a34a", "#d97706", "#7c3aed"];
+  const chartUnitsByMetricName = Object.fromEntries(
+    metricNames.map((metricName) => [
+      metricName,
+      samples.some((sample) => sample.metric_name === metricName && isMemoryMetricSample(sample))
+        ? getMemoryChartUnit(samples, metricName)
+        : undefined,
+    ]),
+  );
   const data: ChartData<"line"> = {
     datasets: metricNames.map((metricName, index) => ({
       backgroundColor: `${colors[index] ?? colors[0]}22`,
       borderColor: colors[index] ?? colors[0],
-      data: labels.map(
-        (label) =>
-          samples.find((sample) => sample.metric_name === metricName && sample.sampled_at === label)?.value ??
-          Number.NaN,
+      data: labels.map((label) =>
+        getMetricChartValue(
+          samples.find((sample) => sample.metric_name === metricName && sample.sampled_at === label),
+          chartUnitsByMetricName[metricName],
+        ),
       ),
       fill: false,
-      label: metricName,
+      label:
+        chartUnitsByMetricName[metricName] === undefined
+          ? metricName
+          : `${metricName} (${chartUnitsByMetricName[metricName]})`,
       pointRadius: 2,
       tension: 0.25,
     })),
@@ -1161,6 +1380,7 @@ export const RayDashboard = () => {
   const activeRows = getRowsFromPayload(activeSnapshot?.payload);
   const activeStates = countStates(activeRows);
   const clusterRows = getRowsFromPayload(snapshotBySection.cluster?.payload);
+  const clusterResourceTotals = getClusterResourceTotals(clusterRows);
   const clusterResourceRows = getClusterResourceRows(clusterRows);
   const clusterNodeRows = getClusterNodeRows(clusterRows);
   const samples = metricSamples?.samples ?? [];
@@ -1358,14 +1578,18 @@ export const RayDashboard = () => {
               value={formatValue(dashboard.ray_submission_id ?? dashboard.ray_job_id)}
             />
             <SummaryCard
-              label="CPU used"
-              meta="peak during task run"
-              value={formatMetricSample(cpuSample)}
+              label="CPU TOTAL"
+              meta="cluster resources"
+              value={formatValue(clusterResourceTotals.cpu)}
             />
             <SummaryCard
-              label="Memory"
-              meta="peak during task run"
-              value={formatMetricSample(memorySample)}
+              label="MEMORY TOTAL"
+              meta="cluster resources"
+              value={
+                clusterResourceTotals.memory === undefined
+                  ? "-"
+                  : formatMemoryValue(clusterResourceTotals.memory)
+              }
             />
             <SummaryCard
               label="Tasks"
@@ -1554,7 +1778,7 @@ export const RayDashboard = () => {
                     value={actorCpu === 0 ? "-" : formatValue(actorCpu)}
                   />
                 </SimpleGrid>
-                <GenericSectionTable emptyText="暂无 Actor records。" rows={actorRows} />
+                <ActorTable emptyText="暂无 Actor records。" rows={actorRows} />
                 <Box mt={4}>
                   <Flex direction="column" gap={3}>
                     <ActorResourceRankingTable
