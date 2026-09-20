@@ -55,7 +55,11 @@ it to the task-instance-scoped Execution API with the current task attempt ident
 
 .. code-block:: python
 
-   from airflow.sdk.execution_time.ray_dashboard import publish_metadata, publish_snapshot
+   from airflow.sdk.execution_time.ray_dashboard import (
+       publish_metadata,
+       publish_prometheus_metric_samples,
+       publish_snapshot,
+   )
 
    publish_metadata(
        dashboard_url="https://ray.example.com",
@@ -63,6 +67,7 @@ it to the task-instance-scoped Execution API with the current task attempt ident
        collector_status="ok",
    )
    publish_snapshot(section="jobs", payload={"running": 1}, source_status="ok")
+   publish_prometheus_metric_samples("http://ray-head:8080/metrics")
 
 Tasks do not need direct access to the Execution API token. The raw task-instance-scoped endpoints
 for the current task attempt are:
@@ -108,10 +113,14 @@ Sampling and retention
 ----------------------
 
 Metric samples are stored in MySQL through the Airflow metadata database, so collectors should keep
-sampling bounded. Recommended defaults are:
+sampling bounded. By default, the Task SDK Prometheus helper collects every finite numeric sample
+returned by the Ray metrics endpoint, including Ray system metrics such as node disk, CPU, memory,
+network, and workload metrics. Deployments that need a smaller footprint can pass a metric-name
+filter to the helper. Recommended defaults are:
 
 * Sample every 15 to 60 seconds while the Ray job is running.
-* Publish only a metric allowlist needed by the Airflow task instance tab.
+* Scrape all Ray metric endpoint samples by default, or configure a metric-name filter when storage
+  volume needs to be reduced.
 * Keep each metric batch below the configured API limit.
 * Publish a final snapshot and final metric batch before the task exits.
 * Retain detailed samples only for the operational period required by the deployment.

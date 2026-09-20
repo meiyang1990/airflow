@@ -62,7 +62,7 @@ Ray's official Dashboard contains multiple data areas: Overview, Jobs, Cluster, 
 
 6. Collect metrics directly and store Airflow-owned samples.
 
-   The collector periodically samples Ray metrics while the Ray job is running and writes those samples through the Execution API. The UI charts are built from MySQL-backed metric sample queries. Sampling interval, metric allowlist, retention period, and maximum samples per task attempt are configurable. This keeps the feature self-contained and avoids Prometheus/Grafana, while accepting that Airflow will show bounded task-level metrics rather than an unlimited observability history.
+   The collector periodically samples Ray metrics while the Ray job is running and writes those samples through the Execution API. The UI charts are built from MySQL-backed metric sample queries. The default Task SDK helper scrapes all finite numeric samples exposed by the Ray Prometheus-format metrics endpoint without requiring a Prometheus server. Sampling interval, optional metric-name filtering, retention period, and maximum samples per task attempt are configurable. This keeps the feature self-contained and avoids Prometheus/Grafana, while accepting that Airflow will show bounded task-level metrics rather than an unlimited observability history.
 
    Alternative considered: using Prometheus/Grafana for metrics. That provides a stronger time-series backend and ready-made charts, but it adds infrastructure dependencies that this direction explicitly avoids.
 
@@ -99,6 +99,6 @@ Rollback removes the UI route/tab and API endpoints first, then drops the tables
 
 - Should there also be an authenticated public POST endpoint for external Ray launchers or collectors that are not running inside an Airflow task?
 - Which collector is responsible for fetching official Ray Dashboard sources: the Ray task/operator itself, a sidecar process, or an Airflow-triggered collector running in the task context?
-- Which Ray metric names should be in the default allowlist for direct sampling?
+- Which metric names should deployment-specific filters keep when operators need to reduce metric storage volume?
 - What sampling interval and retention defaults should apply for metric samples and logs in MySQL?
 - Should the feature be behind a configuration flag for deployments that do not use Ray?

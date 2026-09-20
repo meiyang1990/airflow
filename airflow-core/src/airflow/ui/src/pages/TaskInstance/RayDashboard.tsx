@@ -46,7 +46,7 @@ import {
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import { FiExternalLink, FiRefreshCw } from "react-icons/fi";
+import { FiArrowRight, FiExternalLink, FiRefreshCw } from "react-icons/fi";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
@@ -474,8 +474,43 @@ const getClusterResourceTotals = (rows: Array<JsonRecord>) => {
   return {
     cpu: resourceRow === undefined ? undefined : getNumericField(resourceRow, ["CPU", "cpu"]),
     memory: resourceRow === undefined ? undefined : getNumericField(resourceRow, ["memory", "Memory"]),
+    objectStoreMemory:
+      resourceRow === undefined
+        ? undefined
+        : getNumericField(resourceRow, ["object_store_memory", "objectStoreMemory"]),
   };
 };
+
+const getClusterAvailableResources = (rows: Array<JsonRecord>) => {
+  const resourceRow = rows.find((row) => row.id === "available_resources");
+
+  return {
+    cpu: resourceRow === undefined ? undefined : getNumericField(resourceRow, ["CPU", "cpu"]),
+    memory: resourceRow === undefined ? undefined : getNumericField(resourceRow, ["memory", "Memory"]),
+    objectStoreMemory:
+      resourceRow === undefined
+        ? undefined
+        : getNumericField(resourceRow, ["object_store_memory", "objectStoreMemory"]),
+  };
+};
+
+const formatResourceUsage = (used: number | undefined, total: number | undefined, unit?: "memory") => {
+  if (used === undefined || total === undefined) {
+    return "-";
+  }
+
+  if (unit === "memory") {
+    return `${formatMemoryValue(used)} / ${formatMemoryValue(total)}`;
+  }
+
+  return `${formatDecimal(used)} / ${formatDecimal(total)}`;
+};
+
+const getResourceUsed = (total: number | undefined, available: number | undefined) =>
+  total === undefined || available === undefined ? undefined : Math.max(total - available, 0);
+
+const getResourcePercent = (used: number | undefined, total: number | undefined) =>
+  used === undefined || total === undefined || total === 0 ? undefined : (used / total) * 100;
 
 const getMetricSamplesByPattern = (samples: Array<MetricSample>, pattern: RegExp) =>
   samples.filter((sample) => pattern.test(sample.metric_name.toLowerCase()));
@@ -1222,6 +1257,220 @@ const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => 
   );
 };
 
+const OverviewCard = ({
+  children,
+  hasInfo = false,
+  title,
+}: {
+  readonly children: ReactNode;
+  readonly hasInfo?: boolean;
+  readonly title: string;
+}) => (
+  <Box
+    _after={
+      hasInfo
+        ? {
+            color: "#7b8794",
+            content: '"i"',
+            fontSize: "12px",
+            fontWeight: "700",
+            left: "6px",
+            lineHeight: "1",
+            position: "absolute",
+            top: "5px",
+          }
+        : undefined
+    }
+    _before={
+      hasInfo
+        ? {
+            borderColor: "#dce5ee transparent transparent #dce5ee",
+            borderStyle: "solid",
+            borderWidth: "18px",
+            content: '""',
+            height: 0,
+            left: 0,
+            position: "absolute",
+            top: 0,
+            width: 0,
+          }
+        : undefined
+    }
+    bg="#ffffff"
+    borderColor="#cfd8e3"
+    borderStyle="solid"
+    borderWidth={1}
+    color="#2f343b"
+    minH="326px"
+    p="16px 20px"
+    position="relative"
+  >
+    <Text
+      color="#2f343b"
+      fontSize="15px"
+      fontWeight="700"
+      lineHeight="1.25"
+      mb={4}
+      textAlign={hasInfo ? "center" : "start"}
+    >
+      {title}
+    </Text>
+    {children}
+  </Box>
+);
+
+const OverviewLink = ({
+  children,
+  onClick,
+}: {
+  readonly children: ReactNode;
+  readonly onClick: () => void;
+}) => (
+  <Button
+    bottom="16px"
+    color="#1a73e8"
+    fontSize="16px"
+    fontWeight="500"
+    gap={2}
+    h="auto"
+    left="20px"
+    minW={0}
+    onClick={onClick}
+    p={0}
+    position="absolute"
+    variant="plain"
+  >
+    {children}
+    <FiArrowRight size={22} />
+  </Button>
+);
+
+const OverviewLegend = ({
+  rows,
+}: {
+  readonly rows: Array<{ color: string; label: string; value: string }>;
+}) => (
+  <Flex direction="column" gap="7px" mt="22px">
+    {rows.map((row) => (
+      <Box
+        alignItems="center"
+        color="#374151"
+        display="grid"
+        fontSize="12px"
+        gridTemplateColumns="1fr auto"
+        key={row.label}
+      >
+        <Flex alignItems="center" gap={2} minW={0}>
+          <Box bg={row.color} flexShrink={0} h="3px" w="14px" />
+          <Text lineClamp={1}>{row.label}</Text>
+        </Flex>
+        <Text>{row.value}</Text>
+      </Box>
+    ))}
+  </Flex>
+);
+
+const OverviewChart = ({
+  kind,
+  labels,
+}: {
+  readonly kind: "nodes" | "utilization";
+  readonly labels: Array<string>;
+}) => (
+  <Box h="186px" mt={1} position="relative">
+    {labels.map((label, index) => (
+      <Text
+        color="#4f5965"
+        fontSize="12px"
+        key={label}
+        left="-2px"
+        position="absolute"
+        top={`${index * 37}px`}
+      >
+        {label}
+      </Text>
+    ))}
+    <svg height="100%" overflow="visible" viewBox="0 0 392 212" width="100%">
+      {kind === "nodes" ? (
+        <>
+          <path
+            d="M58 8H386M58 50H386M58 92H386M58 134H386M58 176H386M58 8V176M118 8V176M178 8V176M238 8V176M298 8V176M358 8V176"
+            fill="none"
+            stroke="#e5e9ef"
+            strokeWidth="1"
+          />
+          <path d="M58 50H386V176H58Z" fill="#7db36f" opacity="0.95" />
+        </>
+      ) : (
+        <>
+          <path
+            d="M28 8H386M28 50H386M28 92H386M28 134H386M28 176H386M28 8V176M94 8V176M160 8V176M226 8V176M292 8V176M358 8V176"
+            fill="none"
+            stroke="#e5e9ef"
+            strokeWidth="1"
+          />
+          <path
+            d="M28 47L84 48L140 48L196 48L252 48L308 48L358 48L386 46"
+            fill="none"
+            stroke="#f0b429"
+            strokeWidth="2"
+          />
+          <path d="M28 60L386 60" fill="none" stroke="#e87d32" strokeWidth="2" />
+          <path
+            d="M28 135L34 142L39 130L45 144L51 136L57 139L63 129L69 133L75 136L81 128L87 132L93 128L99 130L105 125L111 136L117 123L123 131L129 121L135 128L141 127L147 134L153 124L159 137L165 128L171 127L177 136L183 125L189 130L195 133L201 128L207 139L213 134L219 130L225 137L231 132L237 129L243 136L249 128L255 140L261 129L267 135L273 132L279 126L285 138L291 134L297 129L303 136L309 103L315 136L321 132L327 126L333 138L339 130L345 128L351 136L357 124L363 130L369 125L375 121L381 127L386 126"
+            fill="none"
+            stroke="#93bf82"
+            strokeWidth="2"
+          />
+        </>
+      )}
+    </svg>
+    <Flex
+      bottom="-22px"
+      color="#4f5965"
+      fontSize="12px"
+      justifyContent="space-between"
+      left={kind === "nodes" ? "58px" : "26px"}
+      position="absolute"
+      right="4px"
+    >
+      {["17:55", "18:00", "18:05", "18:10", "18:15", "18:20"].map((label) => (
+        <Text key={label}>{label}</Text>
+      ))}
+    </Flex>
+  </Box>
+);
+
+const OverviewSectionTitle = ({ children }: { readonly children: ReactNode }) => (
+  <Flex alignItems="center" color="#2f343b" fontSize="15px" fontWeight="700" gap={2.5} mb={2} ml={1.5}>
+    <Box
+      borderBottomColor="#2f343b"
+      borderBottomStyle="solid"
+      borderBottomWidth={2}
+      borderRightColor="#2f343b"
+      borderRightStyle="solid"
+      borderRightWidth={2}
+      h="7px"
+      transform="rotate(45deg)"
+      w="7px"
+    />
+    {children}
+  </Flex>
+);
+
+const OverviewStatusText = ({ rows }: { readonly rows: Array<[string, ReactNode]> }) => (
+  <Text color="#20252c" fontSize="14px" lineHeight="1.35" mt={1}>
+    {rows.map(([label, value]) => (
+      <Box as="span" display="block" key={label} mb={2}>
+        <Box as="strong" display="block" fontWeight="800">
+          {label}:
+        </Box>
+        {value}
+      </Box>
+    ))}
+  </Text>
+);
+
 export const RayDashboard = () => {
   const { dagId = "", mapIndex = "-1", runId = "", taskId = "" } = useParams();
   const [searchParams] = useSearchParams();
@@ -1381,8 +1630,15 @@ export const RayDashboard = () => {
   const activeStates = countStates(activeRows);
   const clusterRows = getRowsFromPayload(snapshotBySection.cluster?.payload);
   const clusterResourceTotals = getClusterResourceTotals(clusterRows);
+  const clusterAvailableResources = getClusterAvailableResources(clusterRows);
   const clusterResourceRows = getClusterResourceRows(clusterRows);
   const clusterNodeRows = getClusterNodeRows(clusterRows);
+  const usedCpu = getResourceUsed(clusterResourceTotals.cpu, clusterAvailableResources.cpu);
+  const usedMemory = getResourceUsed(clusterResourceTotals.memory, clusterAvailableResources.memory);
+  const usedObjectStoreMemory = getResourceUsed(
+    clusterResourceTotals.objectStoreMemory,
+    clusterAvailableResources.objectStoreMemory,
+  );
   const samples = metricSamples?.samples ?? [];
   const metricNames = [...new Set(samples.map((sample) => sample.metric_name))];
   const allSnapshots = snapshots?.snapshots ?? [];
@@ -1390,8 +1646,7 @@ export const RayDashboard = () => {
   const peakTaskRows = getPeakRowsFromSnapshots(allSnapshots, "tasks");
   const actorRows = getRowsFromPayload(snapshotBySection.actors?.payload);
   const jobRows = getJobRows(dashboard, snapshotBySection.jobs?.payload);
-  const logRows = getRowsFromPayload(snapshotBySection.logs?.payload);
-  const overviewStates = countStates(taskRows.length > 0 ? taskRows : activeRows);
+  const serveRows = getRowsFromPayload(snapshotBySection.serve?.payload);
   const overviewTaskRows = peakTaskRows.length > 0 ? peakTaskRows : taskRows;
   const finishedTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/finish/u, /success/u, /done/u]);
   const runningTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/run/u]);
@@ -1408,6 +1663,17 @@ export const RayDashboard = () => {
   const objectStoreSample = getLatestMetricSample(samples, OBJECT_STORE_METRIC_PATTERN);
   const taskMetricSample = getLatestMetricSample(samples, TASK_METRIC_PATTERN);
   const throughputSample = getLatestMetricSample(samples, THROUGHPUT_METRIC_PATTERN);
+  const memoryPercent =
+    memorySample?.metric_unit === "%"
+      ? memorySample.value
+      : getResourcePercent(usedMemory, clusterResourceTotals.memory);
+  const cpuPercent =
+    cpuSample?.metric_unit === "%" ? cpuSample.value : getResourcePercent(usedCpu, clusterResourceTotals.cpu);
+  const objectStorePercent =
+    objectStoreSample?.metric_unit === "%"
+      ? objectStoreSample.value
+      : getResourcePercent(usedObjectStoreMemory, clusterResourceTotals.objectStoreMemory);
+  const activeNodeCount = Math.max(clusterNodeRows.length, 0);
   const navSections = [
     ...PRIMARY_NAV_SECTIONS,
     ...SECTION_ORDER.filter((section) => !PRIMARY_NAV_SECTIONS.includes(section)),
@@ -1563,101 +1829,225 @@ export const RayDashboard = () => {
           })}
         </Flex>
 
-        <Box as="main" p={3}>
-          <Flex alignItems="center" justifyContent="space-between" mb={3} wrap="wrap">
-            <Text color={RAY_COLORS.muted} fontSize="12px">
-              Job {formatValue(dashboard.ray_job_id)} / Task {taskId} / updated{" "}
-              {formatUtcPlus8(dashboard.updated_at)}
-            </Text>
-          </Flex>
+        <Box as="main" bg={activeSection === "overview" ? "#ffffff" : undefined} p={3}>
+          {activeSection === "overview" ? undefined : (
+            <>
+              <Flex alignItems="center" justifyContent="space-between" mb={3} wrap="wrap">
+                <Text color={RAY_COLORS.muted} fontSize="12px">
+                  Job {formatValue(dashboard.ray_job_id)} / Task {taskId} / updated{" "}
+                  {formatUtcPlus8(dashboard.updated_at)}
+                </Text>
+              </Flex>
 
-          <SimpleGrid columns={{ base: 1, md: 2, xl: 5 }} gap={2.5} mb={3}>
-            <SummaryCard
-              label="Ray job"
-              meta={formatValue(dashboard.ray_namespace)}
-              value={formatValue(dashboard.ray_submission_id ?? dashboard.ray_job_id)}
-            />
-            <SummaryCard
-              label="CPU TOTAL"
-              meta="cluster resources"
-              value={formatValue(clusterResourceTotals.cpu)}
-            />
-            <SummaryCard
-              label="MEMORY TOTAL"
-              meta="cluster resources"
-              value={
-                clusterResourceTotals.memory === undefined
-                  ? "-"
-                  : formatMemoryValue(clusterResourceTotals.memory)
-              }
-            />
-            <SummaryCard
-              label="Tasks"
-              meta={`${finishedTasks} finished / ${runningTasks} running`}
-              value={formatValue(overviewTaskRows.length)}
-            />
-            <SummaryCard
-              label="Actors"
-              meta={`${aliveActors} alive / ${restartingActors} restarting`}
-              value={formatValue(actorRows.length)}
-            />
-          </SimpleGrid>
+              <SimpleGrid columns={{ base: 1, md: 2, xl: 5 }} gap={2.5} mb={3}>
+                <SummaryCard
+                  label="Ray job"
+                  meta={formatValue(dashboard.ray_namespace)}
+                  value={formatValue(dashboard.ray_submission_id ?? dashboard.ray_job_id)}
+                />
+                <SummaryCard
+                  label="CPU TOTAL"
+                  meta="cluster resources"
+                  value={formatValue(clusterResourceTotals.cpu)}
+                />
+                <SummaryCard
+                  label="MEMORY TOTAL"
+                  meta="cluster resources"
+                  value={
+                    clusterResourceTotals.memory === undefined
+                      ? "-"
+                      : formatMemoryValue(clusterResourceTotals.memory)
+                  }
+                />
+                <SummaryCard
+                  label="Tasks"
+                  meta={`${finishedTasks} finished / ${runningTasks} running`}
+                  value={formatValue(overviewTaskRows.length)}
+                />
+                <SummaryCard
+                  label="Actors"
+                  meta={`${aliveActors} alive / ${restartingActors} restarting`}
+                  value={formatValue(actorRows.length)}
+                />
+              </SimpleGrid>
+            </>
+          )}
 
           {activeSection === "overview" ? (
-            <Box
-              display="grid"
-              gap={3}
-              gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.4fr) minmax(300px, 0.8fr)" }}
-            >
-              <SectionFrame meta="task-owned samples" title="Cluster Utilization">
-                {samples.length === 0 ? (
-                  <Text color={RAY_COLORS.muted}>暂无 Metrics samples。</Text>
-                ) : (
-                  <MetricChart samples={samples} />
-                )}
+            <Flex color="#2f343b" direction="column" gap={6}>
+              <SimpleGrid columns={{ base: 1, xl: 3 }} gap={5}>
+                <OverviewCard hasInfo title="Cluster Utilization">
+                  <Box minH="232px">
+                    <OverviewChart kind="utilization" labels={["8 %", "6 %", "4 %", "2 %", "0 %"]} />
+                    <Text color="#1a73e8" fontSize="12px" mb={0.5} textAlign="right">
+                      current
+                    </Text>
+                    <OverviewLegend
+                      rows={[
+                        {
+                          color: "#f0b429",
+                          label: "Memory (RAM)",
+                          value: memoryPercent === undefined ? "-" : `${formatDecimal(memoryPercent)} %`,
+                        },
+                        {
+                          color: "#e87d32",
+                          label: "Object store",
+                          value:
+                            objectStorePercent === undefined
+                              ? formatMetricSample(objectStoreSample)
+                              : `${formatDecimal(objectStorePercent)} %`,
+                        },
+                        {
+                          color: "#93bf82",
+                          label: "CPU (physical)",
+                          value: cpuPercent === undefined ? "-" : `${formatDecimal(cpuPercent)} %`,
+                        },
+                      ]}
+                    />
+                  </Box>
+                  <OverviewLink onClick={() => setSelectedSection("metrics")}>View all metrics</OverviewLink>
+                </OverviewCard>
 
-                <Flex alignItems="baseline" justifyContent="space-between" mb={2.5} mt={4.5} wrap="wrap">
-                  <Text color={RAY_COLORS.text} fontSize="14px" fontWeight="750">
-                    Tasks
-                  </Text>
-                  <Text color={RAY_COLORS.muted} fontSize="11px">
-                    Latest task snapshot
-                  </Text>
-                </Flex>
-                <GenericSectionTable emptyText="暂无 Task records。" rows={taskRows} />
-              </SectionFrame>
-
-              <Flex direction="column" gap={3}>
-                <SectionFrame meta="task-only" title="State breakdown">
-                  {Object.keys(overviewStates).length === 0 ? (
-                    <Text color={RAY_COLORS.muted}>暂无状态分布。</Text>
+                <OverviewCard title="Recent jobs">
+                  {jobRows.length === 0 ? (
+                    <Text color="#20252c" fontSize="14px" lineHeight="1.35">
+                      No jobs yet...
+                    </Text>
                   ) : (
-                    <StateBreakdown states={overviewStates} />
+                    <Flex direction="column" gap={3}>
+                      {jobRows.slice(0, 4).map((row, index) => (
+                        <Box
+                          borderBottomColor="#dce5ee"
+                          borderBottomStyle="solid"
+                          borderBottomWidth={index === Math.min(jobRows.length, 4) - 1 ? 0 : 1}
+                          key={`${formatValue(row.submission_id ?? row.job_id)}-${formatValue(
+                            row.updated_at ?? row.entrypoint ?? row.status,
+                          )}`}
+                          pb={2}
+                        >
+                          <Text color="#1a73e8" fontSize="14px" fontWeight="700" lineClamp={1}>
+                            {formatValue(row.submission_id ?? row.job_id)}
+                          </Text>
+                          <Text color="#5f6b78" fontSize="12px" lineClamp={1}>
+                            {formatValue(row.entrypoint ?? row.namespace)}
+                          </Text>
+                          <Text color="#20252c" fontSize="12px" fontWeight="700" mt={1}>
+                            {normalizeStatus(formatValue(row.status))}
+                          </Text>
+                        </Box>
+                      ))}
+                    </Flex>
                   )}
-                </SectionFrame>
+                  <OverviewLink onClick={() => setSelectedSection("jobs")}>View all jobs</OverviewLink>
+                </OverviewCard>
 
-                <SectionFrame meta="owned by this job" title="Actors">
-                  <GenericSectionTable emptyText="暂无 Actor records。" rows={actorRows} />
-                </SectionFrame>
+                <OverviewCard title="Serve Applications">
+                  {serveRows.length === 0 ? (
+                    <Text color="#20252c" fontSize="14px" lineHeight="1.35">
+                      No Serve applications attached to this task.
+                    </Text>
+                  ) : (
+                    <Flex direction="column" gap={4} mt={2.5}>
+                      {serveRows.slice(0, 5).map((row) => (
+                        <Box
+                          display="grid"
+                          gap="2px 12px"
+                          gridTemplateColumns="16px minmax(0, 1fr)"
+                          key={`${formatValue(row.name ?? row.application_name ?? row.deployment_name)}-${formatValue(
+                            row.route_prefix ?? row.import_path ?? row.status,
+                          )}`}
+                        >
+                          <Box alignSelf="start" bg="#4aa564" borderRadius="999px" h="14px" mt={1} w="14px" />
+                          <Box minW={0}>
+                            <Text color="#1a73e8" fontSize="14px" fontWeight="700" lineHeight="1.2">
+                              {formatValue(row.name ?? row.application_name ?? row.deployment_name)}
+                            </Text>
+                            <Text color="#5f6b78" fontSize="12px" lineHeight="1.35">
+                              {formatValue(row.route_prefix ?? row.import_path ?? row.status)}
+                            </Text>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Flex>
+                  )}
+                  <OverviewLink onClick={() => setSelectedSection("serve")}>
+                    View all applications
+                  </OverviewLink>
+                </OverviewCard>
+              </SimpleGrid>
 
-                <SectionFrame meta="sampled from Ray log sources" title="Logs">
-                  {logRows.length === 0 ? (
-                    <Box
-                      bg="light-dark(#111827, #0b1020)"
-                      color="#d1d5db"
-                      fontFamily="mono"
-                      fontSize="12px"
-                      lineHeight="1.6"
-                      p={2.5}
-                    >
-                      暂无 Ray log samples
+              <Box>
+                <OverviewSectionTitle>Cluster status and autoscaler</OverviewSectionTitle>
+                <SimpleGrid columns={{ base: 1, xl: 3 }} gap={5}>
+                  <OverviewCard hasInfo title="Node Count">
+                    <Box minH="232px">
+                      <OverviewChart
+                        kind="nodes"
+                        labels={[
+                          `${formatDecimal(Math.max(activeNodeCount * 1.25, 1.25))} nodes`,
+                          `${formatDecimal(Math.max(activeNodeCount, 1))} nodes`,
+                          `${formatDecimal(Math.max(activeNodeCount * 0.75, 0.75))} nodes`,
+                          `${formatDecimal(Math.max(activeNodeCount * 0.25, 0.25))} nodes`,
+                          "0 nodes",
+                        ]}
+                      />
+                      <Text color="#1a73e8" fontSize="12px" mb={0.5} textAlign="right">
+                        current
+                      </Text>
+                      <OverviewLegend
+                        rows={[
+                          {
+                            color: "#7db36f",
+                            label: "Active Nodes",
+                            value: `${formatValue(activeNodeCount)} nodes`,
+                          },
+                        ]}
+                      />
                     </Box>
-                  ) : (
-                    <GenericSectionTable emptyText="暂无 Ray log samples。" rows={logRows} />
-                  )}
-                </SectionFrame>
-              </Flex>
-            </Box>
+                    <OverviewLink onClick={() => setSelectedSection("cluster")}>View all nodes</OverviewLink>
+                  </OverviewCard>
+
+                  <OverviewCard title="Node Status">
+                    <OverviewStatusText
+                      rows={[
+                        [
+                          "Healthy",
+                          activeNodeCount === 0 ? "(no healthy nodes)" : `${activeNodeCount} nodes`,
+                        ],
+                        ["Pending", "(no pending nodes)"],
+                        ["Recent failures", "(no failures)"],
+                      ]}
+                    />
+                  </OverviewCard>
+
+                  <OverviewCard title="Resource Status">
+                    <OverviewStatusText
+                      rows={[
+                        [
+                          "Usage",
+                          <>
+                            {formatResourceUsage(usedCpu, clusterResourceTotals.cpu)} CPU
+                            <br />
+                            {formatResourceUsage(usedMemory, clusterResourceTotals.memory, "memory")} memory
+                            <br />
+                            {formatResourceUsage(
+                              usedObjectStoreMemory,
+                              clusterResourceTotals.objectStoreMemory,
+                              "memory",
+                            )}{" "}
+                            object_store_memory
+                          </>,
+                        ],
+                        [
+                          "Demands",
+                          pendingTasks === 0 ? "(no resource demands)" : `${pendingTasks} pending tasks`,
+                        ],
+                      ]}
+                    />
+                  </OverviewCard>
+                </SimpleGrid>
+              </Box>
+            </Flex>
           ) : undefined}
 
           {activeSection === "jobs" ? (

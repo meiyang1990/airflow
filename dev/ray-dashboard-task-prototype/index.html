@@ -905,7 +905,7 @@ svg.lucide {
 html&gt;body{padding:0}&lt;/style&gt;
 &lt;/head&gt;
 &lt;body&gt;
-&lt;div id=&quot;ray-task-dashboard-prototype&quot;&gt;
+&lt;div id=&quot;ray-task-dashboard-prototype&quot; data-current-tab=&quot;overview&quot;&gt;
   &lt;style&gt;
     #ray-task-dashboard-prototype {
       --ray-bg: light-dark(#f7f8fb, #111827);
@@ -1163,6 +1163,244 @@ html&gt;body{padding:0}&lt;/style&gt;
       display: grid;
       gap: 12px;
       grid-template-columns: minmax(0, 1.38fr) minmax(300px, 0.82fr);
+    }
+
+    #ray-task-dashboard-prototype[data-current-tab=&quot;overview&quot;] .ray-page-head {
+      display: none;
+    }
+
+    #ray-task-dashboard-prototype[data-current-tab=&quot;overview&quot;] .ray-main {
+      background: #ffffff;
+      padding: 14px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview {
+      color: #2f343b;
+      display: grid;
+      gap: 24px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-card {
+      background: #ffffff;
+      border: 1px solid #cfd8e3;
+      border-radius: 6px;
+      min-height: 326px;
+      padding: 16px 20px;
+      position: relative;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-card[data-info=&quot;true&quot;]::before {
+      border-color: #dce5ee transparent transparent #dce5ee;
+      border-style: solid;
+      border-width: 18px;
+      content: &quot;&quot;;
+      height: 0;
+      left: 0;
+      position: absolute;
+      top: 0;
+      width: 0;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-card[data-info=&quot;true&quot;]::after {
+      color: #7b8794;
+      content: &quot;i&quot;;
+      font-size: 12px;
+      font-weight: 700;
+      left: 6px;
+      line-height: 1;
+      position: absolute;
+      top: 5px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-title {
+      color: #2f343b;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 16px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-title[data-centered=&quot;true&quot;] {
+      text-align: center;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-card-content {
+      min-height: 232px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-empty,
+    #ray-task-dashboard-prototype .ray-overview-text {
+      color: #20252c;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-link {
+      align-items: center;
+      bottom: 16px;
+      color: #1a73e8;
+      display: inline-flex;
+      font-size: 16px;
+      font-weight: 500;
+      gap: 8px;
+      left: 20px;
+      position: absolute;
+      text-decoration: none;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-link span {
+      font-size: 30px;
+      font-weight: 300;
+      line-height: 16px;
+    }
+
+    #ray-task-dashboard-prototype .ray-native-chart {
+      height: 186px;
+      margin-top: 4px;
+      position: relative;
+    }
+
+    #ray-task-dashboard-prototype .ray-native-chart svg {
+      height: 100%;
+      overflow: visible;
+      width: 100%;
+    }
+
+    #ray-task-dashboard-prototype .ray-chart-label {
+      color: #4f5965;
+      font-size: 12px;
+      position: absolute;
+    }
+
+    #ray-task-dashboard-prototype .ray-chart-label[data-y=&quot;1&quot;] { left: -2px; top: 0; }
+    #ray-task-dashboard-prototype .ray-chart-label[data-y=&quot;2&quot;] { left: -2px; top: 37px; }
+    #ray-task-dashboard-prototype .ray-chart-label[data-y=&quot;3&quot;] { left: -2px; top: 74px; }
+    #ray-task-dashboard-prototype .ray-chart-label[data-y=&quot;4&quot;] { left: -2px; top: 111px; }
+    #ray-task-dashboard-prototype .ray-chart-label[data-y=&quot;5&quot;] { left: -2px; top: 148px; }
+
+    #ray-task-dashboard-prototype .ray-chart-x {
+      bottom: -22px;
+      color: #4f5965;
+      display: flex;
+      font-size: 12px;
+      justify-content: space-between;
+      left: 26px;
+      position: absolute;
+      right: 4px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-legend {
+      display: grid;
+      gap: 7px;
+      margin-top: 22px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-legend-row {
+      align-items: center;
+      color: #374151;
+      display: grid;
+      font-size: 12px;
+      grid-template-columns: 1fr auto;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-legend-name {
+      align-items: center;
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-swatch {
+      height: 3px;
+      width: 14px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-current {
+      color: #1a73e8;
+      font-size: 12px;
+      margin-bottom: 3px;
+      text-align: right;
+    }
+
+    #ray-task-dashboard-prototype .ray-serve-list {
+      display: grid;
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    #ray-task-dashboard-prototype .ray-serve-item {
+      display: grid;
+      gap: 2px 12px;
+      grid-template-columns: 16px minmax(0, 1fr);
+    }
+
+    #ray-task-dashboard-prototype .ray-serve-dot {
+      align-self: start;
+      background: #4aa564;
+      border-radius: 999px;
+      height: 14px;
+      margin-top: 4px;
+      position: relative;
+      width: 14px;
+    }
+
+    #ray-task-dashboard-prototype .ray-serve-dot::after {
+      background: #ffffff;
+      border-radius: 999px;
+      content: &quot;&quot;;
+      height: 4px;
+      left: 5px;
+      position: absolute;
+      top: 5px;
+      width: 4px;
+    }
+
+    #ray-task-dashboard-prototype .ray-serve-name {
+      color: #1a73e8;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    #ray-task-dashboard-prototype .ray-serve-route {
+      color: #5f6b78;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-section-title {
+      align-items: center;
+      color: #2f343b;
+      display: flex;
+      font-size: 15px;
+      font-weight: 700;
+      gap: 10px;
+      margin: 0 0 8px 6px;
+    }
+
+    #ray-task-dashboard-prototype .ray-overview-chevron {
+      border-bottom: 2px solid #2f343b;
+      border-right: 2px solid #2f343b;
+      height: 7px;
+      transform: rotate(45deg);
+      width: 7px;
+    }
+
+    #ray-task-dashboard-prototype .ray-status-text {
+      color: #20252c;
+      font-size: 14px;
+      line-height: 1.35;
+      margin-top: 4px;
+    }
+
+    #ray-task-dashboard-prototype .ray-status-text strong {
+      display: block;
+      font-weight: 800;
     }
 
     #ray-task-dashboard-prototype .ray-panel {
@@ -1460,6 +1698,10 @@ html&gt;body{padding:0}&lt;/style&gt;
       #ray-task-dashboard-prototype .ray-summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      #ray-task-dashboard-prototype .ray-overview-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 860px) {
@@ -1527,81 +1769,104 @@ html&gt;body{padding:0}&lt;/style&gt;
         &lt;/div&gt;
 
         &lt;section data-panel=&quot;overview&quot;&gt;
-          &lt;section class=&quot;ray-summary&quot; aria-label=&quot;Task scoped Ray summary&quot;&gt;
-            &lt;div class=&quot;ray-stat&quot;&gt;
-              &lt;div class=&quot;ray-stat-label&quot;&gt;Ray job&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-value&quot;&gt;raysubmit_84f2&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-meta&quot;&gt;namespace airflow&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-stat&quot;&gt;
-              &lt;div class=&quot;ray-stat-label&quot;&gt;CPU used&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-value&quot;&gt;13.4 / 16&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-meta&quot;&gt;logical task resources&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-stat&quot;&gt;
-              &lt;div class=&quot;ray-stat-label&quot;&gt;Memory&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-value&quot;&gt;27.8 GiB&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-meta&quot;&gt;task actors + workers&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-stat&quot;&gt;
-              &lt;div class=&quot;ray-stat-label&quot;&gt;Tasks&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-value&quot;&gt;1,284&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-meta&quot;&gt;1,221 done / 52 running&lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-stat&quot;&gt;
-              &lt;div class=&quot;ray-stat-label&quot;&gt;Actors&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-value&quot;&gt;18&lt;/div&gt;
-              &lt;div class=&quot;ray-stat-meta&quot;&gt;16 alive / 2 restarting&lt;/div&gt;
-            &lt;/div&gt;
-          &lt;/section&gt;
-          &lt;section class=&quot;ray-grid&quot;&gt;
-            &lt;div class=&quot;ray-panel&quot;&gt;
-              &lt;div class=&quot;ray-panel-head&quot;&gt;
-                &lt;div class=&quot;ray-panel-title&quot;&gt;Metrics&lt;/div&gt;
-                &lt;div class=&quot;ray-panel-meta&quot;&gt;Task-owned samples / last 30 min&lt;/div&gt;
-              &lt;/div&gt;
-              &lt;div class=&quot;ray-chart&quot;&gt;
-                &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;y&quot;&gt;usage&lt;/div&gt;
-                &lt;div class=&quot;ray-axis-label&quot; data-axis=&quot;x&quot;&gt;time&lt;/div&gt;
-                &lt;div class=&quot;ray-chart-grid&quot;&gt;
-                  &lt;div class=&quot;ray-line&quot; data-series=&quot;cpu&quot;&gt;&lt;/div&gt;
-                  &lt;div class=&quot;ray-line&quot; data-series=&quot;memory&quot;&gt;&lt;/div&gt;
-                  &lt;div class=&quot;ray-line&quot; data-series=&quot;objects&quot;&gt;&lt;/div&gt;
+          &lt;div class=&quot;ray-overview&quot;&gt;
+            &lt;section class=&quot;ray-overview-grid&quot; aria-label=&quot;Ray overview summary&quot;&gt;
+              &lt;article class=&quot;ray-overview-card&quot; data-info=&quot;true&quot;&gt;
+                &lt;div class=&quot;ray-overview-title&quot; data-centered=&quot;true&quot;&gt;Cluster Utilization&lt;/div&gt;
+                &lt;div class=&quot;ray-overview-card-content&quot;&gt;
+                  &lt;div class=&quot;ray-native-chart&quot; aria-label=&quot;Cluster utilization chart&quot;&gt;
+                    &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;1&quot;&gt;8 %&lt;/span&gt;
+                    &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;2&quot;&gt;6 %&lt;/span&gt;
+                    &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;3&quot;&gt;4 %&lt;/span&gt;
+                    &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;4&quot;&gt;2 %&lt;/span&gt;
+                    &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;5&quot;&gt;0 %&lt;/span&gt;
+                    &lt;svg viewBox=&quot;0 0 392 212&quot; role=&quot;img&quot; aria-hidden=&quot;true&quot;&gt;
+                      &lt;g stroke=&quot;#e5e9ef&quot; stroke-width=&quot;1&quot;&gt;
+                        &lt;path d=&quot;M28 8H386M28 50H386M28 92H386M28 134H386M28 176H386M28 8V176M94 8V176M160 8V176M226 8V176M292 8V176M358 8V176&quot;/&gt;
+                      &lt;/g&gt;
+                      &lt;path d=&quot;M28 47L84 48L140 48L196 48L252 48L308 48L358 48L386 46&quot; fill=&quot;none&quot; stroke=&quot;#f0b429&quot; stroke-width=&quot;2&quot;/&gt;
+                      &lt;path d=&quot;M28 60L386 60&quot; fill=&quot;none&quot; stroke=&quot;#e87d32&quot; stroke-width=&quot;2&quot;/&gt;
+                      &lt;path d=&quot;M28 135L34 142L39 130L45 144L51 136L57 139L63 129L69 133L75 136L81 128L87 132L93 128L99 130L105 125L111 136L117 123L123 131L129 121L135 128L141 127L147 134L153 124L159 137L165 128L171 127L177 136L183 125L189 130L195 133L201 128L207 139L213 134L219 130L225 137L231 132L237 129L243 136L249 128L255 140L261 129L267 135L273 132L279 126L285 138L291 134L297 129L303 136L309 103L315 136L321 132L327 126L333 138L339 130L345 128L351 136L357 124L363 130L369 125L375 121L381 127L386 126&quot; fill=&quot;none&quot; stroke=&quot;#93bf82&quot; stroke-width=&quot;2&quot;/&gt;
+                      &lt;path d=&quot;M28 176H386&quot; fill=&quot;none&quot; stroke=&quot;#52c7df&quot; stroke-width=&quot;2&quot;/&gt;
+                    &lt;/svg&gt;
+                    &lt;div class=&quot;ray-chart-x&quot;&gt;&lt;span&gt;17:55&lt;/span&gt;&lt;span&gt;18:00&lt;/span&gt;&lt;span&gt;18:05&lt;/span&gt;&lt;span&gt;18:10&lt;/span&gt;&lt;span&gt;18:15&lt;/span&gt;&lt;span&gt;18:20&lt;/span&gt;&lt;/div&gt;
+                  &lt;/div&gt;
+                  &lt;div class=&quot;ray-overview-current&quot;&gt;current&amp;#8964;&lt;/div&gt;
+                  &lt;div class=&quot;ray-overview-legend&quot;&gt;
+                    &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#f0b429&quot;&gt;&lt;/span&gt;Memory (RAM)&lt;/span&gt;&lt;span&gt;6.05 %&lt;/span&gt;&lt;/div&gt;
+                    &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#e87d32&quot;&gt;&lt;/span&gt;Disk&lt;/span&gt;&lt;span&gt;5.21 %&lt;/span&gt;&lt;/div&gt;
+                    &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#93bf82&quot;&gt;&lt;/span&gt;CPU (physical)&lt;/span&gt;&lt;span&gt;2.20 %&lt;/span&gt;&lt;/div&gt;
+                  &lt;/div&gt;
                 &lt;/div&gt;
-              &lt;/div&gt;
-              &lt;div class=&quot;ray-legend&quot;&gt;
-                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-blue)&quot;&gt;&lt;/span&gt;CPU&lt;/span&gt;
-                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-green)&quot;&gt;&lt;/span&gt;Memory&lt;/span&gt;
-                &lt;span class=&quot;ray-legend-item&quot;&gt;&lt;span class=&quot;ray-swatch&quot; style=&quot;background: var(--ray-amber)&quot;&gt;&lt;/span&gt;Object store&lt;/span&gt;
-              &lt;/div&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;ray-side-stack&quot;&gt;
-              &lt;div class=&quot;ray-panel&quot;&gt;
-                &lt;div class=&quot;ray-panel-head&quot;&gt;
-                  &lt;div class=&quot;ray-panel-title&quot;&gt;Ray Status&lt;/div&gt;
-                  &lt;div class=&quot;ray-panel-meta&quot;&gt;autoscaler snapshot&lt;/div&gt;
+                &lt;a class=&quot;ray-overview-link&quot; href=&quot;#&quot;&gt;View all metrics &lt;span&gt;&amp;rarr;&lt;/span&gt;&lt;/a&gt;
+              &lt;/article&gt;
+              &lt;article class=&quot;ray-overview-card&quot;&gt;
+                &lt;div class=&quot;ray-overview-title&quot;&gt;Recent jobs&lt;/div&gt;
+                &lt;div class=&quot;ray-overview-empty&quot;&gt;No jobs yet...&lt;/div&gt;
+                &lt;a class=&quot;ray-overview-link&quot; href=&quot;#&quot;&gt;View all jobs &lt;span&gt;&amp;rarr;&lt;/span&gt;&lt;/a&gt;
+              &lt;/article&gt;
+              &lt;article class=&quot;ray-overview-card&quot;&gt;
+                &lt;div class=&quot;ray-overview-title&quot;&gt;Serve Applications&lt;/div&gt;
+                &lt;div class=&quot;ray-serve-list&quot;&gt;
+                  &lt;div class=&quot;ray-serve-item&quot;&gt;&lt;span class=&quot;ray-serve-dot&quot;&gt;&lt;/span&gt;&lt;div&gt;&lt;div class=&quot;ray-serve-name&quot;&gt;app1&lt;/div&gt;&lt;div class=&quot;ray-serve-route&quot;&gt;hello_with_args:app_builder&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+                  &lt;div class=&quot;ray-serve-item&quot;&gt;&lt;span class=&quot;ray-serve-dot&quot;&gt;&lt;/span&gt;&lt;div&gt;&lt;div class=&quot;ray-serve-name&quot;&gt;app2&lt;/div&gt;&lt;div class=&quot;ray-serve-route&quot;&gt;hello_with_args:app_builder&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
                 &lt;/div&gt;
-                &lt;div class=&quot;ray-breakdown&quot;&gt;
-                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Active CPUs&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; style=&quot;width: 84%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;13.4&lt;/span&gt;&lt;/div&gt;
-                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;GPU queue&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;amber&quot; style=&quot;width: 18%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;1&lt;/span&gt;&lt;/div&gt;
-                  &lt;div class=&quot;ray-bar-row&quot;&gt;&lt;span class=&quot;ray-bar-name&quot;&gt;Demands&lt;/span&gt;&lt;span class=&quot;ray-bar-track&quot;&gt;&lt;span class=&quot;ray-bar-fill&quot; data-color=&quot;purple&quot; style=&quot;width: 28%&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;ray-bar-value&quot;&gt;3&lt;/span&gt;&lt;/div&gt;
-                &lt;/div&gt;
+                &lt;a class=&quot;ray-overview-link&quot; href=&quot;#&quot;&gt;View all applications &lt;span&gt;&amp;rarr;&lt;/span&gt;&lt;/a&gt;
+              &lt;/article&gt;
+            &lt;/section&gt;
+
+            &lt;section aria-label=&quot;Cluster status and autoscaler&quot;&gt;
+              &lt;div class=&quot;ray-overview-section-title&quot;&gt;&lt;span class=&quot;ray-overview-chevron&quot;&gt;&lt;/span&gt;Cluster status and autoscaler&lt;/div&gt;
+              &lt;div class=&quot;ray-overview-grid&quot;&gt;
+                &lt;article class=&quot;ray-overview-card&quot; data-info=&quot;true&quot;&gt;
+                  &lt;div class=&quot;ray-overview-title&quot; data-centered=&quot;true&quot;&gt;Node Count&lt;/div&gt;
+                  &lt;div class=&quot;ray-overview-card-content&quot;&gt;
+                    &lt;div class=&quot;ray-native-chart&quot; aria-label=&quot;Node count chart&quot;&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;1&quot;&gt;1.25 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;2&quot;&gt;1 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;3&quot;&gt;0.750 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;4&quot;&gt;0.250 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;5&quot;&gt;0 nodes&lt;/span&gt;
+                      &lt;svg viewBox=&quot;0 0 392 212&quot; role=&quot;img&quot; aria-hidden=&quot;true&quot;&gt;
+                        &lt;g stroke=&quot;#e5e9ef&quot; stroke-width=&quot;1&quot;&gt;
+                          &lt;path d=&quot;M58 8H386M58 50H386M58 92H386M58 134H386M58 176H386M58 8V176M118 8V176M178 8V176M238 8V176M298 8V176M358 8V176&quot;/&gt;
+                        &lt;/g&gt;
+                        &lt;path d=&quot;M58 50H386V176H58Z&quot; fill=&quot;#7db36f&quot; opacity=&quot;0.95&quot;/&gt;
+                      &lt;/svg&gt;
+                      &lt;div class=&quot;ray-chart-x&quot; style=&quot;left:58px&quot;&gt;&lt;span&gt;17:55&lt;/span&gt;&lt;span&gt;18:00&lt;/span&gt;&lt;span&gt;18:05&lt;/span&gt;&lt;span&gt;18:10&lt;/span&gt;&lt;span&gt;18:15&lt;/span&gt;&lt;span&gt;18:20&lt;/span&gt;&lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;ray-overview-current&quot;&gt;current&amp;#8964;&lt;/div&gt;
+                    &lt;div class=&quot;ray-overview-legend&quot;&gt;
+                      &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#7db36f&quot;&gt;&lt;/span&gt;Active Nodes: head-node-type&lt;/span&gt;&lt;span&gt;1 nodes&lt;/span&gt;&lt;/div&gt;
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                  &lt;a class=&quot;ray-overview-link&quot; href=&quot;#&quot;&gt;View all nodes &lt;span&gt;&amp;rarr;&lt;/span&gt;&lt;/a&gt;
+                &lt;/article&gt;
+                &lt;article class=&quot;ray-overview-card&quot;&gt;
+                  &lt;div class=&quot;ray-overview-title&quot;&gt;Node Status&lt;/div&gt;
+                  &lt;div class=&quot;ray-status-text&quot;&gt;
+                    &lt;strong&gt;Healthy:&lt;/strong&gt;
+                    1 head-node-type
+                    &lt;strong&gt;Pending:&lt;/strong&gt;
+                    (no pending nodes)
+                    &lt;strong&gt;Recent failures:&lt;/strong&gt;
+                    (no failures)
+                  &lt;/div&gt;
+                &lt;/article&gt;
+                &lt;article class=&quot;ray-overview-card&quot;&gt;
+                  &lt;div class=&quot;ray-overview-title&quot;&gt;Resource Status&lt;/div&gt;
+                  &lt;div class=&quot;ray-status-text&quot;&gt;
+                    &lt;strong&gt;Usage:&lt;/strong&gt;
+                    2.0/8.0 CPU&lt;br&gt;
+                    0B/17.74GiB memory&lt;br&gt;
+                    0B/8.87GiB object_store_memory
+                    &lt;strong&gt;Demands:&lt;/strong&gt;
+                    (no resource demands)
+                  &lt;/div&gt;
+                &lt;/article&gt;
               &lt;/div&gt;
-              &lt;div class=&quot;ray-panel&quot;&gt;
-                &lt;div class=&quot;ray-panel-head&quot;&gt;
-                  &lt;div class=&quot;ray-panel-title&quot;&gt;Recent events&lt;/div&gt;
-                  &lt;div class=&quot;ray-panel-meta&quot;&gt;task attempt log&lt;/div&gt;
-                &lt;/div&gt;
-                &lt;div class=&quot;ray-log&quot;&gt;
-                  &lt;div&gt;&lt;span&gt;12:42:11&lt;/span&gt; train_model started Ray job raysubmit_84f2&lt;/div&gt;
-                  &lt;div&gt;&lt;span&gt;12:43:08&lt;/span&gt; autoscaler requested 2 worker slots&lt;/div&gt;
-                  &lt;div&gt;&lt;span&gt;12:51:33&lt;/span&gt; checkpoint written to s3://airflow-ray/run_62&lt;/div&gt;
-                  &lt;div&gt;&lt;span&gt;12:56:40&lt;/span&gt; retry scheduled for ValidateBatch shard=17&lt;/div&gt;
-                  &lt;div&gt;&lt;span&gt;13:01:02&lt;/span&gt; object store utilization 68%&lt;/div&gt;
-                &lt;/div&gt;
-              &lt;/div&gt;
-            &lt;/div&gt;
-          &lt;/section&gt;
+            &lt;/section&gt;
+          &lt;/div&gt;
         &lt;/section&gt;
 
         &lt;section data-panel=&quot;jobs&quot; hidden&gt;
@@ -1864,6 +2129,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       };
 
       const setTab = (tab) =&gt; {
+        root.dataset.currentTab = tab;
         root.querySelectorAll(&quot;[data-tab]&quot;).forEach((button) =&gt; {
           button.dataset.active = String(button.dataset.tab === tab);
         });

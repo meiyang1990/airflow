@@ -341,12 +341,16 @@ describe("RayDashboard", () => {
       </Wrapper>,
     );
 
-    expect(await screen.findByText("CPU TOTAL")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByText("42").length).toBeGreaterThan(0));
-    expect(screen.getAllByText("116 GB").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("cluster resources")).toHaveLength(2);
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("1 finished / 1 running")).toBeInTheDocument();
+    expect(await screen.findByText("Cluster Utilization")).toBeInTheDocument();
+    expect(screen.getByText("Recent jobs")).toBeInTheDocument();
+    expect(screen.getByText("Cluster status and autoscaler")).toBeInTheDocument();
+    expect(screen.getByText("Resource Status")).toBeInTheDocument();
+    expect(screen.getByText("CPU (physical)")).toBeInTheDocument();
+    expect(screen.getByText("Active Nodes")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("4 nodes").length).toBeGreaterThan(0));
+    expect(screen.getByText(/2 \/ 42/u)).toBeInTheDocument();
+    expect(screen.getByText(/116 GB/u)).toBeInTheDocument();
+    expect(screen.getAllByText("84 %").length).toBeGreaterThan(0);
 
     fireEvent.click(await screen.findByRole("button", { name: /Tasks/u }));
 
@@ -399,6 +403,7 @@ describe("RayDashboard", () => {
     currentActorRecords = Array.from({ length: 51 }, (_, index) => ({
       actor_id: `actor-${index + 1}`,
       actor_ip: `10.0.0.${index + 1}`,
+      class_name: "Trainer",
       job_id: "job-id",
       node_id: `node-${index + 1}`,
       state: "ALIVE",
