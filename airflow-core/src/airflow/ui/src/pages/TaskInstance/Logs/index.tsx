@@ -28,7 +28,7 @@ import { ClipboardIconButton, ClipboardRoot, Popover, Select, Tooltip } from "sr
 import { SearchParamsKeys } from "src/constants/searchParams";
 import { useLogs } from "src/queries/useLogs";
 import { isStatePending, useAutoRefresh } from "src/utils";
-import { logLevelOptions, parseStreamingLogContent } from "src/utils/logs";
+import { LogLevel, logLevelOptions, parseStreamingLogContent } from "src/utils/logs";
 
 import { TaskLogContent } from "./TaskLogContent";
 
@@ -51,7 +51,7 @@ export const Logs = () => {
   const { t: translate } = useTranslation(["dag", "common", "components"]);
   const { dagId = "", mapIndex = "-1", runId = "", taskId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedLogLevels, setSelectedLogLevels] = useState([ALL_LOG_LEVELS]);
+  const [selectedLogLevels, setSelectedLogLevels] = useState([LogLevel.INFO]);
   const [selectedSources, setSelectedSources] = useState([ALL_LOG_SOURCES]);
   const [showSource, setShowSource] = useState(false);
   const [showTimestamp, setShowTimestamp] = useState(true);
