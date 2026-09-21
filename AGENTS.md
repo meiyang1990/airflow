@@ -120,6 +120,10 @@ reported as such are described in "What is NOT considered a security vulnerabili
 - Define dedicated exception classes or use existing exceptions such as `ValueError` instead of raising the broad `AirflowException` directly. Each error case should have a specific exception type that conveys what went wrong.
 - Apache License header on all new files (prek enforces this).
 
+## Ray Dashboard Metric Rules
+
+- Ray Dashboard metric calculations must strictly follow the metric definitions confirmed by the user. Do not infer alternative definitions, add fallback calculations, or read equivalent-looking labels/fields unless the user explicitly confirms that calculation scope.
+
 ## Testing Standards
 
 - Add tests for new behavior — cover success, failure, and edge cases.

@@ -285,6 +285,22 @@ describe("RayDashboard", () => {
               sampled_at: "2026-09-18T09:01:00Z",
               value: 0,
             },
+            {
+              id: "active-worker-sample-id",
+              labels: { name: "worker" },
+              metric_name: "ray_cluster_active_nodes",
+              name: "worker",
+              sampled_at: "2026-09-18T09:01:00Z",
+              value: 4,
+            },
+            {
+              id: "pending-worker-sample-id",
+              labels: { name: "worker" },
+              metric_name: "ray_cluster_pending_nodes",
+              name: "worker",
+              sampled_at: "2026-09-18T09:01:00Z",
+              value: 2,
+            },
             ...manyMetricSamples,
           ],
           total_entries: 106,
@@ -341,16 +357,17 @@ describe("RayDashboard", () => {
       </Wrapper>,
     );
 
-    expect(await screen.findByText("Cluster Utilization")).toBeInTheDocument();
+    expect(await screen.findByText("Node Count")).toBeInTheDocument();
     expect(screen.getByText("Recent jobs")).toBeInTheDocument();
     expect(screen.getByText("Cluster status and autoscaler")).toBeInTheDocument();
     expect(screen.getByText("Resource Status")).toBeInTheDocument();
-    expect(screen.getByText("CPU (physical)")).toBeInTheDocument();
-    expect(screen.getByText("Active Nodes")).toBeInTheDocument();
+    expect(screen.getByText("active-worker")).toBeInTheDocument();
+    expect(screen.getByText("pending-worker")).toBeInTheDocument();
+    expect(screen.getByText("Pod metric timeline")).toBeInTheDocument();
+    expect(screen.getByText("cpu使用")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("4 nodes").length).toBeGreaterThan(0));
     expect(screen.getByText(/2 \/ 42/u)).toBeInTheDocument();
     expect(screen.getByText(/116 GB/u)).toBeInTheDocument();
-    expect(screen.getAllByText("84 %").length).toBeGreaterThan(0);
 
     fireEvent.click(await screen.findByRole("button", { name: /Tasks/u }));
 

@@ -43,7 +43,7 @@ import {
   type ChartData,
   type ChartOptions,
 } from "chart.js";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import { FiArrowRight, FiExternalLink, FiRefreshCw } from "react-icons/fi";
@@ -76,6 +76,7 @@ type MetricSample = {
   labels?: Record<string, unknown> | null;
   metric_name: string;
   metric_unit?: string | null;
+  name?: string | null;
   sampled_at: string;
   value: number;
 };
@@ -173,6 +174,9 @@ const BYTES_PER_MB = 1024 * 1024;
 const BYTES_PER_GB = 1024 * BYTES_PER_MB;
 const TASK_METRIC_PATTERN = /(?:^|_)tasks?(?:_|$)/u;
 const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
+const DISK_METRIC_PATTERN = /(?:^|_)(?:disk|disks?)(?:_|$)/u;
+const RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME = "ray_cluster_active_nodes";
+const RAY_CLUSTER_PENDING_NODES_METRIC_NAME = "ray_cluster_pending_nodes";
 const MAX_METRIC_ROWS_PER_NAME = 100;
 const MAX_ACTOR_RANKING_ROWS = 20;
 const RAY_COLORS = {
@@ -509,9 +513,6 @@ const formatResourceUsage = (used: number | undefined, total: number | undefined
 const getResourceUsed = (total: number | undefined, available: number | undefined) =>
   total === undefined || available === undefined ? undefined : Math.max(total - available, 0);
 
-const getResourcePercent = (used: number | undefined, total: number | undefined) =>
-  used === undefined || total === undefined || total === 0 ? undefined : (used / total) * 100;
-
 const getMetricSamplesByPattern = (samples: Array<MetricSample>, pattern: RegExp) =>
   samples.filter((sample) => pattern.test(sample.metric_name.toLowerCase()));
 
@@ -557,6 +558,34 @@ const getMetricSource = (sample: MetricSample) => {
 
   return formatValue(source);
 };
+
+const getMetricLabel = (sample: MetricSample, keys: Array<string>) => {
+  const { labels } = sample;
+
+  if (labels === undefined || labels === null) {
+    return undefined;
+  }
+
+  return keys
+    .map((key) => labels[key])
+    .find((value): value is number | string => typeof value === "string" || typeof value === "number")
+    ?.toString();
+};
+
+const getMetricNodeType = (sample: MetricSample) =>
+  getMetricLabel(sample, ["node_type", "NodeType", "ray_node_type", "group", "nodeGroup"]);
+
+const getMetricPodIp = (sample: MetricSample) =>
+  getMetricLabel(sample, ["pod_ip", "podIP", "pod", "instance", "node", "NodeID"]);
+
+const getLatestNodeCountSample = (
+  samples: Array<MetricSample>,
+  metricName: typeof RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME | typeof RAY_CLUSTER_PENDING_NODES_METRIC_NAME,
+  nodeName: "worker",
+) =>
+  samples
+    .filter((sample) => sample.metric_name === metricName && sample.name === nodeName)
+    .sort((left, right) => right.sampled_at.localeCompare(left.sampled_at))[0];
 
 const sortMetricSamplesNewestFirst = (samples: Array<MetricSample>) =>
   [...samples].sort((left, right) => right.sampled_at.localeCompare(left.sampled_at));
@@ -1004,7 +1033,6 @@ const ActorTable = ({
         </Table.Header>
         <Table.Body>
           {pageRows.map((row, index) => (
-            // eslint-disable-next-line react/no-array-index-key
             <Table.Row key={`${getActorTableValue(row, "actor_id")}-${startIndex + index}`}>
               {ACTOR_TABLE_COLUMNS.map((column) => (
                 <Table.Cell
@@ -1257,6 +1285,145 @@ const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => 
   );
 };
 
+const getPodMetricSamples = (samples: Array<MetricSample>, metric: string) => {
+  if (metric === "cpu") {
+    return getMetricSamplesByPattern(samples, CPU_METRIC_PATTERN);
+  }
+
+  if (metric === "memory") {
+    return getMetricSamplesByPattern(samples, MEMORY_METRIC_PATTERN);
+  }
+
+  return getMetricSamplesByPattern(samples, DISK_METRIC_PATTERN);
+};
+
+const OverviewSelect = ({
+  children,
+  label,
+  onChange,
+  value,
+}: {
+  readonly children: ReactNode;
+  readonly label: string;
+  readonly onChange: (value: string) => void;
+  readonly value: string;
+}) => (
+  <Box as="label" display="grid" gap={1.5} minW={0}>
+    <Text color={RAY_COLORS.muted} fontSize="12px" fontWeight="650">
+      {label}
+    </Text>
+    <select
+      onChange={(event: ChangeEvent<HTMLSelectElement>) => onChange(event.currentTarget.value)}
+      style={{
+        background: RAY_COLORS.panelSoft,
+        border: `1px solid ${RAY_COLORS.border}`,
+        color: RAY_COLORS.text,
+        font: "inherit",
+        fontSize: "13px",
+        height: "34px",
+        minWidth: 0,
+        padding: "0 10px",
+        width: "100%",
+      }}
+      value={value}
+    >
+      {children}
+    </select>
+  </Box>
+);
+
+const OverviewSectionTitle = ({ children }: { readonly children: ReactNode }) => (
+  <Flex alignItems="center" color="#2f343b" fontSize="15px" fontWeight="700" gap={2.5} mb={2} ml={1.5}>
+    <Box
+      borderBottomColor="#2f343b"
+      borderBottomStyle="solid"
+      borderBottomWidth={2}
+      borderRightColor="#2f343b"
+      borderRightStyle="solid"
+      borderRightWidth={2}
+      h="7px"
+      transform="rotate(45deg)"
+      w="7px"
+    />
+    {children}
+  </Flex>
+);
+
+const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<MetricSample> }) => {
+  const [selectedNodeType, setSelectedNodeType] = useState("all");
+  const [selectedMetric, setSelectedMetric] = useState("cpu");
+  const [selectedPodIp, setSelectedPodIp] = useState("all");
+  const nodeTypes = useMemo(
+    () => [
+      ...new Set(samples.map(getMetricNodeType).filter((value): value is string => value !== undefined)),
+    ],
+    [samples],
+  );
+  const podIps = useMemo(
+    () => [...new Set(samples.map(getMetricPodIp).filter((value): value is string => value !== undefined))],
+    [samples],
+  );
+  const timelineSamples = useMemo(
+    () =>
+      getPodMetricSamples(samples, selectedMetric).filter((sample) => {
+        const nodeType = getMetricNodeType(sample);
+        const podIp = getMetricPodIp(sample);
+
+        return (
+          (selectedNodeType === "all" || nodeType === selectedNodeType) &&
+          (selectedPodIp === "all" || podIp === selectedPodIp)
+        );
+      }),
+    [samples, selectedMetric, selectedNodeType, selectedPodIp],
+  );
+
+  return (
+    <Box aria-label="Pod metric timeline">
+      <OverviewSectionTitle>Pod metric timeline</OverviewSectionTitle>
+      <Box {...PANEL_BORDER} bg={RAY_COLORS.panel} p={3}>
+        <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
+          <OverviewSelect label="Node type" onChange={setSelectedNodeType} value={selectedNodeType}>
+            <option value="all">all</option>
+            {nodeTypes.map((nodeType) => (
+              <option key={nodeType} value={nodeType}>
+                {nodeType}
+              </option>
+            ))}
+          </OverviewSelect>
+          <OverviewSelect label="Metric" onChange={setSelectedMetric} value={selectedMetric}>
+            <option value="cpu">cpu使用</option>
+            <option value="memory">memory使用</option>
+            <option value="disk">磁盘使用</option>
+          </OverviewSelect>
+          <OverviewSelect label="pod_ip" onChange={setSelectedPodIp} value={selectedPodIp}>
+            <option value="all">all</option>
+            {podIps.map((podIp) => (
+              <option key={podIp} value={podIp}>
+                {podIp}
+              </option>
+            ))}
+          </OverviewSelect>
+        </SimpleGrid>
+        {timelineSamples.length === 0 ? (
+          <Box {...PANEL_BORDER} h="260px" p={3}>
+            <Text color={RAY_COLORS.muted}>暂无匹配的 Pod metric samples。</Text>
+          </Box>
+        ) : (
+          <Box {...PANEL_BORDER} h="260px" p="12px 14px 28px 54px" position="relative">
+            <Text color={RAY_COLORS.muted} fontSize="12px" left="12px" position="absolute" top="12px">
+              {timelineSamples[0]?.metric_unit ?? ""}
+            </Text>
+            <Text bottom="6px" color={RAY_COLORS.muted} fontSize="12px" position="absolute" right="14px">
+              time
+            </Text>
+            <MetricChart samples={timelineSamples} />
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
 const OverviewCard = ({
   children,
   hasInfo = false,
@@ -1298,6 +1465,7 @@ const OverviewCard = ({
     }
     bg="#ffffff"
     borderColor="#cfd8e3"
+    borderRadius="6px"
     borderStyle="solid"
     borderWidth={1}
     color="#2f343b"
@@ -1378,16 +1546,16 @@ const OverviewChart = ({
   readonly labels: Array<string>;
 }) => (
   <Box h="186px" mt={1} position="relative">
-    {labels.map((label, index) => (
+    {Array.from({ length: labels.length }, (_, position) => position).map((position) => (
       <Text
         color="#4f5965"
         fontSize="12px"
-        key={label}
+        key={`overview-chart-y-${position}`}
         left="-2px"
         position="absolute"
-        top={`${index * 37}px`}
+        top={`${position * 37}px`}
       >
-        {label}
+        {labels[position]}
       </Text>
     ))}
     <svg height="100%" overflow="visible" viewBox="0 0 392 212" width="100%">
@@ -1399,7 +1567,11 @@ const OverviewChart = ({
             stroke="#e5e9ef"
             strokeWidth="1"
           />
-          <path d="M58 50H386V176H58Z" fill="#7db36f" opacity="0.95" />
+          <path d="M58 42H386V176H58Z" fill="#4b8fe2" opacity="0.18" />
+          <path d="M58 42H386" fill="none" stroke="#4b8fe2" strokeWidth="2" />
+          <path d="M58 142H386" fill="none" stroke="#7db36f" strokeWidth="2" />
+          <path d="M58 176H386" fill="none" stroke="#f0b429" strokeDasharray="5 4" strokeWidth="2" />
+          <path d="M58 176H386" fill="none" stroke="#e87d32" strokeDasharray="2 4" strokeWidth="2" />
         </>
       ) : (
         <>
@@ -1439,23 +1611,6 @@ const OverviewChart = ({
       ))}
     </Flex>
   </Box>
-);
-
-const OverviewSectionTitle = ({ children }: { readonly children: ReactNode }) => (
-  <Flex alignItems="center" color="#2f343b" fontSize="15px" fontWeight="700" gap={2.5} mb={2} ml={1.5}>
-    <Box
-      borderBottomColor="#2f343b"
-      borderBottomStyle="solid"
-      borderBottomWidth={2}
-      borderRightColor="#2f343b"
-      borderRightStyle="solid"
-      borderRightWidth={2}
-      h="7px"
-      transform="rotate(45deg)"
-      w="7px"
-    />
-    {children}
-  </Flex>
 );
 
 const OverviewStatusText = ({ rows }: { readonly rows: Array<[string, ReactNode]> }) => (
@@ -1663,17 +1818,19 @@ export const RayDashboard = () => {
   const objectStoreSample = getLatestMetricSample(samples, OBJECT_STORE_METRIC_PATTERN);
   const taskMetricSample = getLatestMetricSample(samples, TASK_METRIC_PATTERN);
   const throughputSample = getLatestMetricSample(samples, THROUGHPUT_METRIC_PATTERN);
-  const memoryPercent =
-    memorySample?.metric_unit === "%"
-      ? memorySample.value
-      : getResourcePercent(usedMemory, clusterResourceTotals.memory);
-  const cpuPercent =
-    cpuSample?.metric_unit === "%" ? cpuSample.value : getResourcePercent(usedCpu, clusterResourceTotals.cpu);
-  const objectStorePercent =
-    objectStoreSample?.metric_unit === "%"
-      ? objectStoreSample.value
-      : getResourcePercent(usedObjectStoreMemory, clusterResourceTotals.objectStoreMemory);
-  const activeNodeCount = Math.max(clusterNodeRows.length, 0);
+  const activeWorkerNodeSample = getLatestNodeCountSample(
+    samples,
+    RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME,
+    "worker",
+  );
+  const pendingWorkerNodeSample = getLatestNodeCountSample(
+    samples,
+    RAY_CLUSTER_PENDING_NODES_METRIC_NAME,
+    "worker",
+  );
+  const activeWorkerNodeCount = activeWorkerNodeSample?.value;
+  const pendingWorkerNodeCount = pendingWorkerNodeSample?.value;
+  const activeNodeCount = (activeWorkerNodeCount ?? 0) + (pendingWorkerNodeCount ?? 0);
   const navSections = [
     ...PRIMARY_NAV_SECTIONS,
     ...SECTION_ORDER.filter((section) => !PRIMARY_NAV_SECTIONS.includes(section)),
@@ -1876,36 +2033,34 @@ export const RayDashboard = () => {
           {activeSection === "overview" ? (
             <Flex color="#2f343b" direction="column" gap={6}>
               <SimpleGrid columns={{ base: 1, xl: 3 }} gap={5}>
-                <OverviewCard hasInfo title="Cluster Utilization">
+                <OverviewCard hasInfo title="Node Count">
                   <Box minH="232px">
-                    <OverviewChart kind="utilization" labels={["8 %", "6 %", "4 %", "2 %", "0 %"]} />
-                    <Text color="#1a73e8" fontSize="12px" mb={0.5} textAlign="right">
-                      current
-                    </Text>
+                    <OverviewChart
+                      kind="nodes"
+                      labels={[
+                        `${formatDecimal(Math.max(activeNodeCount + 1, 1))} nodes`,
+                        `${formatDecimal(Math.max(activeNodeCount, 1))} nodes`,
+                        `${formatDecimal(Math.max(activeNodeCount - 1, 0))} nodes`,
+                        `${formatDecimal(Math.max(activeNodeCount - 2, 0))} nodes`,
+                        "0 nodes",
+                      ]}
+                    />
                     <OverviewLegend
                       rows={[
                         {
-                          color: "#f0b429",
-                          label: "Memory (RAM)",
-                          value: memoryPercent === undefined ? "-" : `${formatDecimal(memoryPercent)} %`,
+                          color: "#4b8fe2",
+                          label: "active-worker",
+                          value: `${formatValue(activeWorkerNodeCount ?? 0)} nodes`,
                         },
                         {
                           color: "#e87d32",
-                          label: "Object store",
-                          value:
-                            objectStorePercent === undefined
-                              ? formatMetricSample(objectStoreSample)
-                              : `${formatDecimal(objectStorePercent)} %`,
-                        },
-                        {
-                          color: "#93bf82",
-                          label: "CPU (physical)",
-                          value: cpuPercent === undefined ? "-" : `${formatDecimal(cpuPercent)} %`,
+                          label: "pending-worker",
+                          value: `${formatValue(pendingWorkerNodeCount ?? 0)} nodes`,
                         },
                       ]}
                     />
                   </Box>
-                  <OverviewLink onClick={() => setSelectedSection("metrics")}>View all metrics</OverviewLink>
+                  <OverviewLink onClick={() => setSelectedSection("cluster")}>View all nodes</OverviewLink>
                 </OverviewCard>
 
                 <OverviewCard title="Recent jobs">
@@ -1957,7 +2112,25 @@ export const RayDashboard = () => {
                             row.route_prefix ?? row.import_path ?? row.status,
                           )}`}
                         >
-                          <Box alignSelf="start" bg="#4aa564" borderRadius="999px" h="14px" mt={1} w="14px" />
+                          <Box
+                            _after={{
+                              bg: "#ffffff",
+                              borderRadius: "999px",
+                              content: '""',
+                              height: "4px",
+                              left: "5px",
+                              position: "absolute",
+                              top: "5px",
+                              width: "4px",
+                            }}
+                            alignSelf="start"
+                            bg="#4aa564"
+                            borderRadius="999px"
+                            h="14px"
+                            mt={1}
+                            position="relative"
+                            w="14px"
+                          />
                           <Box minW={0}>
                             <Text color="#1a73e8" fontSize="14px" fontWeight="700" lineHeight="1.2">
                               {formatValue(row.name ?? row.application_name ?? row.deployment_name)}
@@ -1978,35 +2151,7 @@ export const RayDashboard = () => {
 
               <Box>
                 <OverviewSectionTitle>Cluster status and autoscaler</OverviewSectionTitle>
-                <SimpleGrid columns={{ base: 1, xl: 3 }} gap={5}>
-                  <OverviewCard hasInfo title="Node Count">
-                    <Box minH="232px">
-                      <OverviewChart
-                        kind="nodes"
-                        labels={[
-                          `${formatDecimal(Math.max(activeNodeCount * 1.25, 1.25))} nodes`,
-                          `${formatDecimal(Math.max(activeNodeCount, 1))} nodes`,
-                          `${formatDecimal(Math.max(activeNodeCount * 0.75, 0.75))} nodes`,
-                          `${formatDecimal(Math.max(activeNodeCount * 0.25, 0.25))} nodes`,
-                          "0 nodes",
-                        ]}
-                      />
-                      <Text color="#1a73e8" fontSize="12px" mb={0.5} textAlign="right">
-                        current
-                      </Text>
-                      <OverviewLegend
-                        rows={[
-                          {
-                            color: "#7db36f",
-                            label: "Active Nodes",
-                            value: `${formatValue(activeNodeCount)} nodes`,
-                          },
-                        ]}
-                      />
-                    </Box>
-                    <OverviewLink onClick={() => setSelectedSection("cluster")}>View all nodes</OverviewLink>
-                  </OverviewCard>
-
+                <SimpleGrid columns={{ base: 1, xl: 2 }} gap={5}>
                   <OverviewCard title="Node Status">
                     <OverviewStatusText
                       rows={[
@@ -2047,6 +2192,8 @@ export const RayDashboard = () => {
                   </OverviewCard>
                 </SimpleGrid>
               </Box>
+
+              <OverviewPodMetricTimeline samples={samples} />
             </Flex>
           ) : undefined}
 
