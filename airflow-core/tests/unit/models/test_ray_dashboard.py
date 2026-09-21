@@ -162,6 +162,7 @@ def test_snapshot_and_metric_queries(session, task_instance):
                     "ActorID": "actor-1",
                     "ClassName": "Trainer",
                     "Name": "trainer",
+                    "RayNodeType": "worker",
                     "node": "head",
                     "pod": "ray-worker",
                     "podIp": "10.42.0.7",
@@ -183,6 +184,13 @@ def test_snapshot_and_metric_queries(session, task_instance):
                 "labels": {"node_type": "worker"},
                 "sampled_at": collected_at,
                 "value": 3.0,
+            },
+            {
+                "metric_name": "ray_node_cpu_count",
+                "metric_unit": None,
+                "labels": {"RayNodeType": "head"},
+                "sampled_at": collected_at,
+                "value": 8.0,
             },
         ],
         session=session,
@@ -220,12 +228,20 @@ def test_snapshot_and_metric_queries(session, task_instance):
             session=session,
         )
     )
+    node_cpu_count_metric_samples = list(
+        list_ray_dashboard_metric_samples(
+            dashboard_id=dashboard.id,
+            metric_name="ray_node_cpu_count",
+            session=session,
+        )
+    )
 
     assert len(metric_samples) == 1
     assert metric_samples[0].labels == {
         "ActorID": "actor-1",
         "ClassName": "Trainer",
         "Name": "trainer",
+        "RayNodeType": "worker",
         "node": "head",
         "pod": "ray-worker",
         "podIp": "10.42.0.7",
@@ -237,7 +253,7 @@ def test_snapshot_and_metric_queries(session, task_instance):
     assert metric_samples[0].actor_id == "actor-1"
     assert metric_samples[0].actor_name == "trainer"
     assert metric_samples[0].actor_class == "Trainer"
-    assert metric_samples[0].name is None
+    assert metric_samples[0].name == "worker"
     assert metric_samples[0].state is None
     assert metric_samples[0].value == 42.0
     assert len(task_metric_samples) == 1
@@ -246,6 +262,8 @@ def test_snapshot_and_metric_queries(session, task_instance):
     assert task_metric_samples[0].state == "RUNNING"
     assert len(active_node_metric_samples) == 1
     assert active_node_metric_samples[0].name == "worker"
+    assert len(node_cpu_count_metric_samples) == 1
+    assert node_cpu_count_metric_samples[0].name == "head"
 
 
 def test_missing_ray_dashboard_record_returns_none(session, task_instance):

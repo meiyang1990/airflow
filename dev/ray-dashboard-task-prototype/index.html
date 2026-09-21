@@ -1320,13 +1320,6 @@ html&gt;body{padding:0}&lt;/style&gt;
       width: 14px;
     }
 
-    #ray-task-dashboard-prototype .ray-overview-current {
-      color: #1a73e8;
-      font-size: 12px;
-      margin-bottom: 3px;
-      text-align: right;
-    }
-
     #ray-task-dashboard-prototype .ray-serve-list {
       display: grid;
       gap: 16px;
@@ -1791,7 +1784,6 @@ html&gt;body{padding:0}&lt;/style&gt;
                     &lt;/svg&gt;
                     &lt;div class=&quot;ray-chart-x&quot;&gt;&lt;span&gt;17:55&lt;/span&gt;&lt;span&gt;18:00&lt;/span&gt;&lt;span&gt;18:05&lt;/span&gt;&lt;span&gt;18:10&lt;/span&gt;&lt;span&gt;18:15&lt;/span&gt;&lt;span&gt;18:20&lt;/span&gt;&lt;/div&gt;
                   &lt;/div&gt;
-                  &lt;div class=&quot;ray-overview-current&quot;&gt;current&amp;#8964;&lt;/div&gt;
                   &lt;div class=&quot;ray-overview-legend&quot;&gt;
                     &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#93bf82&quot;&gt;&lt;/span&gt;CPU&lt;/span&gt;&lt;span&gt;2.20 %&lt;/span&gt;&lt;/div&gt;
                     &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#f0b429&quot;&gt;&lt;/span&gt;Memory&lt;/span&gt;&lt;span&gt;6.05 %&lt;/span&gt;&lt;/div&gt;
@@ -1821,25 +1813,30 @@ html&gt;body{padding:0}&lt;/style&gt;
                   &lt;div class=&quot;ray-overview-title&quot; data-centered=&quot;true&quot;&gt;Node Count&lt;/div&gt;
                   &lt;div class=&quot;ray-overview-card-content&quot;&gt;
                     &lt;div class=&quot;ray-native-chart&quot; aria-label=&quot;Node count chart&quot;&gt;
-                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;1&quot;&gt;1.25 nodes&lt;/span&gt;
-                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;2&quot;&gt;1 nodes&lt;/span&gt;
-                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;3&quot;&gt;0.750 nodes&lt;/span&gt;
-                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;4&quot;&gt;0.250 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;1&quot;&gt;5 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;2&quot;&gt;4 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;3&quot;&gt;3 nodes&lt;/span&gt;
+                      &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;4&quot;&gt;2 nodes&lt;/span&gt;
                       &lt;span class=&quot;ray-chart-label&quot; data-y=&quot;5&quot;&gt;0 nodes&lt;/span&gt;
                       &lt;svg viewBox=&quot;0 0 392 212&quot; role=&quot;img&quot; aria-hidden=&quot;true&quot;&gt;
                         &lt;g stroke=&quot;#e5e9ef&quot; stroke-width=&quot;1&quot;&gt;
                           &lt;path d=&quot;M58 8H386M58 50H386M58 92H386M58 134H386M58 176H386M58 8V176M118 8V176M178 8V176M238 8V176M298 8V176M358 8V176&quot;/&gt;
                         &lt;/g&gt;
-                        &lt;path d=&quot;M58 50H386V176H58Z&quot; fill=&quot;#7db36f&quot; opacity=&quot;0.95&quot;/&gt;
+                        &lt;path d=&quot;M58 42H386V176H58Z&quot; fill=&quot;#4b8fe2&quot; opacity=&quot;0.18&quot;/&gt;
+                        &lt;path d=&quot;M58 42H386&quot; fill=&quot;none&quot; stroke=&quot;#4b8fe2&quot; stroke-width=&quot;2&quot;/&gt;
+                        &lt;path d=&quot;M58 142H386&quot; fill=&quot;none&quot; stroke=&quot;#7db36f&quot; stroke-width=&quot;2&quot;/&gt;
+                        &lt;path d=&quot;M58 176H386&quot; fill=&quot;none&quot; stroke=&quot;#f0b429&quot; stroke-width=&quot;2&quot; stroke-dasharray=&quot;5 4&quot;/&gt;
+                        &lt;path d=&quot;M58 176H386&quot; fill=&quot;none&quot; stroke=&quot;#e87d32&quot; stroke-width=&quot;2&quot; stroke-dasharray=&quot;2 4&quot;/&gt;
                       &lt;/svg&gt;
                       &lt;div class=&quot;ray-chart-x&quot; style=&quot;left:58px&quot;&gt;&lt;span&gt;17:55&lt;/span&gt;&lt;span&gt;18:00&lt;/span&gt;&lt;span&gt;18:05&lt;/span&gt;&lt;span&gt;18:10&lt;/span&gt;&lt;span&gt;18:15&lt;/span&gt;&lt;span&gt;18:20&lt;/span&gt;&lt;/div&gt;
                     &lt;/div&gt;
-                    &lt;div class=&quot;ray-overview-current&quot;&gt;current&amp;#8964;&lt;/div&gt;
                     &lt;div class=&quot;ray-overview-legend&quot;&gt;
-                      &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#7db36f&quot;&gt;&lt;/span&gt;Active Nodes: head-node-type&lt;/span&gt;&lt;span&gt;1 nodes&lt;/span&gt;&lt;/div&gt;
+                      &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#7db36f&quot;&gt;&lt;/span&gt;active-headgroup&lt;/span&gt;&lt;span&gt;1 node&lt;/span&gt;&lt;/div&gt;
+                      &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#4b8fe2&quot;&gt;&lt;/span&gt;active-worker&lt;/span&gt;&lt;span&gt;4 nodes&lt;/span&gt;&lt;/div&gt;
+                      &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#f0b429&quot;&gt;&lt;/span&gt;pending-headgroup&lt;/span&gt;&lt;span&gt;0 nodes&lt;/span&gt;&lt;/div&gt;
+                      &lt;div class=&quot;ray-overview-legend-row&quot;&gt;&lt;span class=&quot;ray-overview-legend-name&quot;&gt;&lt;span class=&quot;ray-overview-swatch&quot; style=&quot;background:#e87d32&quot;&gt;&lt;/span&gt;pending-worker&lt;/span&gt;&lt;span&gt;0 nodes&lt;/span&gt;&lt;/div&gt;
                     &lt;/div&gt;
                   &lt;/div&gt;
-                  &lt;a class=&quot;ray-overview-link&quot; href=&quot;#&quot;&gt;View all nodes &lt;span&gt;&amp;rarr;&lt;/span&gt;&lt;/a&gt;
                 &lt;/article&gt;
                 &lt;article class=&quot;ray-overview-card&quot;&gt;
                   &lt;div class=&quot;ray-overview-title&quot;&gt;Node Status&lt;/div&gt;
