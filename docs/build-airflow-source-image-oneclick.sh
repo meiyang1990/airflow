@@ -81,16 +81,16 @@ ensure_ui_dist() {
     local dist_dir="${2}"
     local label="${3}"
 
-    if ! command -v pnpm >/dev/null 2>&1; then
-        echo "pnpm is required to build ${label} assets but was not found in PATH" >&2
-        exit 1
-    fi
-
     if [[ "${REUSE_FRONTEND_DIST:-false}" == "true" ]] &&
         [[ -d "${dist_dir}" ]] &&
         find "${dist_dir}" -type f \( -name "*.js" -o -name "*.css" -o -name "index.html" \) | grep -q .; then
         echo "Reusing existing ${label} dist because REUSE_FRONTEND_DIST=true: ${dist_dir}"
         return
+    fi
+
+    if ! command -v pnpm >/dev/null 2>&1; then
+        echo "pnpm is required to build ${label} assets but was not found in PATH" >&2
+        exit 1
     fi
 
     if [[ -d "${dist_dir}" ]]; then
