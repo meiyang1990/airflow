@@ -383,8 +383,6 @@ describe("RayDashboard", () => {
     expect(screen.getAllByText("84 %").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ray_object_store_memory").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ray_node_mem_used").length).toBeGreaterThan(0);
-    expect(screen.getByText("ray_many_samples")).toBeInTheDocument();
-    expect(screen.getByText("100 sampled / 101 samples")).toBeInTheDocument();
   });
 
   it("renders Ray State API records payloads", async () => {

@@ -177,7 +177,6 @@ const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
 const DISK_METRIC_PATTERN = /(?:^|_)(?:disk|disks?)(?:_|$)/u;
 const RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME = "ray_cluster_active_nodes";
 const RAY_CLUSTER_PENDING_NODES_METRIC_NAME = "ray_cluster_pending_nodes";
-const MAX_METRIC_ROWS_PER_NAME = 100;
 const MAX_ACTOR_RANKING_ROWS = 20;
 const RAY_COLORS = {
   amber: "#f59e0b",
@@ -533,32 +532,6 @@ const formatMetricSample = (sample: MetricSample | undefined) =>
       ? formatMemoryValue(sample.value, sample.metric_unit)
       : formatMetricValue(sample.value, sample.metric_unit);
 
-const getMetricTrend = (samples: Array<MetricSample>, metricName: string) => {
-  const metricSamples = samples
-    .filter((sample) => sample.metric_name === metricName)
-    .sort((left, right) => left.sampled_at.localeCompare(right.sampled_at));
-  const first = metricSamples.at(0);
-  const last = metricSamples.at(-1);
-
-  if (first === undefined || last === undefined || first.value === last.value) {
-    return "flat";
-  }
-
-  return last.value > first.value ? "up" : "down";
-};
-
-const getMetricSource = (sample: MetricSample) => {
-  const { labels } = sample;
-
-  if (labels === undefined || labels === null) {
-    return "-";
-  }
-
-  const source = labels.instance ?? labels.node ?? labels.NodeID ?? labels.Component ?? labels.source;
-
-  return formatValue(source);
-};
-
 const getMetricLabel = (sample: MetricSample, keys: Array<string>) => {
   const { labels } = sample;
 
@@ -586,39 +559,6 @@ const getLatestNodeCountSample = (
   samples
     .filter((sample) => sample.metric_name === metricName && sample.name === nodeName)
     .sort((left, right) => right.sampled_at.localeCompare(left.sampled_at))[0];
-
-const sortMetricSamplesNewestFirst = (samples: Array<MetricSample>) =>
-  [...samples].sort((left, right) => right.sampled_at.localeCompare(left.sampled_at));
-
-const sampleMetricRowsByTime = (samples: Array<MetricSample>, maxRows = MAX_METRIC_ROWS_PER_NAME) => {
-  const sortedSamples = sortMetricSamplesNewestFirst(samples);
-
-  if (sortedSamples.length <= maxRows) {
-    return sortedSamples;
-  }
-
-  const lastIndex = sortedSamples.length - 1;
-
-  return Array.from({ length: maxRows }, (_, index) => {
-    const sourceIndex = Math.round((index * lastIndex) / (maxRows - 1));
-
-    return sortedSamples[sourceIndex];
-  }).filter((sample): sample is MetricSample => sample !== undefined);
-};
-
-const getMetricSampleGroups = (samples: Array<MetricSample>) =>
-  Object.entries(
-    samples.reduce<Record<string, Array<MetricSample>>>((groups, sample) => {
-      const metricSamples = groups[sample.metric_name] ?? [];
-
-      return { ...groups, [sample.metric_name]: [...metricSamples, sample] };
-    }, {}),
-  ).sort(([leftName, leftSamples], [rightName, rightSamples]) => {
-    const leftLatest = sortMetricSamplesNewestFirst(leftSamples)[0]?.sampled_at ?? "";
-    const rightLatest = sortMetricSamplesNewestFirst(rightSamples)[0]?.sampled_at ?? "";
-
-    return rightLatest.localeCompare(leftLatest) || leftName.localeCompare(rightName);
-  });
 
 const getRowsFromPayload = (payload: unknown): Array<JsonRecord> => {
   if (Array.isArray(payload)) {
@@ -1071,70 +1011,6 @@ const ActorTable = ({
           </Pagination.Root>
         </Flex>
       ) : undefined}
-    </Flex>
-  );
-};
-
-const MetricSampleTable = ({
-  metricName,
-  samples,
-}: {
-  readonly metricName: string;
-  readonly samples: Array<MetricSample>;
-}) => {
-  const sampledRows = sampleMetricRowsByTime(samples);
-  const trend = getMetricTrend(samples, metricName);
-
-  return (
-    <Box {...PANEL_BORDER} bg={RAY_COLORS.panelSoft} p={2.5}>
-      <Flex alignItems="baseline" justifyContent="space-between" mb={2.5} wrap="wrap">
-        <Text color={RAY_COLORS.text} fontSize="13px" fontWeight="750" overflowWrap="anywhere">
-          {metricName}
-        </Text>
-        <Text color={RAY_COLORS.muted} fontSize="11px">
-          {sampledRows.length === samples.length
-            ? `${formatValue(samples.length)} samples`
-            : `${formatValue(sampledRows.length)} sampled / ${formatValue(samples.length)} samples`}
-        </Text>
-      </Flex>
-      <RayTable>
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader>Value</Table.ColumnHeader>
-            <Table.ColumnHeader>Sampled At</Table.ColumnHeader>
-            <Table.ColumnHeader>Labels</Table.ColumnHeader>
-            <Table.ColumnHeader>Source</Table.ColumnHeader>
-            <Table.ColumnHeader>Trend</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {sampledRows.map((sample) => (
-            <Table.Row key={sample.id}>
-              <Table.Cell>{formatMetricSample(sample)}</Table.Cell>
-              <Table.Cell>{formatUtcPlus8(sample.sampled_at)}</Table.Cell>
-              <Table.Cell maxW="320px" overflow="hidden" textOverflow="ellipsis">
-                {formatValue(formatJsonValueForDisplay(sample.labels))}
-              </Table.Cell>
-              <Table.Cell>{getMetricSource(sample)}</Table.Cell>
-              <Table.Cell>
-                <StatusText value={trend} />
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </RayTable>
-    </Box>
-  );
-};
-
-const MetricSampleTables = ({ samples }: { readonly samples: Array<MetricSample> }) => {
-  const groups = getMetricSampleGroups(samples);
-
-  return (
-    <Flex direction="column" gap={3}>
-      {groups.map(([metricName, metricSamples]) => (
-        <MetricSampleTable key={metricName} metricName={metricName} samples={metricSamples} />
-      ))}
     </Flex>
   );
 };
@@ -2440,12 +2316,7 @@ export const RayDashboard = () => {
                 {samples.length === 0 ? (
                   <Text color={RAY_COLORS.muted}>暂无 Metrics samples。</Text>
                 ) : (
-                  <>
-                    <MetricChart samples={samples} />
-                    <Box mt={4}>
-                      <MetricSampleTables samples={samples} />
-                    </Box>
-                  </>
+                  <MetricChart samples={samples} />
                 )}
               </SectionFrame>
 
