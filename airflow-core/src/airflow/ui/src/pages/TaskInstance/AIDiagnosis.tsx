@@ -16,8 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { Box, Heading, Text } from "@chakra-ui/react";
+import { useTranslation } from "react-i18next";
 
-export * from "./TaskInstance";
-export * from "./Logs";
-export * from "./RayDashboard";
-export * from "./AIDiagnosis";
+export const AIDiagnosis = () => {
+  const { t: translate } = useTranslation("dag");
+
+  return (
+    <Box p={2}>
+      <Heading mb={2} size="md">
+        {translate("aiDiagnosis.title")}
+      </Heading>
+      <Text color="fg.muted">{translate("aiDiagnosis.emptyDescription")}</Text>
+    </Box>
+  );
+};

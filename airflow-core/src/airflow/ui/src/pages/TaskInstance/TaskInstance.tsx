@@ -19,7 +19,7 @@
 import { Heading } from "@chakra-ui/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
-import { FiActivity, FiCode, FiDatabase, FiUser } from "react-icons/fi";
+import { FiActivity, FiCode, FiCpu, FiDatabase, FiUser } from "react-icons/fi";
 import { MdDetails, MdOutlineEventNote, MdOutlineTask, MdReorder, MdSyncAlt } from "react-icons/md";
 import { PiBracketsCurlyBold } from "react-icons/pi";
 import { useParams } from "react-router-dom";
@@ -55,6 +55,7 @@ export const TaskInstance = () => {
       label: RAY_DASHBOARD_TAB_LABEL,
       value: "ray_dashboard",
     },
+    { icon: <FiCpu />, label: translate("tabs.aiDiagnosis"), value: "ai_diagnosis" },
     { icon: <FiDatabase />, label: translate("tabs.assetEvents"), value: "asset_events" },
     { icon: <MdOutlineEventNote />, label: translate("tabs.auditLog"), value: "events" },
     { icon: <FiCode />, label: translate("tabs.code"), value: "code" },

@@ -1,4 +1,8 @@
 {
+  "aiDiagnosis": {
+    "emptyDescription": "AI diagnostics are not available yet.",
+    "title": "AI Diagnostics"
+  },
   "allRuns": "All Runs",
   "blockingDeps": {
     "dependency": "Dependency",
@@ -220,6 +224,7 @@
     "value": "Value"
   },
   "tabs": {
+    "aiDiagnosis": "AI Diagnostics",
     "assetEvents": "Asset Events",
     "auditLog": "Audit Log",
     "backfills": "Backfills",

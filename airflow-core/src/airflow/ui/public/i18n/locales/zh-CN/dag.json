@@ -1,4 +1,8 @@
 {
+  "aiDiagnosis": {
+    "emptyDescription": "AI 诊断暂不可用。",
+    "title": "AI诊断"
+  },
   "allRuns": "所有执行",
   "blockingDeps": {
     "dependency": "依赖 ",
@@ -191,6 +195,7 @@
     "value": "值"
   },
   "tabs": {
+    "aiDiagnosis": "AI诊断",
     "assetEvents": "资源事件",
     "auditLog": "审计日志",
     "backfills": "回填",
