@@ -177,6 +177,13 @@ def test_snapshot_and_metric_queries(session, task_instance):
                 "sampled_at": collected_at,
                 "value": 1.0,
             },
+            {
+                "metric_name": "ray_cluster_active_nodes",
+                "metric_unit": None,
+                "labels": {"node_type": "worker"},
+                "sampled_at": collected_at,
+                "value": 3.0,
+            },
         ],
         session=session,
     )
@@ -206,6 +213,13 @@ def test_snapshot_and_metric_queries(session, task_instance):
             session=session,
         )
     )
+    active_node_metric_samples = list(
+        list_ray_dashboard_metric_samples(
+            dashboard_id=dashboard.id,
+            metric_name="ray_cluster_active_nodes",
+            session=session,
+        )
+    )
 
     assert len(metric_samples) == 1
     assert metric_samples[0].labels == {
@@ -230,6 +244,8 @@ def test_snapshot_and_metric_queries(session, task_instance):
     assert task_metric_samples[0].pod_ip == "10.42.0.8"
     assert task_metric_samples[0].name == "train_task"
     assert task_metric_samples[0].state == "RUNNING"
+    assert len(active_node_metric_samples) == 1
+    assert active_node_metric_samples[0].name == "worker"
 
 
 def test_missing_ray_dashboard_record_returns_none(session, task_instance):
