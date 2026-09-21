@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS ray_dashboard_metric_sample (
     dashboard_id UUID NOT NULL,
     metric_name VARCHAR(255) NOT NULL,
     metric_unit VARCHAR(50),
+    pod_name VARCHAR(255),
+    pod_id VARCHAR(255),
+    pod_ip VARCHAR(255),
+    actor_name VARCHAR(255),
+    actor_class VARCHAR(255),
+    actor_id VARCHAR(255),
+    name VARCHAR(255),
+    state VARCHAR(255),
     labels JSONB,
     value DOUBLE PRECISION NOT NULL,
     sampled_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -92,3 +100,15 @@ CREATE TABLE IF NOT EXISTS ray_dashboard_metric_sample (
 
 CREATE INDEX IF NOT EXISTS idx_ray_dashboard_metric_lookup
     ON ray_dashboard_metric_sample (dashboard_id, metric_name, sampled_at);
+
+CREATE INDEX IF NOT EXISTS idx_ray_dashboard_metric_actor_lookup
+    ON ray_dashboard_metric_sample (dashboard_id, actor_id, metric_name, sampled_at);
+
+CREATE INDEX IF NOT EXISTS idx_ray_dashboard_metric_actor_name_lookup
+    ON ray_dashboard_metric_sample (dashboard_id, actor_name, metric_name, sampled_at);
+
+CREATE INDEX IF NOT EXISTS idx_ray_dashboard_metric_pod_lookup
+    ON ray_dashboard_metric_sample (dashboard_id, pod_name, metric_name, sampled_at);
+
+CREATE INDEX IF NOT EXISTS idx_ray_dashboard_metric_pod_ip_lookup
+    ON ray_dashboard_metric_sample (dashboard_id, pod_ip, metric_name, sampled_at);

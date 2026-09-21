@@ -84,6 +84,14 @@ class RayDashboardMetricSampleResponse(BaseModel):
     dashboard_id: UUID
     metric_name: str
     metric_unit: str | None
+    pod_name: str | None
+    pod_id: str | None
+    pod_ip: str | None
+    actor_name: str | None
+    actor_class: str | None
+    actor_id: str | None
+    name: str | None
+    state: str | None
     labels: dict[str, Any] | None
     value: float
     sampled_at: datetime

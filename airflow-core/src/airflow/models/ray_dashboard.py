@@ -49,6 +49,27 @@ if TYPE_CHECKING:
 
 RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES = 1024 * 1024
 RAY_DASHBOARD_MAX_METRIC_BATCH_SIZE = 1000
+RAY_DASHBOARD_METRIC_POD_NAME_LABEL_KEYS = ("pod_name", "pod", "PodName", "podName")
+RAY_DASHBOARD_METRIC_POD_ID_LABEL_KEYS = ("pod_id", "pod_uid", "PodID", "podId")
+RAY_DASHBOARD_METRIC_POD_IP_LABEL_KEYS = (
+    "ip",
+    "IP",
+    "Ip",
+    "podIp",
+    "podIP",
+    "pod_ip",
+    "PodIP",
+    "PodIp",
+    "nodeAddress",
+    "node_address",
+    "NodeAddress",
+)
+RAY_DASHBOARD_METRIC_ACTOR_NAME_LABEL_KEYS = ("actor_name", "ActorName", "name", "Name", "actor")
+RAY_DASHBOARD_METRIC_ACTOR_CLASS_LABEL_KEYS = ("actor_class", "ActorClass", "class_name", "ClassName")
+RAY_DASHBOARD_METRIC_ACTOR_ID_LABEL_KEYS = ("actor_id", "ActorID", "id")
+RAY_DASHBOARD_TASKS_METRIC_NAME = "ray_tasks"
+RAY_DASHBOARD_TASKS_NAME_LABEL_KEYS = ("Name",)
+RAY_DASHBOARD_TASKS_STATE_LABEL_KEYS = ("State",)
 
 
 class RayDashboardSection(StrEnum):
@@ -180,6 +201,14 @@ class RayDashboardMetricSample(Base):
     dashboard_id: Mapped[UUID] = mapped_column(Uuid(), nullable=False)
     metric_name: Mapped[str] = mapped_column(String(255), nullable=False)
     metric_unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    pod_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pod_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pod_ip: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor_class: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(255), nullable=True)
     labels: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(ExtendedJSON), nullable=True)
     value: Mapped[float] = mapped_column(Float, nullable=False)
     sampled_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
@@ -196,7 +225,29 @@ class RayDashboardMetricSample(Base):
             onupdate="CASCADE",
         ),
         Index("idx_ray_dashboard_metric_lookup", dashboard_id, metric_name, sampled_at),
+        Index("idx_ray_dashboard_metric_actor_lookup", dashboard_id, actor_id, metric_name, sampled_at),
+        Index(
+            "idx_ray_dashboard_metric_actor_name_lookup", dashboard_id, actor_name, metric_name, sampled_at
+        ),
+        Index("idx_ray_dashboard_metric_pod_lookup", dashboard_id, pod_name, metric_name, sampled_at),
+        Index("idx_ray_dashboard_metric_pod_ip_lookup", dashboard_id, pod_ip, metric_name, sampled_at),
     )
+
+
+def _first_metric_label_value(labels: dict[str, Any] | None, keys: tuple[str, ...]) -> str | None:
+    if not labels:
+        return None
+    for key in keys:
+        value = labels.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _ray_tasks_label_value(sample: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    if sample["metric_name"] != RAY_DASHBOARD_TASKS_METRIC_NAME:
+        return None
+    return _first_metric_label_value(sample.get("labels"), keys)
 
 
 def _dashboard_query(
@@ -333,6 +384,20 @@ def add_ray_dashboard_metric_samples(
             dashboard=dashboard,
             metric_name=sample["metric_name"],
             metric_unit=sample.get("metric_unit"),
+            pod_name=sample.get("pod_name")
+            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_POD_NAME_LABEL_KEYS),
+            pod_id=sample.get("pod_id")
+            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_POD_ID_LABEL_KEYS),
+            pod_ip=sample.get("pod_ip")
+            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_POD_IP_LABEL_KEYS),
+            actor_name=sample.get("actor_name")
+            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_ACTOR_NAME_LABEL_KEYS),
+            actor_class=sample.get("actor_class")
+            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_ACTOR_CLASS_LABEL_KEYS),
+            actor_id=sample.get("actor_id")
+            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_ACTOR_ID_LABEL_KEYS),
+            name=sample.get("name") or _ray_tasks_label_value(sample, RAY_DASHBOARD_TASKS_NAME_LABEL_KEYS),
+            state=sample.get("state") or _ray_tasks_label_value(sample, RAY_DASHBOARD_TASKS_STATE_LABEL_KEYS),
             labels=sample.get("labels"),
             value=sample["value"],
             sampled_at=sample["sampled_at"],

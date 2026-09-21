@@ -137,6 +137,10 @@ def _get_actor_key(labels: dict[str, object] | None) -> str | None:
     return _first_string_value(labels, RAY_DASHBOARD_ACTOR_LABEL_KEYS)
 
 
+def _get_actor_key_from_sample(sample: RayDashboardMetricSample) -> str | None:
+    return sample.actor_id or sample.actor_name or _get_actor_key(sample.labels)
+
+
 def _is_actor_cpu_metric(sample: RayDashboardMetricSample, actor_key: str | None) -> bool:
     if actor_key is None:
         return False
@@ -194,13 +198,19 @@ def _actor_ranking_row(
 ) -> RayDashboardActorResourceRankingRow:
     context = context_by_key.get(actor_key, {})
     labels = sample.labels or {}
-    actor_id = context.get("actor_id") or _first_string_value(labels, RAY_DASHBOARD_ACTOR_ID_KEYS)
-    actor_name = context.get("actor_name") or _first_string_value(labels, RAY_DASHBOARD_ACTOR_NAME_KEYS)
+    actor_id = (
+        context.get("actor_id") or sample.actor_id or _first_string_value(labels, RAY_DASHBOARD_ACTOR_ID_KEYS)
+    )
+    actor_name = (
+        context.get("actor_name")
+        or sample.actor_name
+        or _first_string_value(labels, RAY_DASHBOARD_ACTOR_NAME_KEYS)
+    )
     return RayDashboardActorResourceRankingRow(
         actor_key=actor_key,
         actor_id=actor_id,
         actor_name=actor_name,
-        class_name=context.get("class_name"),
+        class_name=context.get("class_name") or sample.actor_class,
         state=context.get("state"),
         metric_name=sample.metric_name,
         metric_unit=sample.metric_unit,
@@ -618,7 +628,10 @@ def get_ray_dashboard_actor_rankings(
         select(RayDashboardMetricSample)
         .where(
             RayDashboardMetricSample.dashboard_id == dashboard.id,
-            RayDashboardMetricSample.labels.is_not(None),
+            or_(
+                RayDashboardMetricSample.actor_id.is_not(None),
+                RayDashboardMetricSample.actor_name.is_not(None),
+            ),
         )
         .order_by(RayDashboardMetricSample.sampled_at.desc())
         .limit(RAY_DASHBOARD_ACTOR_RANKING_SAMPLE_LIMIT)
@@ -627,7 +640,7 @@ def get_ray_dashboard_actor_rankings(
     cpu_samples_by_actor: dict[str, RayDashboardMetricSample] = {}
     memory_samples_by_actor: dict[str, RayDashboardMetricSample] = {}
     for sample in samples:
-        actor_key = _get_actor_key(sample.labels)
+        actor_key = _get_actor_key_from_sample(sample)
         if actor_key is None:
             continue
         if _is_actor_cpu_metric(sample, actor_key) and actor_key not in cpu_samples_by_actor:

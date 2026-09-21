@@ -158,10 +158,25 @@ def test_snapshot_and_metric_queries(session, task_instance):
             {
                 "metric_name": "ray_node_cpu_utilization",
                 "metric_unit": "percent",
-                "labels": {"node": "head"},
+                "labels": {
+                    "ActorID": "actor-1",
+                    "ClassName": "Trainer",
+                    "Name": "trainer",
+                    "node": "head",
+                    "pod": "ray-worker",
+                    "podIp": "10.42.0.7",
+                    "pod_uid": "pod-1",
+                },
                 "sampled_at": collected_at,
                 "value": 42.0,
-            }
+            },
+            {
+                "metric_name": "ray_tasks",
+                "metric_unit": None,
+                "labels": {"Name": "train_task", "State": "RUNNING", "nodeAddress": "10.42.0.8"},
+                "sampled_at": collected_at,
+                "value": 1.0,
+            },
         ],
         session=session,
     )
@@ -184,9 +199,37 @@ def test_snapshot_and_metric_queries(session, task_instance):
 
     assert len(snapshots) == 1
     assert snapshots[0].payload == {"jobs": [{"id": "ray-job"}]}
+    task_metric_samples = list(
+        list_ray_dashboard_metric_samples(
+            dashboard_id=dashboard.id,
+            metric_name="ray_tasks",
+            session=session,
+        )
+    )
+
     assert len(metric_samples) == 1
-    assert metric_samples[0].labels == {"node": "head"}
+    assert metric_samples[0].labels == {
+        "ActorID": "actor-1",
+        "ClassName": "Trainer",
+        "Name": "trainer",
+        "node": "head",
+        "pod": "ray-worker",
+        "podIp": "10.42.0.7",
+        "pod_uid": "pod-1",
+    }
+    assert metric_samples[0].pod_name == "ray-worker"
+    assert metric_samples[0].pod_id == "pod-1"
+    assert metric_samples[0].pod_ip == "10.42.0.7"
+    assert metric_samples[0].actor_id == "actor-1"
+    assert metric_samples[0].actor_name == "trainer"
+    assert metric_samples[0].actor_class == "Trainer"
+    assert metric_samples[0].name is None
+    assert metric_samples[0].state is None
     assert metric_samples[0].value == 42.0
+    assert len(task_metric_samples) == 1
+    assert task_metric_samples[0].pod_ip == "10.42.0.8"
+    assert task_metric_samples[0].name == "train_task"
+    assert task_metric_samples[0].state == "RUNNING"
 
 
 def test_missing_ray_dashboard_record_returns_none(session, task_instance):

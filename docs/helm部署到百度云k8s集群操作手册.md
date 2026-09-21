@@ -171,6 +171,34 @@ kubectl -n bigdata run pg-check --rm -it --restart=Never \
 
 从仓库根目录执行：
 
+一键部署方式：
+
+```bash
+docs/deploy-baidu-k8s-oneclick.sh \
+  ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:3.2.1-source-20260920183823
+```
+
+脚本唯一必填参数是 Airflow 完整镜像，脚本会自动从镜像中拆分出 Helm values 需要的 repository 和 tag，并执行以下操作：
+
+- 创建 `bigdata` 命名空间。
+- 检查或创建 `airflow-ssh-secret`。如需自动创建，传入 `SSH_PRIVATE_KEY_PATH=/path/to/private_key`。
+- 应用 `deploy/helm/airflow-openmetadata-configs-pvc.yaml`。
+- 执行 `helm dependency build deploy/helm/airflow`。
+- 执行 `helm upgrade --install airflow deploy/helm/airflow -n bigdata -f deploy/helm/baidu-k8s.yaml`，并用传入镜像覆盖 Airflow repository 和 tag。
+- 等待 API Server、Scheduler、Dag Processor、Triggerer 完成滚动。
+
+常用可选参数通过环境变量传入：
+
+```bash
+NAMESPACE=bigdata \
+RELEASE_NAME=airflow \
+SSH_PRIVATE_KEY_PATH=/path/to/private_key \
+docs/deploy-baidu-k8s-oneclick.sh \
+  ccr-2owfeef4-pub.cnc.bj.baidubce.com/airflow/airflow:3.2.1-source-20260920183823
+```
+
+如果需要手动执行，可以使用以下步骤。
+
 ```bash
 helm dependency build deploy/helm/airflow
 ```
