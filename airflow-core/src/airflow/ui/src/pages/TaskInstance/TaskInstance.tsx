@@ -35,6 +35,8 @@ import { isStatePending, useAutoRefresh } from "src/utils";
 
 import { Header } from "./Header";
 
+const AI_DIAGNOSIS_TAB_LABEL = "AI 诊断";
+
 export const TaskInstance = () => {
   const { t: translate } = useTranslation(["dag", "common", "hitl"]);
   const { dagId = "", mapIndex = "-1", runId = "", taskId = "" } = useParams();
@@ -55,7 +57,7 @@ export const TaskInstance = () => {
       label: RAY_DASHBOARD_TAB_LABEL,
       value: "ray_dashboard",
     },
-    { icon: <FiCpu />, label: translate("tabs.aiDiagnosis"), value: "ai_diagnosis" },
+    { icon: <FiCpu />, label: AI_DIAGNOSIS_TAB_LABEL, value: "ai_diagnosis" },
     { icon: <FiDatabase />, label: translate("tabs.assetEvents"), value: "asset_events" },
     { icon: <MdOutlineEventNote />, label: translate("tabs.auditLog"), value: "events" },
     { icon: <FiCode />, label: translate("tabs.code"), value: "code" },
