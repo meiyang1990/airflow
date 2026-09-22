@@ -77,6 +77,7 @@ type MetricSample = {
   metric_name: string;
   metric_unit?: string | null;
   name?: string | null;
+  pod_ip?: string | null;
   sampled_at: string;
   value: number;
 };
@@ -570,10 +571,10 @@ const getMetricLabel = (sample: MetricSample, keys: Array<string>) => {
 };
 
 const getMetricNodeType = (sample: MetricSample) =>
-  getMetricLabel(sample, ["node_type", "NodeType", "ray_node_type", "group", "nodeGroup"]);
+  sample.name ?? getMetricLabel(sample, ["node_type", "NodeType", "ray_node_type", "group", "nodeGroup"]);
 
 const getMetricPodIp = (sample: MetricSample) =>
-  getMetricLabel(sample, ["pod_ip", "podIP", "pod", "instance", "node", "NodeID"]);
+  sample.pod_ip ?? getMetricLabel(sample, ["pod_ip", "podIP", "pod", "instance", "node", "NodeID"]);
 
 const getLatestNodeCountSample = (
   samples: Array<MetricSample>,
@@ -1108,33 +1109,60 @@ const ActorResourceRankingTable = ({
   </Box>
 );
 
-const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => {
-  const metricNames = [...new Set(samples.map((sample) => sample.metric_name))].slice(0, 4);
+const getMetricChartSeriesKey = (sample: MetricSample, groupByPodIp: boolean) =>
+  groupByPodIp ? getMetricPodIp(sample) : sample.metric_name;
+
+const MetricChart = ({
+  groupByPodIp = false,
+  maxSeries = 4,
+  samples,
+}: {
+  readonly groupByPodIp?: boolean;
+  readonly maxSeries?: number;
+  readonly samples: Array<MetricSample>;
+}) => {
+  const seriesKeys = [
+    ...new Set(
+      samples
+        .map((sample) => getMetricChartSeriesKey(sample, groupByPodIp))
+        .filter((value): value is string => value !== undefined),
+    ),
+  ].slice(0, maxSeries);
   const labels = [...new Set(samples.map((sample) => sample.sampled_at))].sort();
   const colors = ["#2563eb", "#16a34a", "#d97706", "#7c3aed"];
-  const chartUnitsByMetricName = Object.fromEntries(
-    metricNames.map((metricName) => [
-      metricName,
-      samples.some((sample) => sample.metric_name === metricName && isMemoryMetricSample(sample))
-        ? getMemoryChartUnit(samples, metricName)
+  const chartUnitsBySeriesKey = Object.fromEntries(
+    seriesKeys.map((seriesKey) => [
+      seriesKey,
+      samples.some(
+        (sample) =>
+          getMetricChartSeriesKey(sample, groupByPodIp) === seriesKey && isMemoryMetricSample(sample),
+      )
+        ? getMemoryChartUnit(
+            samples.filter((sample) => getMetricChartSeriesKey(sample, groupByPodIp) === seriesKey),
+            samples.find((sample) => getMetricChartSeriesKey(sample, groupByPodIp) === seriesKey)
+              ?.metric_name ?? "",
+          )
         : undefined,
     ]),
   );
   const data: ChartData<"line"> = {
-    datasets: metricNames.map((metricName, index) => ({
+    datasets: seriesKeys.map((seriesKey, index) => ({
       backgroundColor: `${colors[index] ?? colors[0]}22`,
       borderColor: colors[index] ?? colors[0],
       data: labels.map((label) =>
         getMetricChartValue(
-          samples.find((sample) => sample.metric_name === metricName && sample.sampled_at === label),
-          chartUnitsByMetricName[metricName],
+          samples.find(
+            (sample) =>
+              getMetricChartSeriesKey(sample, groupByPodIp) === seriesKey && sample.sampled_at === label,
+          ),
+          chartUnitsBySeriesKey[seriesKey],
         ),
       ),
       fill: false,
       label:
-        chartUnitsByMetricName[metricName] === undefined
-          ? metricName
-          : `${metricName} (${chartUnitsByMetricName[metricName]})`,
+        chartUnitsBySeriesKey[seriesKey] === undefined
+          ? seriesKey
+          : `${seriesKey} (${chartUnitsBySeriesKey[seriesKey]})`,
       pointRadius: 2,
       tension: 0.25,
     })),
@@ -1217,6 +1245,23 @@ const getPodMetricSamples = (samples: Array<MetricSample>, metric: string) => {
   return getMetricSamplesByPattern(samples, DISK_METRIC_PATTERN);
 };
 
+const getTopPodIpsByPeakValue = (samples: Array<MetricSample>, limit: number) => {
+  const peakValueByPodIp = samples.reduce<Map<string, number>>((result, sample) => {
+    const podIp = getMetricPodIp(sample);
+
+    if (podIp !== undefined) {
+      result.set(podIp, Math.max(result.get(podIp) ?? Number.NEGATIVE_INFINITY, sample.value));
+    }
+
+    return result;
+  }, new Map<string, number>());
+
+  return [...peakValueByPodIp.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, limit)
+    .map(([podIp]) => podIp);
+};
+
 const OverviewSelect = ({
   children,
   label,
@@ -1273,27 +1318,45 @@ const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<Metric
   const [selectedNodeType, setSelectedNodeType] = useState("");
   const [selectedMetric, setSelectedMetric] = useState("cpu");
   const [selectedPodIp, setSelectedPodIp] = useState("all");
+  const metricSamples = useMemo(
+    () => getPodMetricSamples(samples, selectedMetric),
+    [samples, selectedMetric],
+  );
   const nodeTypes = useMemo(
     () => [
-      ...new Set(samples.map(getMetricNodeType).filter((value): value is string => value !== undefined)),
+      ...new Set(
+        metricSamples.map(getMetricNodeType).filter((value): value is string => value !== undefined),
+      ),
     ],
-    [samples],
-  );
-  const podIps = useMemo(
-    () => [...new Set(samples.map(getMetricPodIp).filter((value): value is string => value !== undefined))],
-    [samples],
+    [metricSamples],
   );
   const effectiveNodeType = nodeTypes.includes(selectedNodeType) ? selectedNodeType : (nodeTypes[0] ?? "");
-  const timelineSamples = useMemo(
-    () =>
-      getPodMetricSamples(samples, selectedMetric).filter((sample) => {
-        const nodeType = getMetricNodeType(sample);
-        const podIp = getMetricPodIp(sample);
-
-        return nodeType === effectiveNodeType && (selectedPodIp === "all" || podIp === selectedPodIp);
-      }),
-    [effectiveNodeType, samples, selectedMetric, selectedPodIp],
+  const nodeMetricSamples = useMemo(
+    () => metricSamples.filter((sample) => getMetricNodeType(sample) === effectiveNodeType),
+    [effectiveNodeType, metricSamples],
   );
+  const podIps = useMemo(
+    () => [
+      ...new Set(
+        nodeMetricSamples.map(getMetricPodIp).filter((value): value is string => value !== undefined),
+      ),
+    ],
+    [nodeMetricSamples],
+  );
+  const effectivePodIp = selectedPodIp === "all" || podIps.includes(selectedPodIp) ? selectedPodIp : "all";
+  const timelineSamples = useMemo(() => {
+    if (effectivePodIp !== "all") {
+      return nodeMetricSamples.filter((sample) => getMetricPodIp(sample) === effectivePodIp);
+    }
+
+    const topPodIps = new Set(getTopPodIpsByPeakValue(nodeMetricSamples, 50));
+
+    return nodeMetricSamples.filter((sample) => {
+      const podIp = getMetricPodIp(sample);
+
+      return podIp !== undefined && topPodIps.has(podIp);
+    });
+  }, [effectivePodIp, nodeMetricSamples]);
 
   return (
     <Box aria-label="Pod metric timeline">
@@ -1312,7 +1375,7 @@ const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<Metric
             <option value="memory">memory使用</option>
             <option value="disk">磁盘使用</option>
           </OverviewSelect>
-          <OverviewSelect label="pod_ip" onChange={setSelectedPodIp} value={selectedPodIp}>
+          <OverviewSelect label="pod_ip" onChange={setSelectedPodIp} value={effectivePodIp}>
             <option value="all">all</option>
             {podIps.map((podIp) => (
               <option key={podIp} value={podIp}>
@@ -1333,7 +1396,7 @@ const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<Metric
             <Text bottom="6px" color={RAY_COLORS.muted} fontSize="12px" position="absolute" right="14px">
               time
             </Text>
-            <MetricChart samples={timelineSamples} />
+            <MetricChart groupByPodIp maxSeries={50} samples={timelineSamples} />
           </Box>
         )}
       </Box>

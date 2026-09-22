@@ -250,6 +250,8 @@ describe("RayDashboard", () => {
               labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
               metric_name: "ray_node_cpu_utilization",
               metric_unit: "%",
+              name: "worker",
+              pod_ip: "10.0.0.1",
               sampled_at: "2026-09-18T09:00:00Z",
               value: 84,
             },
@@ -258,6 +260,8 @@ describe("RayDashboard", () => {
               labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
               metric_name: "ray_node_cpu_utilization",
               metric_unit: "%",
+              name: "worker",
+              pod_ip: "10.0.0.1",
               sampled_at: "2026-09-18T09:01:00Z",
               value: 0,
             },
@@ -274,6 +278,8 @@ describe("RayDashboard", () => {
               labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
               metric_name: "ray_node_mem_used",
               metric_unit: "GiB",
+              name: "worker",
+              pod_ip: "10.0.0.1",
               sampled_at: "2026-09-18T09:00:00Z",
               value: 27.8,
             },
@@ -282,6 +288,8 @@ describe("RayDashboard", () => {
               labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
               metric_name: "ray_node_mem_used",
               metric_unit: "GiB",
+              name: "worker",
+              pod_ip: "10.0.0.1",
               sampled_at: "2026-09-18T09:01:00Z",
               value: 0,
             },
@@ -369,6 +377,9 @@ describe("RayDashboard", () => {
       expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0].options).toHaveLength(1),
     );
     expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0].options[0]).toHaveValue("worker");
+    expect(
+      [...screen.getAllByRole<HTMLSelectElement>("combobox")[2].options].map((option) => option.value),
+    ).toEqual(["all", "10.0.0.1"]);
     fireEvent.change(screen.getAllByRole<HTMLSelectElement>("combobox")[1], {
       target: { value: "memory" },
     });
