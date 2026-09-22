@@ -365,6 +365,8 @@ describe("RayDashboard", () => {
     expect(screen.getByText("pending-worker")).toBeInTheDocument();
     expect(screen.getByText("Pod metric timeline")).toBeInTheDocument();
     expect(screen.getByText("cpu使用")).toBeInTheDocument();
+    expect(screen.queryByText("View all nodes")).not.toBeInTheDocument();
+    expect(screen.queryByText("17:55")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("4 nodes").length).toBeGreaterThan(0));
     expect(screen.getByText(/2 \/ 42/u)).toBeInTheDocument();
     expect(screen.getByText(/116 GB/u)).toBeInTheDocument();

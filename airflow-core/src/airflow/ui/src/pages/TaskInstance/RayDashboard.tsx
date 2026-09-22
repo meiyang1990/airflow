@@ -310,6 +310,21 @@ const formatUtcPlus8 = (datetime: string): string => {
   return `${partsByType.year}-${partsByType.month}-${partsByType.day} ${partsByType.hour}:${partsByType.minute}:${partsByType.second} UTC+8`;
 };
 
+const formatUtcPlus8Time = (datetime: string): string => {
+  const date = new Date(datetime);
+
+  if (isNaN(date.getTime())) {
+    return datetime;
+  }
+
+  return new Intl.DateTimeFormat("en-CA", {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    timeZone: UTC_PLUS_8_TIME_ZONE,
+  }).format(date);
+};
+
 const formatValue = (value: unknown): string => {
   if (value === undefined || value === null || value === "") {
     return "-";
@@ -559,6 +574,15 @@ const getLatestNodeCountSample = (
   samples
     .filter((sample) => sample.metric_name === metricName && sample.name === nodeName)
     .sort((left, right) => right.sampled_at.localeCompare(left.sampled_at))[0];
+
+const getNodeCountSamples = (
+  samples: Array<MetricSample>,
+  metricName: typeof RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME | typeof RAY_CLUSTER_PENDING_NODES_METRIC_NAME,
+  nodeName: "worker",
+) =>
+  samples
+    .filter((sample) => sample.metric_name === metricName && sample.name === nodeName)
+    .sort((left, right) => left.sampled_at.localeCompare(right.sampled_at));
 
 const getRowsFromPayload = (payload: unknown): Array<JsonRecord> => {
   if (Array.isArray(payload)) {
@@ -1414,80 +1438,104 @@ const OverviewLegend = ({
   </Flex>
 );
 
-const OverviewChart = ({
-  kind,
-  labels,
+const NodeCountOverviewChart = ({
+  activeSamples,
+  pendingSamples,
 }: {
-  readonly kind: "nodes" | "utilization";
-  readonly labels: Array<string>;
-}) => (
-  <Box h="186px" mt={1} position="relative">
-    {Array.from({ length: labels.length }, (_, position) => position).map((position) => (
-      <Text
-        color="#4f5965"
-        fontSize="12px"
-        key={`overview-chart-y-${position}`}
-        left="-2px"
-        position="absolute"
-        top={`${position * 37}px`}
-      >
-        {labels[position]}
-      </Text>
-    ))}
-    <svg height="100%" overflow="visible" viewBox="0 0 392 212" width="100%">
-      {kind === "nodes" ? (
-        <>
-          <path
-            d="M58 8H386M58 50H386M58 92H386M58 134H386M58 176H386M58 8V176M118 8V176M178 8V176M238 8V176M298 8V176M358 8V176"
-            fill="none"
-            stroke="#e5e9ef"
-            strokeWidth="1"
-          />
-          <path d="M58 42H386V176H58Z" fill="#4b8fe2" opacity="0.18" />
-          <path d="M58 42H386" fill="none" stroke="#4b8fe2" strokeWidth="2" />
-          <path d="M58 142H386" fill="none" stroke="#7db36f" strokeWidth="2" />
-          <path d="M58 176H386" fill="none" stroke="#f0b429" strokeDasharray="5 4" strokeWidth="2" />
-          <path d="M58 176H386" fill="none" stroke="#e87d32" strokeDasharray="2 4" strokeWidth="2" />
-        </>
+  readonly activeSamples: Array<MetricSample>;
+  readonly pendingSamples: Array<MetricSample>;
+}) => {
+  const labels = [
+    ...new Set([...activeSamples, ...pendingSamples].map((sample) => sample.sampled_at)),
+  ].sort();
+  const maxNodeCount = Math.max(
+    0,
+    ...activeSamples.map((sample) => sample.value),
+    ...pendingSamples.map((sample) => sample.value),
+  );
+  const tickStepSize = Math.max(1, Math.ceil(maxNodeCount / 4));
+  const yMax = Math.max(1, Math.ceil(maxNodeCount / tickStepSize) * tickStepSize);
+  const data: ChartData<"line"> = {
+    datasets: [
+      {
+        backgroundColor: "#4b8fe233",
+        borderColor: "#4b8fe2",
+        data: labels.map(
+          (label) => activeSamples.find((sample) => sample.sampled_at === label)?.value ?? Number.NaN,
+        ),
+        fill: true,
+        label: "active-worker",
+        pointRadius: 2,
+        tension: 0.25,
+      },
+      {
+        backgroundColor: "#e87d3233",
+        borderColor: "#e87d32",
+        data: labels.map(
+          (label) => pendingSamples.find((sample) => sample.sampled_at === label)?.value ?? Number.NaN,
+        ),
+        fill: false,
+        label: "pending-worker",
+        pointRadius: 2,
+        tension: 0.25,
+      },
+    ],
+    labels,
+  };
+  const options: ChartOptions<"line"> = {
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: (item) => `${item.dataset.label ?? ""}: ${formatValue(item.parsed.y)} nodes`,
+          title: (items) => formatUtcPlus8(String(labels[items[0]?.dataIndex ?? 0] ?? "")),
+        },
+        intersect: false,
+        mode: "index",
+      },
+    },
+    responsive: true,
+    scales: {
+      x: {
+        grid: {
+          color: CHART_COLORS.border,
+        },
+        ticks: {
+          callback: (value) => formatUtcPlus8Time(String(labels[Number(value)] ?? value)),
+          color: CHART_COLORS.muted,
+          maxRotation: 0,
+        },
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: CHART_COLORS.border,
+        },
+        max: yMax,
+        ticks: {
+          callback: (value) => `${formatValue(value)} nodes`,
+          color: CHART_COLORS.muted,
+          stepSize: tickStepSize,
+        },
+      },
+    },
+  };
+
+  return (
+    <Box h="186px" mt={1}>
+      {labels.length === 0 ? (
+        <Flex alignItems="center" color={RAY_COLORS.muted} fontSize="13px" h="100%" justifyContent="center">
+          No node metrics yet.
+        </Flex>
       ) : (
-        <>
-          <path
-            d="M28 8H386M28 50H386M28 92H386M28 134H386M28 176H386M28 8V176M94 8V176M160 8V176M226 8V176M292 8V176M358 8V176"
-            fill="none"
-            stroke="#e5e9ef"
-            strokeWidth="1"
-          />
-          <path
-            d="M28 47L84 48L140 48L196 48L252 48L308 48L358 48L386 46"
-            fill="none"
-            stroke="#f0b429"
-            strokeWidth="2"
-          />
-          <path d="M28 60L386 60" fill="none" stroke="#e87d32" strokeWidth="2" />
-          <path
-            d="M28 135L34 142L39 130L45 144L51 136L57 139L63 129L69 133L75 136L81 128L87 132L93 128L99 130L105 125L111 136L117 123L123 131L129 121L135 128L141 127L147 134L153 124L159 137L165 128L171 127L177 136L183 125L189 130L195 133L201 128L207 139L213 134L219 130L225 137L231 132L237 129L243 136L249 128L255 140L261 129L267 135L273 132L279 126L285 138L291 134L297 129L303 136L309 103L315 136L321 132L327 126L333 138L339 130L345 128L351 136L357 124L363 130L369 125L375 121L381 127L386 126"
-            fill="none"
-            stroke="#93bf82"
-            strokeWidth="2"
-          />
-        </>
+        <Line data={data} options={options} />
       )}
-    </svg>
-    <Flex
-      bottom="-22px"
-      color="#4f5965"
-      fontSize="12px"
-      justifyContent="space-between"
-      left={kind === "nodes" ? "58px" : "26px"}
-      position="absolute"
-      right="4px"
-    >
-      {["17:55", "18:00", "18:05", "18:10", "18:15", "18:20"].map((label) => (
-        <Text key={label}>{label}</Text>
-      ))}
-    </Flex>
-  </Box>
-);
+    </Box>
+  );
+};
 
 const OverviewStatusText = ({ rows }: { readonly rows: Array<[string, ReactNode]> }) => (
   <Text color="#20252c" fontSize="14px" lineHeight="1.35" mt={1}>
@@ -1706,6 +1754,16 @@ export const RayDashboard = () => {
   );
   const activeWorkerNodeCount = activeWorkerNodeSample?.value;
   const pendingWorkerNodeCount = pendingWorkerNodeSample?.value;
+  const activeWorkerNodeSamples = getNodeCountSamples(
+    samples,
+    RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME,
+    "worker",
+  );
+  const pendingWorkerNodeSamples = getNodeCountSamples(
+    samples,
+    RAY_CLUSTER_PENDING_NODES_METRIC_NAME,
+    "worker",
+  );
   const activeNodeCount = (activeWorkerNodeCount ?? 0) + (pendingWorkerNodeCount ?? 0);
   const navSections = [
     ...PRIMARY_NAV_SECTIONS,
@@ -1911,15 +1969,9 @@ export const RayDashboard = () => {
               <SimpleGrid columns={{ base: 1, xl: 3 }} gap={5}>
                 <OverviewCard hasInfo title="Node Count">
                   <Box minH="232px">
-                    <OverviewChart
-                      kind="nodes"
-                      labels={[
-                        `${formatDecimal(Math.max(activeNodeCount + 1, 1))} nodes`,
-                        `${formatDecimal(Math.max(activeNodeCount, 1))} nodes`,
-                        `${formatDecimal(Math.max(activeNodeCount - 1, 0))} nodes`,
-                        `${formatDecimal(Math.max(activeNodeCount - 2, 0))} nodes`,
-                        "0 nodes",
-                      ]}
+                    <NodeCountOverviewChart
+                      activeSamples={activeWorkerNodeSamples}
+                      pendingSamples={pendingWorkerNodeSamples}
                     />
                     <OverviewLegend
                       rows={[
@@ -1936,7 +1988,6 @@ export const RayDashboard = () => {
                       ]}
                     />
                   </Box>
-                  <OverviewLink onClick={() => setSelectedSection("cluster")}>View all nodes</OverviewLink>
                 </OverviewCard>
 
                 <OverviewCard title="Recent jobs">
