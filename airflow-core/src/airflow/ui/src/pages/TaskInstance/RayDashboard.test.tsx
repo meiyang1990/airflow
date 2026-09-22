@@ -36,6 +36,17 @@ const manyMetricSamples = Array.from({ length: 101 }, (_, index) => ({
   sampled_at: new Date(Date.UTC(2026, 8, 18, 9, index, 0)).toISOString(),
   value: index,
 }));
+
+const getTimelineSelects = () => {
+  const [nodeTypeSelect, metricSelect, podIpSelect] = screen.getAllByRole<HTMLSelectElement>("combobox");
+
+  if (nodeTypeSelect === undefined || metricSelect === undefined || podIpSelect === undefined) {
+    throw new Error("Expected Pod metric timeline selects to be rendered");
+  }
+
+  return { metricSelect, nodeTypeSelect, podIpSelect };
+};
+
 const defaultActorRankings = {
   cpu: [
     {
@@ -275,20 +286,18 @@ describe("RayDashboard", () => {
             },
             {
               id: "memory-sample-id",
-              labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
+              labels: { instance: "worker-1", JobId: "job-id", RayNodeType: "worker" },
               metric_name: "ray_node_mem_used",
               metric_unit: "GiB",
-              name: "worker",
               pod_ip: "10.0.0.1",
               sampled_at: "2026-09-18T09:00:00Z",
               value: 27.8,
             },
             {
               id: "latest-memory-sample-id",
-              labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
+              labels: { instance: "worker-1", JobId: "job-id", RayNodeType: "worker" },
               metric_name: "ray_node_mem_used",
               metric_unit: "GiB",
-              name: "worker",
               pod_ip: "10.0.0.1",
               sampled_at: "2026-09-18T09:01:00Z",
               value: 0,
@@ -373,16 +382,17 @@ describe("RayDashboard", () => {
     expect(screen.getByText("pending-worker")).toBeInTheDocument();
     expect(screen.getByText("Pod metric timeline")).toBeInTheDocument();
     expect(screen.getByText("cpu使用率")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0].options).toHaveLength(1),
-    );
-    expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0].options[0]).toHaveValue("worker");
-    expect(
-      [...screen.getAllByRole<HTMLSelectElement>("combobox")[2].options].map((option) => option.value),
-    ).toEqual(["all", "10.0.0.1"]);
-    fireEvent.change(screen.getAllByRole<HTMLSelectElement>("combobox")[1], {
+    await waitFor(() => expect(getTimelineSelects().nodeTypeSelect.options).toHaveLength(1));
+    expect(getTimelineSelects().nodeTypeSelect.options[0]).toHaveValue("worker");
+    expect([...getTimelineSelects().podIpSelect.options].map((option) => option.value)).toEqual([
+      "all",
+      "10.0.0.1",
+    ]);
+    fireEvent.change(getTimelineSelects().metricSelect, {
       target: { value: "memory" },
     });
+    await waitFor(() => expect(getTimelineSelects().nodeTypeSelect.options).toHaveLength(1));
+    expect(getTimelineSelects().nodeTypeSelect.options[0]).toHaveValue("worker");
     expect(await screen.findByText("GB")).toBeInTheDocument();
     expect(screen.queryByText("View all nodes")).not.toBeInTheDocument();
     expect(screen.queryByText("17:55")).not.toBeInTheDocument();

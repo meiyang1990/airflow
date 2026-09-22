@@ -71,6 +71,11 @@ RAY_DASHBOARD_NODE_TYPE_NAME_METRIC_NAMES = {
     "ray_cluster_active_nodes",
     "ray_node_cpu_count",
     "ray_node_cpu_utilization",
+    "ray_node_disk_free",
+    "ray_node_disk_usage",
+    "ray_node_mem_available",
+    "ray_node_mem_total",
+    "ray_node_mem_used",
 }
 RAY_DASHBOARD_NODE_TYPE_NAME_LABEL_KEYS = ("node_type", "RayNodeType")
 RAY_DASHBOARD_TASKS_METRIC_NAME = "ray_tasks"

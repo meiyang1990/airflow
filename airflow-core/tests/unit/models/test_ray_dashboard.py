@@ -132,6 +132,56 @@ def test_try_numbers_are_separate(session, task_instance):
     )
 
 
+@pytest.mark.parametrize(
+    "node_metric_name",
+    [
+        "ray_node_cpu_count",
+        "ray_node_disk_free",
+        "ray_node_disk_usage",
+        "ray_node_mem_available",
+        "ray_node_mem_total",
+        "ray_node_mem_used",
+    ],
+)
+def test_node_metric_names_normalize_node_type(session, task_instance, node_metric_name):
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=task_instance.try_number,
+        session=session,
+    )
+    session.flush()
+    collected_at = timezone.utcnow()
+
+    add_ray_dashboard_metric_samples(
+        dashboard=dashboard,
+        samples=[
+            {
+                "metric_name": node_metric_name,
+                "metric_unit": None,
+                "labels": {"RayNodeType": "worker"},
+                "sampled_at": collected_at,
+                "value": 1024.0,
+            },
+        ],
+        session=session,
+    )
+    session.flush()
+
+    metric_samples = list(
+        list_ray_dashboard_metric_samples(
+            dashboard_id=dashboard.id,
+            metric_name=node_metric_name,
+            session=session,
+        )
+    )
+
+    assert len(metric_samples) == 1
+    assert metric_samples[0].name == "worker"
+
+
 def test_snapshot_and_metric_queries(session, task_instance):
     dashboard = upsert_ray_dashboard_task_instance(
         dag_id=task_instance.dag_id,
@@ -192,6 +242,13 @@ def test_snapshot_and_metric_queries(session, task_instance):
                 "sampled_at": collected_at,
                 "value": 8.0,
             },
+            {
+                "metric_name": "ray_node_mem_used",
+                "metric_unit": "bytes",
+                "labels": {"RayNodeType": "worker"},
+                "sampled_at": collected_at,
+                "value": 1024.0,
+            },
         ],
         session=session,
     )
@@ -235,6 +292,13 @@ def test_snapshot_and_metric_queries(session, task_instance):
             session=session,
         )
     )
+    node_memory_metric_samples = list(
+        list_ray_dashboard_metric_samples(
+            dashboard_id=dashboard.id,
+            metric_name="ray_node_mem_used",
+            session=session,
+        )
+    )
 
     assert len(metric_samples) == 1
     assert metric_samples[0].labels == {
@@ -264,6 +328,8 @@ def test_snapshot_and_metric_queries(session, task_instance):
     assert active_node_metric_samples[0].name == "worker"
     assert len(node_cpu_count_metric_samples) == 1
     assert node_cpu_count_metric_samples[0].name == "head"
+    assert len(node_memory_metric_samples) == 1
+    assert node_memory_metric_samples[0].name == "worker"
 
 
 def test_missing_ray_dashboard_record_returns_none(session, task_instance):

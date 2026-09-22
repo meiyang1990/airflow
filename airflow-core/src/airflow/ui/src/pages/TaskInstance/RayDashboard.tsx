@@ -571,7 +571,8 @@ const getMetricLabel = (sample: MetricSample, keys: Array<string>) => {
 };
 
 const getMetricNodeType = (sample: MetricSample) =>
-  sample.name ?? getMetricLabel(sample, ["node_type", "NodeType", "ray_node_type", "group", "nodeGroup"]);
+  sample.name ??
+  getMetricLabel(sample, ["node_type", "NodeType", "RayNodeType", "ray_node_type", "group", "nodeGroup"]);
 
 const getMetricPodIp = (sample: MetricSample) =>
   sample.pod_ip ?? getMetricLabel(sample, ["pod_ip", "podIP", "pod", "instance", "node", "NodeID"]);
