@@ -2091,6 +2091,16 @@ export const RayDashboard = () => {
 
           {activeSection === "overview" ? (
             <Flex color="#2f343b" direction="column" gap={6}>
+              <OverviewPodMetricTimeline
+                dagId={dagId}
+                enabled
+                mapIndex={parsedMapIndex}
+                refreshToken={podTimelineRefreshToken}
+                runId={runId}
+                taskId={taskId}
+                tryNumber={tryNumber}
+              />
+
               <SimpleGrid columns={{ base: 1, xl: 3 }} gap={5}>
                 <OverviewCard hasInfo title="Node Count">
                   <Box minH="232px">
@@ -2244,16 +2254,6 @@ export const RayDashboard = () => {
                   </OverviewCard>
                 </SimpleGrid>
               </Box>
-
-              <OverviewPodMetricTimeline
-                dagId={dagId}
-                enabled
-                mapIndex={parsedMapIndex}
-                refreshToken={podTimelineRefreshToken}
-                runId={runId}
-                taskId={taskId}
-                tryNumber={tryNumber}
-              />
             </Flex>
           ) : undefined}
 
