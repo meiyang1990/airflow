@@ -6073,6 +6073,26 @@ class TestRayDashboardMetricSamples:
                     "value": 1024.0,
                     "sampled_at": collected_at,
                 },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.3",
+                    },
+                    "value": 3.0,
+                    "sampled_at": collected_at,
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_IDLE",
+                        "podIp": "10.0.0.3",
+                    },
+                    "value": 5.0,
+                    "sampled_at": collected_at,
+                },
             ],
             session=session,
         )
@@ -6089,6 +6109,19 @@ class TestRayDashboardMetricSamples:
         assert body["samples"][0]["name"] == "worker"
         assert body["samples"][0]["pod_ip"] == "10.0.0.1"
         assert body["samples"][0]["value"] == 42.0
+
+        response = test_client.get(
+            f"{self._metrics_url(ti)}&metric_name=ray_actors&actor_name=AlgoOperatorActor&state=ALIVE_RUNNING_TASKS"
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body["total_entries"] == 1
+        assert body["samples"][0]["metric_name"] == "ray_actors"
+        assert body["samples"][0]["actor_name"] == "AlgoOperatorActor"
+        assert body["samples"][0]["state"] == "ALIVE_RUNNING_TASKS"
+        assert body["samples"][0]["pod_ip"] == "10.0.0.3"
+        assert body["samples"][0]["value"] == 3.0
 
 
 class TestRayDashboardActorRankings:

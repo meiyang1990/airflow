@@ -667,8 +667,10 @@ def get_ray_dashboard_metric_samples(
     try_number: Annotated[int, Query(ge=1)],
     session: SessionDep,
     metric_name: Annotated[str | None, Query()] = None,
+    actor_name: Annotated[str | None, Query()] = None,
     node_type: Annotated[str | None, Query()] = None,
     pod_ip: Annotated[str | None, Query()] = None,
+    state: Annotated[str | None, Query()] = None,
     start_date: Annotated[datetime | None, Query()] = None,
     end_date: Annotated[datetime | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=5000)] = 1000,
@@ -689,10 +691,14 @@ def get_ray_dashboard_metric_samples(
     query = select(RayDashboardMetricSample).where(RayDashboardMetricSample.dashboard_id == dashboard.id)
     if metric_name is not None:
         query = query.where(RayDashboardMetricSample.metric_name == metric_name)
+    if actor_name is not None:
+        query = query.where(RayDashboardMetricSample.actor_name == actor_name)
     if node_type is not None:
         query = query.where(RayDashboardMetricSample.name == node_type)
     if pod_ip is not None:
         query = query.where(RayDashboardMetricSample.pod_ip == pod_ip)
+    if state is not None:
+        query = query.where(RayDashboardMetricSample.state == state)
     if start_date is not None:
         query = query.where(RayDashboardMetricSample.sampled_at >= start_date)
     if end_date is not None:

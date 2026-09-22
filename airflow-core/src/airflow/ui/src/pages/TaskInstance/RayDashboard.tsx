@@ -16,19 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import {
-  Box,
-  Button,
-  Code,
-  Flex,
-  Heading,
-  HStack,
-  Link,
-  SimpleGrid,
-  Spinner,
-  Table,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Button, Code, Flex, Heading, Link, SimpleGrid, Spinner, Table, Text } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
@@ -51,7 +39,6 @@ import { useParams, useSearchParams } from "react-router-dom";
 
 import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { OpenAPI } from "openapi/requests/core/OpenAPI";
-import { Pagination } from "src/components/ui/Pagination";
 import { SearchParamsKeys } from "src/constants/searchParams";
 import {
   getRayDashboardAvailability,
@@ -72,6 +59,7 @@ type Snapshot = {
 };
 
 type MetricSample = {
+  actor_name?: string | null;
   id: string;
   labels?: Record<string, unknown> | null;
   metric_name: string;
@@ -79,25 +67,8 @@ type MetricSample = {
   name?: string | null;
   pod_ip?: string | null;
   sampled_at: string;
-  value: number;
-};
-
-type ActorRankingRow = {
-  actor_id?: string | null;
-  actor_key: string;
-  actor_name?: string | null;
-  class_name?: string | null;
-  labels?: Record<string, unknown> | null;
-  metric_name: string;
-  metric_unit?: string | null;
-  sampled_at: string;
   state?: string | null;
   value: number;
-};
-
-type ActorRankings = {
-  cpu: Array<ActorRankingRow>;
-  memory: Array<ActorRankingRow>;
 };
 
 type RaySection =
@@ -155,15 +126,6 @@ const TABLE_KEYS = [
 const STATE_KEYS = ["state", "status", "job_status", "actor_state", "task_status"];
 const TASK_STATE_KEYS = ["state", "status", "task_status", "scheduling_state"];
 const ACTOR_STATE_KEYS = ["state", "status", "actor_state"];
-const ACTOR_TABLE_PAGE_SIZE = 50;
-const ACTOR_TABLE_COLUMNS = ["node_id", "actor_id", "actor_ip", "state", "job_id"] as const;
-const ACTOR_FIELD_ALIASES: Record<(typeof ACTOR_TABLE_COLUMNS)[number], Array<string>> = {
-  actor_id: ["actor_id", "ActorID", "id"],
-  actor_ip: ["actor_ip", "actorIp", "actorIPAddress", "ip", "ip_address", "node_ip_address"],
-  job_id: ["job_id", "JobID"],
-  node_id: ["node_id", "NodeID"],
-  state: ["state", "status", "actor_state"],
-};
 const CPU_METRIC_PATTERN = /(?:^|_)(?:cpu|cpus)(?:_|$)|cpu_utilization/u;
 const MEMORY_METRIC_PATTERN = /(?:memory|mem)(?:_|$)/u;
 const OBJECT_STORE_METRIC_PATTERN = /object_store|object_spill/u;
@@ -187,7 +149,15 @@ const POD_TIMELINE_METRICS = [
   { label: "memory使用", metricName: RAY_NODE_MEM_USED_METRIC_NAME, value: "memory" },
   { label: "磁盘使用", metricName: RAY_NODE_DISK_USAGE_METRIC_NAME, value: "disk" },
 ];
-const MAX_ACTOR_RANKING_ROWS = 20;
+const ACTOR_STATE_OPTIONS = [
+  "ALIVE_RUNNING_TASKS",
+  "ALIVE_IDLE",
+  "PENDING_CREATION",
+  "ALIVE",
+  "DEAD",
+] as const;
+const RAY_ACTORS_METRIC_NAME = "ray_actors";
+const ALGO_OPERATOR_ACTOR_NAME = "AlgoOperatorActor";
 const RAY_COLORS = {
   amber: "#f59e0b",
   bg: "light-dark(#edf1f5, #111827)",
@@ -499,9 +469,6 @@ const getValueByPath = (row: JsonRecord, key: string) =>
 
 const getNumericField = (row: JsonRecord, keys: Array<string>) =>
   keys.map((key) => getValueByPath(row, key)).find((value): value is number => typeof value === "number");
-
-const sumNumericFields = (rows: Array<JsonRecord>, keys: Array<string>) =>
-  rows.reduce((total, row) => total + (getNumericField(row, keys) ?? 0), 0);
 
 const getClusterResourceTotals = (rows: Array<JsonRecord>) => {
   const resourceRow = rows.find((row) => row.id === "cluster_resources");
@@ -974,145 +941,6 @@ const GenericSectionTable = ({
   );
 };
 
-const getActorTableValue = (row: JsonRecord, column: (typeof ACTOR_TABLE_COLUMNS)[number]) => {
-  const value = ACTOR_FIELD_ALIASES[column]
-    .map((key) => row[key])
-    .find((candidate) => candidate !== undefined && candidate !== null && candidate !== "");
-
-  return formatTableValue(column, value);
-};
-
-const ActorTable = ({
-  emptyText,
-  rows,
-}: {
-  readonly emptyText: string;
-  readonly rows: Array<JsonRecord>;
-}) => {
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(rows.length / ACTOR_TABLE_PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const startIndex = (currentPage - 1) * ACTOR_TABLE_PAGE_SIZE;
-  const pageRows = rows.slice(startIndex, startIndex + ACTOR_TABLE_PAGE_SIZE);
-
-  if (rows.length === 0) {
-    return <Text color={RAY_COLORS.muted}>{emptyText}</Text>;
-  }
-
-  return (
-    <Flex direction="column" gap={3}>
-      <RayTable>
-        <Table.Header>
-          <Table.Row>
-            {ACTOR_TABLE_COLUMNS.map((column) => (
-              <Table.ColumnHeader key={column}>{column}</Table.ColumnHeader>
-            ))}
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {pageRows.map((row, index) => (
-            <Table.Row key={`${getActorTableValue(row, "actor_id")}-${startIndex + index}`}>
-              {ACTOR_TABLE_COLUMNS.map((column) => (
-                <Table.Cell
-                  key={column}
-                  maxW="280px"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                  whiteSpace="nowrap"
-                >
-                  {getActorTableValue(row, column)}
-                </Table.Cell>
-              ))}
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </RayTable>
-      {rows.length > ACTOR_TABLE_PAGE_SIZE ? (
-        <Flex alignItems="center" justifyContent="space-between" wrap="wrap">
-          <Text color={RAY_COLORS.muted} fontSize="11px">
-            Showing {formatValue(startIndex + 1)}-{formatValue(startIndex + pageRows.length)} of{" "}
-            {formatValue(rows.length)} actors
-          </Text>
-          <Pagination.Root
-            count={rows.length}
-            onPageChange={(event) => setPage(event.page)}
-            page={currentPage}
-            pageSize={ACTOR_TABLE_PAGE_SIZE}
-            siblingCount={1}
-            size="xs"
-          >
-            <HStack>
-              <Pagination.PrevTrigger data-testid="actor-table-prev" />
-              <Pagination.Items />
-              <Pagination.NextTrigger data-testid="actor-table-next" />
-            </HStack>
-          </Pagination.Root>
-        </Flex>
-      ) : undefined}
-    </Flex>
-  );
-};
-
-const getActorRankingName = (row: ActorRankingRow) => row.actor_name ?? row.actor_id ?? row.actor_key;
-
-const ActorResourceRankingTable = ({
-  emptyText,
-  rows,
-  title,
-}: {
-  readonly emptyText: string;
-  readonly rows: Array<ActorRankingRow>;
-  readonly title: string;
-}) => (
-  <Box {...PANEL_BORDER} bg={RAY_COLORS.panelSoft} p={2.5}>
-    <Flex alignItems="baseline" justifyContent="space-between" mb={2.5} wrap="wrap">
-      <Text color={RAY_COLORS.text} fontSize="13px" fontWeight="750">
-        {title}
-      </Text>
-      <Text color={RAY_COLORS.muted} fontSize="11px">
-        Top {MAX_ACTOR_RANKING_ROWS}
-      </Text>
-    </Flex>
-    {rows.length === 0 ? (
-      <Text color={RAY_COLORS.muted}>{emptyText}</Text>
-    ) : (
-      <RayTable>
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader>Actor</Table.ColumnHeader>
-            <Table.ColumnHeader>Value</Table.ColumnHeader>
-            <Table.ColumnHeader>Metric</Table.ColumnHeader>
-            <Table.ColumnHeader>Sampled At</Table.ColumnHeader>
-            <Table.ColumnHeader>State</Table.ColumnHeader>
-            <Table.ColumnHeader>Labels</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {rows.slice(0, MAX_ACTOR_RANKING_ROWS).map((row) => (
-            <Table.Row key={`${row.actor_key}-${row.metric_name}-${row.sampled_at}`}>
-              <Table.Cell>{getActorRankingName(row)}</Table.Cell>
-              <Table.Cell>
-                {MEMORY_VALUE_KEY_PATTERN.test(row.metric_name.toLowerCase()) &&
-                normalizeUnit(row.metric_unit) !== "%"
-                  ? formatMemoryValue(row.value, row.metric_unit)
-                  : formatMetricValue(row.value, row.metric_unit)}
-              </Table.Cell>
-              <Table.Cell>{row.metric_name}</Table.Cell>
-              <Table.Cell>{formatUtcPlus8(row.sampled_at)}</Table.Cell>
-              <Table.Cell>
-                <StatusText value={row.state} />
-              </Table.Cell>
-              <Table.Cell maxW="320px" overflow="hidden" textOverflow="ellipsis">
-                {formatValue(formatJsonValueForDisplay(row.labels))}
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </RayTable>
-    )}
-  </Box>
-);
-
 const getMetricChartSeriesKey = (sample: MetricSample, groupByPodIp: boolean) =>
   groupByPodIp ? getMetricPodIp(sample) : sample.metric_name;
 
@@ -1304,6 +1132,93 @@ const OverviewSelect = ({
     </select>
   </Box>
 );
+
+const ActorStateTimeline = ({
+  dagId,
+  enabled,
+  mapIndex,
+  refreshToken,
+  runId,
+  taskId,
+  tryNumber,
+}: {
+  readonly dagId: string;
+  readonly enabled: boolean;
+  readonly mapIndex: number;
+  readonly refreshToken: number;
+  readonly runId: string;
+  readonly taskId: string;
+  readonly tryNumber: number;
+}) => {
+  const [selectedState, setSelectedState] = useState<(typeof ACTOR_STATE_OPTIONS)[number]>(
+    ACTOR_STATE_OPTIONS[0],
+  );
+  const { data: actorMetricSamples, isFetching } = useQuery({
+    enabled,
+    queryFn: () =>
+      axios
+        .get<{ samples: Array<MetricSample>; total_entries: number }>(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+            runId,
+          )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard/metrics`,
+          {
+            params: {
+              actor_name: ALGO_OPERATOR_ACTOR_NAME,
+              limit: 5000,
+              metric_name: RAY_ACTORS_METRIC_NAME,
+              state: selectedState,
+              try_number: tryNumber,
+            },
+          },
+        )
+        .then((response) => response.data),
+    queryKey: [
+      "ray-dashboard-actor-state-metrics",
+      dagId,
+      runId,
+      taskId,
+      mapIndex,
+      tryNumber,
+      selectedState,
+      refreshToken,
+    ],
+    ...MANUAL_REFRESH_QUERY_OPTIONS,
+  });
+  const samples = actorMetricSamples?.samples ?? [];
+
+  return (
+    <SectionFrame meta={isFetching ? "loading" : `${formatValue(samples.length)} samples`} title="Actors">
+      <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
+        <OverviewSelect
+          label="actor状态"
+          onChange={(value) => setSelectedState(value as typeof selectedState)}
+          value={selectedState}
+        >
+          {ACTOR_STATE_OPTIONS.map((state) => (
+            <option key={state} value={state}>
+              {state}
+            </option>
+          ))}
+        </OverviewSelect>
+      </SimpleGrid>
+      {samples.length === 0 ? (
+        <Box {...PANEL_BORDER} h="260px" p={3}>
+          <Text color={RAY_COLORS.muted}>暂无匹配的 Actor metric samples。</Text>
+        </Box>
+      ) : (
+        <Box {...PANEL_BORDER} h="320px" p="12px 14px 28px 54px" position="relative">
+          <Text color={RAY_COLORS.muted} fontSize="12px" left="12px" position="absolute" top="12px">
+            value
+          </Text>
+          <Text bottom="6px" color={RAY_COLORS.muted} fontSize="12px" position="absolute" right="14px">
+            time
+          </Text>
+          <MetricChart groupByPodIp maxSeries={50} samples={samples} />
+        </Box>
+      )}
+    </SectionFrame>
+  );
+};
 
 const OverviewSectionTitle = ({ children }: { readonly children: ReactNode }) => (
   <Flex alignItems="center" color="#2f343b" fontSize="15px" fontWeight="700" gap={2.5} mb={2} ml={1.5}>
@@ -1768,27 +1683,6 @@ export const RayDashboard = () => {
     ...MANUAL_REFRESH_QUERY_OPTIONS,
   });
 
-  const {
-    data: actorRankings,
-    isFetching: isFetchingActorRankings,
-    refetch: refetchActorRankings,
-  } = useQuery({
-    enabled: availability !== undefined && tryNumber !== undefined,
-    queryFn: () =>
-      axios
-        .get<ActorRankings>(
-          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
-            runId,
-          )}/taskInstances/${encodeURIComponent(taskId)}/${parsedMapIndex}/rayDashboard/actorRankings`,
-          {
-            params: { try_number: tryNumber },
-          },
-        )
-        .then((response) => response.data),
-    queryKey: ["ray-dashboard-actor-rankings", dagId, runId, taskId, parsedMapIndex, tryNumber],
-    ...MANUAL_REFRESH_QUERY_OPTIONS,
-  });
-
   const latestSnapshots = useMemo(
     () =>
       SECTION_ORDER.map((section) =>
@@ -1857,7 +1751,6 @@ export const RayDashboard = () => {
   const failedTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/fail/u, /error/u]);
   const aliveActors = countRowsByState(actorRows, ACTOR_STATE_KEYS, [/alive/u, /run/u]);
   const restartingActors = countRowsByState(actorRows, ACTOR_STATE_KEYS, [/restart/u, /pending/u]);
-  const actorCpu = sumNumericFields(actorRows, ["required_resources.CPU", "num_cpus", "cpus", "cpu"]);
   const cpuSample = getPeakMetricSample(samples, CPU_METRIC_PATTERN);
   const memorySample = getPeakMetricSample(
     samples.filter((sample) => !OBJECT_STORE_METRIC_PATTERN.test(sample.metric_name.toLowerCase())),
@@ -1895,15 +1788,14 @@ export const RayDashboard = () => {
   ];
   const statusColor = getStatusColor(dashboard.status);
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
-  const isRefreshing =
-    isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples || isFetchingActorRankings;
+  const isRefreshing = isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples;
   const hasDedicatedSection = ["actors", "cluster", "jobs", "metrics", "overview", "tasks"].includes(
     activeSection,
   );
   const refreshDashboard = async () => {
     await refetchAvailability();
     setPodTimelineRefreshToken((token) => token + 1);
-    await Promise.all([refetchSnapshots(), refetchMetricSamples(), refetchActorRankings()]);
+    await Promise.all([refetchSnapshots(), refetchMetricSamples()]);
   };
 
   return (
@@ -2356,70 +2248,15 @@ export const RayDashboard = () => {
           ) : undefined}
 
           {activeSection === "actors" ? (
-            <Box
-              display="grid"
-              gap={3}
-              gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.38fr) minmax(300px, 0.82fr)" }}
-            >
-              <SectionFrame meta="State API actor table" title="Actors">
-                <SimpleGrid columns={{ base: 1, md: 3 }} gap={2.5} mb={4}>
-                  <SummaryCard
-                    label="Actors"
-                    meta="owned by this job"
-                    value={formatValue(actorRows.length)}
-                  />
-                  <SummaryCard label="Alive" meta="methods schedulable" value={formatValue(aliveActors)} />
-                  <SummaryCard
-                    label="Actor CPU"
-                    meta="reserved logical CPUs"
-                    value={actorCpu === 0 ? "-" : formatValue(actorCpu)}
-                  />
-                </SimpleGrid>
-                <ActorTable emptyText="暂无 Actor records。" rows={actorRows} />
-                <Box mt={4}>
-                  <Flex direction="column" gap={3}>
-                    <ActorResourceRankingTable
-                      emptyText="暂无 Actor CPU ranking data。"
-                      rows={actorRankings?.cpu ?? []}
-                      title="Actor CPU leaderboard"
-                    />
-                    <ActorResourceRankingTable
-                      emptyText="暂无 Actor memory ranking data。"
-                      rows={actorRankings?.memory ?? []}
-                      title="Actor memory leaderboard"
-                    />
-                  </Flex>
-                </Box>
-              </SectionFrame>
-
-              <Flex direction="column" gap={3}>
-                <SectionFrame meta="current snapshot" title="Actor state breakdown">
-                  {Object.keys(countStates(actorRows)).length === 0 ? (
-                    <Text color={RAY_COLORS.muted}>暂无 Actor 状态分布。</Text>
-                  ) : (
-                    <StateBreakdown states={countStates(actorRows)} />
-                  )}
-                </SectionFrame>
-                <SectionFrame meta="selected actor context" title="Actor details">
-                  <KeyValueList
-                    rows={[
-                      ["Namespace", formatValue(dashboard.ray_namespace)],
-                      [
-                        "Source Status",
-                        <StatusText key="status" value={snapshotBySection.actors?.source_status} />,
-                      ],
-                      [
-                        "Collected At",
-                        snapshotBySection.actors?.collected_at === undefined
-                          ? "-"
-                          : formatUtcPlus8(snapshotBySection.actors.collected_at),
-                      ],
-                      ["Records", formatValue(actorRows.length)],
-                    ]}
-                  />
-                </SectionFrame>
-              </Flex>
-            </Box>
+            <ActorStateTimeline
+              dagId={dagId}
+              enabled
+              mapIndex={parsedMapIndex}
+              refreshToken={podTimelineRefreshToken}
+              runId={runId}
+              taskId={taskId}
+              tryNumber={tryNumber}
+            />
           ) : undefined}
 
           {activeSection === "tasks" ? (

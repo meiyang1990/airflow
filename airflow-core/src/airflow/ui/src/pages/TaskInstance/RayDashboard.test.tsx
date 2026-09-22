@@ -50,37 +50,15 @@ const getTimelineSelects = () => {
 const getSelectOptionValues = (select: HTMLSelectElement) =>
   [...select.options].map((option) => option.value);
 
-const defaultActorRankings = {
-  cpu: [
-    {
-      actor_id: "actor-1",
-      actor_key: "actor-1",
-      actor_name: "trainer-1",
-      class_name: "Trainer",
-      labels: { actor_id: "actor-1" },
-      metric_name: "ray_actor_cpu_percentage",
-      metric_unit: "%",
-      sampled_at: "2026-09-18T09:01:00Z",
-      state: "ALIVE",
-      value: 91,
-    },
-  ],
-  memory: [
-    {
-      actor_id: "actor-2",
-      actor_key: "actor-2",
-      actor_name: "loader-2",
-      class_name: "Loader",
-      labels: { actor_id: "actor-2" },
-      metric_name: "ray_actor_memory_used",
-      metric_unit: "MiB",
-      sampled_at: "2026-09-18T09:02:00Z",
-      state: "ALIVE",
-      value: 2048,
-    },
-  ],
-};
-let currentActorRankings = defaultActorRankings;
+const hasActorMetricRequest = (state: string) =>
+  (vi.mocked(axios.get).mock.calls as Array<[string, { params?: Record<string, unknown> }?]>).some(
+    ([url, config]) =>
+      url.includes("/rayDashboard/metrics") &&
+      config?.params?.actor_name === "AlgoOperatorActor" &&
+      config.params.metric_name === "ray_actors" &&
+      config.params.state === state,
+  );
+
 const defaultActorRecords = [
   {
     actor_id: "actor-1",
@@ -108,7 +86,6 @@ vi.mock("react-router-dom", async () => {
 describe("RayDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    currentActorRankings = defaultActorRankings;
     currentActorRecords = defaultActorRecords;
     vi.mocked(useParams).mockReturnValue({
       dagId: "test-dag",
@@ -123,7 +100,7 @@ describe("RayDashboard", () => {
     vi.mocked(queries.useTaskInstanceServiceGetMappedTaskInstance).mockReturnValue({
       data: { try_number: 1 },
     } as unknown as ReturnType<typeof queries.useTaskInstanceServiceGetMappedTaskInstance>);
-    vi.mocked(axios.get).mockImplementation((url: string) => {
+    vi.mocked(axios.get).mockImplementation((url: string, config?: { params?: Record<string, unknown> }) => {
       if (url.endsWith("/rayDashboard")) {
         return Promise.resolve({
           data: {
@@ -252,8 +229,38 @@ describe("RayDashboard", () => {
         });
       }
 
-      if (url.endsWith("/rayDashboard/actorRankings")) {
-        return Promise.resolve({ data: currentActorRankings });
+      if (
+        url.endsWith("/rayDashboard/metrics") &&
+        config?.params?.metric_name === "ray_actors" &&
+        config.params.actor_name === "AlgoOperatorActor"
+      ) {
+        return Promise.resolve({
+          data: {
+            samples: [
+              {
+                actor_name: "AlgoOperatorActor",
+                id: "actor-sample-1",
+                labels: { ActorName: "AlgoOperatorActor", State: config.params.state },
+                metric_name: "ray_actors",
+                pod_ip: "10.0.0.1",
+                sampled_at: "2026-09-18T09:00:00Z",
+                state: config.params.state,
+                value: 3,
+              },
+              {
+                actor_name: "AlgoOperatorActor",
+                id: "actor-sample-2",
+                labels: { ActorName: "AlgoOperatorActor", State: config.params.state },
+                metric_name: "ray_actors",
+                pod_ip: "10.0.0.2",
+                sampled_at: "2026-09-18T09:01:00Z",
+                state: config.params.state,
+                value: 5,
+              },
+            ],
+            total_entries: 2,
+          },
+        });
       }
 
       return Promise.resolve({
@@ -354,16 +361,15 @@ describe("RayDashboard", () => {
 
     const refreshButton = await screen.findByRole("button", { name: /Refresh Ray Dashboard/u });
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
 
     vi.mocked(axios.get).mockClear();
     fireEvent.click(refreshButton);
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
     expect(vi.mocked(axios.get).mock.calls.map(([url]) => url)).toEqual(
       expect.arrayContaining([
         expect.stringContaining("/rayDashboard"),
-        expect.stringContaining("/rayDashboard/actorRankings"),
         expect.stringContaining("/rayDashboard/snapshots"),
         expect.stringContaining("/rayDashboard/metrics"),
       ]),
@@ -423,7 +429,7 @@ describe("RayDashboard", () => {
     expect(screen.getAllByText("ray_node_mem_used").length).toBeGreaterThan(0);
   });
 
-  it("renders Ray State API records payloads", async () => {
+  it("renders actor state selector and queries AlgoOperatorActor actor metrics", async () => {
     render(
       <Wrapper>
         <RayDashboard />
@@ -432,69 +438,28 @@ describe("RayDashboard", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
 
-    expect(await screen.findByText("node-1")).toBeInTheDocument();
-    expect(screen.getByText("actor-1")).toBeInTheDocument();
-    expect(screen.getByText("10.0.0.1")).toBeInTheDocument();
-    expect(screen.getAllByText("job-id").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("ALIVE").length).toBeGreaterThan(0);
-    expect(screen.getByRole("columnheader", { name: "node_id" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "actor_id" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "actor_ip" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "state" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "job_id" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "class_name" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Trainer")).not.toBeInTheDocument();
-    expect(screen.getByText("Actor CPU leaderboard")).toBeInTheDocument();
-    expect(screen.getByText("trainer-1")).toBeInTheDocument();
-    expect(screen.getByText("91 %")).toBeInTheDocument();
-    expect(screen.getByText("Actor memory leaderboard")).toBeInTheDocument();
-    expect(screen.getByText("loader-2")).toBeInTheDocument();
-    expect(screen.getByText("2 GB")).toBeInTheDocument();
-  });
+    const actorStateSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
+      name: "actor状态",
+    });
 
-  it("paginates actor records on the client with 50 rows per page", async () => {
-    currentActorRecords = Array.from({ length: 51 }, (_, index) => ({
-      actor_id: `actor-${index + 1}`,
-      actor_ip: `10.0.0.${index + 1}`,
-      class_name: "Trainer",
-      job_id: "job-id",
-      node_id: `node-${index + 1}`,
-      state: "ALIVE",
-    }));
+    expect(actorStateSelect.value).toBe("ALIVE_RUNNING_TASKS");
+    expect(getSelectOptionValues(actorStateSelect)).toEqual([
+      "ALIVE_RUNNING_TASKS",
+      "ALIVE_IDLE",
+      "PENDING_CREATION",
+      "ALIVE",
+      "DEAD",
+    ]);
+    expect(await screen.findByText("2 samples")).toBeInTheDocument();
+    expect(screen.getByText("value")).toBeInTheDocument();
+    expect(screen.getByText("time")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-chart")).toBeInTheDocument();
 
-    render(
-      <Wrapper>
-        <RayDashboard />
-      </Wrapper>,
-    );
+    await waitFor(() => expect(hasActorMetricRequest("ALIVE_RUNNING_TASKS")).toBe(true));
 
-    fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
+    fireEvent.change(actorStateSelect, { target: { value: "DEAD" } });
 
-    expect(await screen.findByText("actor-50")).toBeInTheDocument();
-    expect(screen.queryByText("actor-51")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1-50 of 51 actors")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("actor-table-next"));
-
-    expect(await screen.findByText("actor-51")).toBeInTheDocument();
-    expect(screen.queryByText("actor-1")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 51-51 of 51 actors")).toBeInTheDocument();
-  });
-
-  it("renders empty actor ranking states", async () => {
-    currentActorRankings = { cpu: [], memory: [] };
-
-    render(
-      <Wrapper>
-        <RayDashboard />
-      </Wrapper>,
-    );
-
-    fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
-
-    expect(await screen.findByText("暂无 Actor CPU ranking data。")).toBeInTheDocument();
-    expect(screen.getByText("暂无 Actor memory ranking data。")).toBeInTheDocument();
-    expect(screen.getByText("actor-1")).toBeInTheDocument();
+    await waitFor(() => expect(hasActorMetricRequest("DEAD")).toBe(true));
   });
 
   it("renders cluster node resources in a dedicated nodes table", async () => {
