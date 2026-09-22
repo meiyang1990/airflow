@@ -175,6 +175,7 @@ const BYTES_PER_GB = 1024 * BYTES_PER_MB;
 const TASK_METRIC_PATTERN = /(?:^|_)tasks?(?:_|$)/u;
 const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
 const DISK_METRIC_PATTERN = /(?:^|_)(?:disk|disks?)(?:_|$)/u;
+const RAY_NODE_CPU_UTILIZATION_METRIC_NAME = "ray_node_cpu_utilization";
 const RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME = "ray_cluster_active_nodes";
 const RAY_CLUSTER_PENDING_NODES_METRIC_NAME = "ray_cluster_pending_nodes";
 const MAX_ACTOR_RANKING_ROWS = 20;
@@ -1187,7 +1188,12 @@ const MetricChart = ({ samples }: { readonly samples: Array<MetricSample> }) => 
 
 const getPodMetricSamples = (samples: Array<MetricSample>, metric: string) => {
   if (metric === "cpu") {
-    return getMetricSamplesByPattern(samples, CPU_METRIC_PATTERN);
+    return samples
+      .filter((sample) => sample.metric_name === RAY_NODE_CPU_UTILIZATION_METRIC_NAME)
+      .map((sample) => ({
+        ...sample,
+        metric_unit: "%",
+      }));
   }
 
   if (metric === "memory") {
@@ -1250,7 +1256,7 @@ const OverviewSectionTitle = ({ children }: { readonly children: ReactNode }) =>
 );
 
 const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<MetricSample> }) => {
-  const [selectedNodeType, setSelectedNodeType] = useState("all");
+  const [selectedNodeType, setSelectedNodeType] = useState("");
   const [selectedMetric, setSelectedMetric] = useState("cpu");
   const [selectedPodIp, setSelectedPodIp] = useState("all");
   const nodeTypes = useMemo(
@@ -1263,18 +1269,16 @@ const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<Metric
     () => [...new Set(samples.map(getMetricPodIp).filter((value): value is string => value !== undefined))],
     [samples],
   );
+  const effectiveNodeType = nodeTypes.includes(selectedNodeType) ? selectedNodeType : (nodeTypes[0] ?? "");
   const timelineSamples = useMemo(
     () =>
       getPodMetricSamples(samples, selectedMetric).filter((sample) => {
         const nodeType = getMetricNodeType(sample);
         const podIp = getMetricPodIp(sample);
 
-        return (
-          (selectedNodeType === "all" || nodeType === selectedNodeType) &&
-          (selectedPodIp === "all" || podIp === selectedPodIp)
-        );
+        return nodeType === effectiveNodeType && (selectedPodIp === "all" || podIp === selectedPodIp);
       }),
-    [samples, selectedMetric, selectedNodeType, selectedPodIp],
+    [effectiveNodeType, samples, selectedMetric, selectedPodIp],
   );
 
   return (
@@ -1282,8 +1286,7 @@ const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<Metric
       <OverviewSectionTitle>Pod metric timeline</OverviewSectionTitle>
       <Box {...PANEL_BORDER} bg={RAY_COLORS.panel} p={3}>
         <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
-          <OverviewSelect label="Node type" onChange={setSelectedNodeType} value={selectedNodeType}>
-            <option value="all">all</option>
+          <OverviewSelect label="Node type" onChange={setSelectedNodeType} value={effectiveNodeType}>
             {nodeTypes.map((nodeType) => (
               <option key={nodeType} value={nodeType}>
                 {nodeType}
@@ -1291,7 +1294,7 @@ const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<Metric
             ))}
           </OverviewSelect>
           <OverviewSelect label="Metric" onChange={setSelectedMetric} value={selectedMetric}>
-            <option value="cpu">cpu使用</option>
+            <option value="cpu">cpu使用率</option>
             <option value="memory">memory使用</option>
             <option value="disk">磁盘使用</option>
           </OverviewSelect>
