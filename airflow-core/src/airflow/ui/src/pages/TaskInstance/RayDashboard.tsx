@@ -176,6 +176,7 @@ const TASK_METRIC_PATTERN = /(?:^|_)tasks?(?:_|$)/u;
 const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
 const DISK_METRIC_PATTERN = /(?:^|_)(?:disk|disks?)(?:_|$)/u;
 const RAY_NODE_CPU_UTILIZATION_METRIC_NAME = "ray_node_cpu_utilization";
+const RAY_NODE_MEM_USED_METRIC_NAME = "ray_node_mem_used";
 const RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME = "ray_cluster_active_nodes";
 const RAY_CLUSTER_PENDING_NODES_METRIC_NAME = "ray_cluster_pending_nodes";
 const MAX_ACTOR_RANKING_ROWS = 20;
@@ -388,6 +389,13 @@ const formatMemoryValue = (value: number, unit?: string | null) => {
   }
 
   return `${formatDecimal(bytes / BYTES_PER_MB)} MB`;
+};
+
+const getGigabytesValue = (value: number, unit?: string | null) => {
+  const bytes = getMemoryBytes(value, unit);
+  const gigabytes = bytes === undefined ? value : bytes / BYTES_PER_GB;
+
+  return Math.round(gigabytes * 100) / 100;
 };
 
 const isMemoryValueKey = (key: string) => MEMORY_VALUE_KEY_PATTERN.test(key.toLowerCase());
@@ -1197,7 +1205,13 @@ const getPodMetricSamples = (samples: Array<MetricSample>, metric: string) => {
   }
 
   if (metric === "memory") {
-    return getMetricSamplesByPattern(samples, MEMORY_METRIC_PATTERN);
+    return samples
+      .filter((sample) => sample.metric_name === RAY_NODE_MEM_USED_METRIC_NAME)
+      .map((sample) => ({
+        ...sample,
+        metric_unit: "GB",
+        value: getGigabytesValue(sample.value, sample.metric_unit),
+      }));
   }
 
   return getMetricSamplesByPattern(samples, DISK_METRIC_PATTERN);

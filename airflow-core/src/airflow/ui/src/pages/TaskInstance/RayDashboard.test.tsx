@@ -271,7 +271,7 @@ describe("RayDashboard", () => {
             },
             {
               id: "memory-sample-id",
-              labels: { instance: "worker-1", JobId: "job-id" },
+              labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
               metric_name: "ray_node_mem_used",
               metric_unit: "GiB",
               sampled_at: "2026-09-18T09:00:00Z",
@@ -279,7 +279,7 @@ describe("RayDashboard", () => {
             },
             {
               id: "latest-memory-sample-id",
-              labels: { instance: "worker-1", JobId: "job-id" },
+              labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
               metric_name: "ray_node_mem_used",
               metric_unit: "GiB",
               sampled_at: "2026-09-18T09:01:00Z",
@@ -369,6 +369,10 @@ describe("RayDashboard", () => {
       expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0].options).toHaveLength(1),
     );
     expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0].options[0]).toHaveValue("worker");
+    fireEvent.change(screen.getAllByRole<HTMLSelectElement>("combobox")[1], {
+      target: { value: "memory" },
+    });
+    expect(await screen.findByText("GB")).toBeInTheDocument();
     expect(screen.queryByText("View all nodes")).not.toBeInTheDocument();
     expect(screen.queryByText("17:55")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("4 nodes").length).toBeGreaterThan(0));
