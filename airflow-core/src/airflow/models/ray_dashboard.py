@@ -78,6 +78,8 @@ RAY_DASHBOARD_NODE_TYPE_NAME_METRIC_NAMES = {
     "ray_node_mem_used",
 }
 RAY_DASHBOARD_NODE_TYPE_NAME_LABEL_KEYS = ("node_type", "RayNodeType")
+RAY_DASHBOARD_ALGO_OPERATOR_ACTOR_METRIC_NAME = "ray_actors"
+RAY_DASHBOARD_ALGO_OPERATOR_ACTOR_NAME = "AlgoOperatorActor"
 RAY_DASHBOARD_TASKS_METRIC_NAME = "ray_tasks"
 RAY_DASHBOARD_TASKS_NAME_LABEL_KEYS = ("Name",)
 RAY_DASHBOARD_TASKS_STATE_LABEL_KEYS = ("State",)
@@ -261,6 +263,20 @@ def _ray_tasks_label_value(sample: dict[str, Any], keys: tuple[str, ...]) -> str
     return _first_metric_label_value(sample.get("labels"), keys)
 
 
+def _metric_actor_name(sample: dict[str, Any]) -> str | None:
+    return sample.get("actor_name") or _first_metric_label_value(
+        sample.get("labels"), RAY_DASHBOARD_METRIC_ACTOR_NAME_LABEL_KEYS
+    )
+
+
+def _algo_operator_actor_state_label_value(sample: dict[str, Any]) -> str | None:
+    if sample["metric_name"] != RAY_DASHBOARD_ALGO_OPERATOR_ACTOR_METRIC_NAME:
+        return None
+    if _metric_actor_name(sample) != RAY_DASHBOARD_ALGO_OPERATOR_ACTOR_NAME:
+        return None
+    return _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_TASKS_STATE_LABEL_KEYS)
+
+
 def _ray_node_type_label_value(sample: dict[str, Any], keys: tuple[str, ...]) -> str | None:
     if sample["metric_name"] not in RAY_DASHBOARD_NODE_TYPE_NAME_METRIC_NAMES:
         return None
@@ -407,8 +423,7 @@ def add_ray_dashboard_metric_samples(
             or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_POD_ID_LABEL_KEYS),
             pod_ip=sample.get("pod_ip")
             or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_POD_IP_LABEL_KEYS),
-            actor_name=sample.get("actor_name")
-            or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_ACTOR_NAME_LABEL_KEYS),
+            actor_name=_metric_actor_name(sample),
             actor_class=sample.get("actor_class")
             or _first_metric_label_value(sample.get("labels"), RAY_DASHBOARD_METRIC_ACTOR_CLASS_LABEL_KEYS),
             actor_id=sample.get("actor_id")
@@ -416,7 +431,9 @@ def add_ray_dashboard_metric_samples(
             name=sample.get("name")
             or _ray_tasks_label_value(sample, RAY_DASHBOARD_TASKS_NAME_LABEL_KEYS)
             or _ray_node_type_label_value(sample, RAY_DASHBOARD_NODE_TYPE_NAME_LABEL_KEYS),
-            state=sample.get("state") or _ray_tasks_label_value(sample, RAY_DASHBOARD_TASKS_STATE_LABEL_KEYS),
+            state=sample.get("state")
+            or _ray_tasks_label_value(sample, RAY_DASHBOARD_TASKS_STATE_LABEL_KEYS)
+            or _algo_operator_actor_state_label_value(sample),
             labels=sample.get("labels"),
             value=sample["value"],
             sampled_at=sample["sampled_at"],

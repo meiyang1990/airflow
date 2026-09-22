@@ -182,6 +182,55 @@ def test_node_metric_names_normalize_node_type(session, task_instance, node_metr
     assert metric_samples[0].name == "worker"
 
 
+def test_ray_actors_algo_operator_actor_state_is_normalized(session, task_instance):
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=task_instance.try_number,
+        session=session,
+    )
+    session.flush()
+    collected_at = timezone.utcnow()
+
+    add_ray_dashboard_metric_samples(
+        dashboard=dashboard,
+        samples=[
+            {
+                "metric_name": "ray_actors",
+                "metric_unit": None,
+                "labels": {"ActorName": "AlgoOperatorActor", "State": "ALIVE"},
+                "sampled_at": collected_at,
+                "value": 1.0,
+            },
+            {
+                "metric_name": "ray_actors",
+                "metric_unit": None,
+                "labels": {"ActorName": "OtherActor", "State": "DEAD"},
+                "sampled_at": collected_at,
+                "value": 1.0,
+            },
+        ],
+        session=session,
+    )
+    session.flush()
+
+    metric_samples = list(
+        list_ray_dashboard_metric_samples(
+            dashboard_id=dashboard.id,
+            metric_name="ray_actors",
+            session=session,
+        )
+    )
+
+    assert len(metric_samples) == 2
+    assert metric_samples[0].actor_name == "AlgoOperatorActor"
+    assert metric_samples[0].state == "ALIVE"
+    assert metric_samples[1].actor_name == "OtherActor"
+    assert metric_samples[1].state is None
+
+
 def test_snapshot_and_metric_queries(session, task_instance):
     dashboard = upsert_ray_dashboard_task_instance(
         dag_id=task_instance.dag_id,
