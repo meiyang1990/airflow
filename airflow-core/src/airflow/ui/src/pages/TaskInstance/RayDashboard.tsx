@@ -177,9 +177,16 @@ const TASK_METRIC_PATTERN = /(?:^|_)tasks?(?:_|$)/u;
 const THROUGHPUT_METRIC_PATTERN = /throughput|completed_per|tasks_per/u;
 const DISK_METRIC_PATTERN = /(?:^|_)(?:disk|disks?)(?:_|$)/u;
 const RAY_NODE_CPU_UTILIZATION_METRIC_NAME = "ray_node_cpu_utilization";
+const RAY_NODE_DISK_USAGE_METRIC_NAME = "ray_node_disk_usage";
 const RAY_NODE_MEM_USED_METRIC_NAME = "ray_node_mem_used";
 const RAY_CLUSTER_ACTIVE_NODES_METRIC_NAME = "ray_cluster_active_nodes";
 const RAY_CLUSTER_PENDING_NODES_METRIC_NAME = "ray_cluster_pending_nodes";
+const POD_TIMELINE_NODE_TYPES = ["head", "worker"];
+const POD_TIMELINE_METRICS = [
+  { label: "cpu使用率", metricName: RAY_NODE_CPU_UTILIZATION_METRIC_NAME, value: "cpu" },
+  { label: "memory使用", metricName: RAY_NODE_MEM_USED_METRIC_NAME, value: "memory" },
+  { label: "磁盘使用", metricName: RAY_NODE_DISK_USAGE_METRIC_NAME, value: "disk" },
+];
 const MAX_ACTOR_RANKING_ROWS = 20;
 const RAY_COLORS = {
   amber: "#f59e0b",
@@ -569,10 +576,6 @@ const getMetricLabel = (sample: MetricSample, keys: Array<string>) => {
     .find((value): value is number | string => typeof value === "string" || typeof value === "number")
     ?.toString();
 };
-
-const getMetricNodeType = (sample: MetricSample) =>
-  sample.name ??
-  getMetricLabel(sample, ["node_type", "NodeType", "RayNodeType", "ray_node_type", "group", "nodeGroup"]);
 
 const getMetricPodIp = (sample: MetricSample) =>
   sample.pod_ip ?? getMetricLabel(sample, ["pod_ip", "podIP", "pod", "instance", "node", "NodeID"]);
@@ -1246,6 +1249,10 @@ const getPodMetricSamples = (samples: Array<MetricSample>, metric: string) => {
   return getMetricSamplesByPattern(samples, DISK_METRIC_PATTERN);
 };
 
+const getPodTimelineMetricName = (metric: string) =>
+  POD_TIMELINE_METRICS.find((option) => option.value === metric)?.metricName ??
+  RAY_NODE_CPU_UTILIZATION_METRIC_NAME;
+
 const getTopPodIpsByPeakValue = (samples: Array<MetricSample>, limit: number) => {
   const peakValueByPodIp = samples.reduce<Map<string, number>>((result, sample) => {
     const podIp = getMetricPodIp(sample);
@@ -1315,66 +1322,101 @@ const OverviewSectionTitle = ({ children }: { readonly children: ReactNode }) =>
   </Flex>
 );
 
-const OverviewPodMetricTimeline = ({ samples }: { readonly samples: Array<MetricSample> }) => {
-  const [selectedNodeType, setSelectedNodeType] = useState("");
+const OverviewPodMetricTimeline = ({
+  dagId,
+  enabled,
+  mapIndex,
+  refreshToken,
+  runId,
+  taskId,
+  tryNumber,
+}: {
+  readonly dagId: string;
+  readonly enabled: boolean;
+  readonly mapIndex: number;
+  readonly refreshToken: number;
+  readonly runId: string;
+  readonly taskId: string;
+  readonly tryNumber: number;
+}) => {
+  const [selectedNodeType, setSelectedNodeType] = useState(POD_TIMELINE_NODE_TYPES[0] ?? "");
   const [selectedMetric, setSelectedMetric] = useState("cpu");
   const [selectedPodIp, setSelectedPodIp] = useState("all");
-  const metricSamples = useMemo(
-    () => getPodMetricSamples(samples, selectedMetric),
-    [samples, selectedMetric],
-  );
-  const nodeTypes = useMemo(
-    () => [
-      ...new Set(
-        metricSamples.map(getMetricNodeType).filter((value): value is string => value !== undefined),
-      ),
+  const selectedMetricName = getPodTimelineMetricName(selectedMetric);
+  const { data: podMetricSamples } = useQuery({
+    enabled,
+    queryFn: () =>
+      axios
+        .get<{ samples: Array<MetricSample>; total_entries: number }>(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+            runId,
+          )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard/metrics`,
+          {
+            params: {
+              limit: 5000,
+              metric_name: selectedMetricName,
+              node_type: selectedNodeType,
+              try_number: tryNumber,
+            },
+          },
+        )
+        .then((response) => response.data),
+    queryKey: [
+      "ray-dashboard-overview-pod-metrics",
+      dagId,
+      runId,
+      taskId,
+      mapIndex,
+      tryNumber,
+      selectedNodeType,
+      selectedMetricName,
+      refreshToken,
     ],
-    [metricSamples],
-  );
-  const effectiveNodeType = nodeTypes.includes(selectedNodeType) ? selectedNodeType : (nodeTypes[0] ?? "");
-  const nodeMetricSamples = useMemo(
-    () => metricSamples.filter((sample) => getMetricNodeType(sample) === effectiveNodeType),
-    [effectiveNodeType, metricSamples],
+    ...MANUAL_REFRESH_QUERY_OPTIONS,
+  });
+  const metricSamples = useMemo(
+    () => getPodMetricSamples(podMetricSamples?.samples ?? [], selectedMetric),
+    [podMetricSamples?.samples, selectedMetric],
   );
   const podIps = useMemo(
     () => [
-      ...new Set(
-        nodeMetricSamples.map(getMetricPodIp).filter((value): value is string => value !== undefined),
-      ),
+      ...new Set(metricSamples.map(getMetricPodIp).filter((value): value is string => value !== undefined)),
     ],
-    [nodeMetricSamples],
+    [metricSamples],
   );
   const effectivePodIp = selectedPodIp === "all" || podIps.includes(selectedPodIp) ? selectedPodIp : "all";
   const timelineSamples = useMemo(() => {
     if (effectivePodIp !== "all") {
-      return nodeMetricSamples.filter((sample) => getMetricPodIp(sample) === effectivePodIp);
+      return metricSamples.filter((sample) => getMetricPodIp(sample) === effectivePodIp);
     }
 
-    const topPodIps = new Set(getTopPodIpsByPeakValue(nodeMetricSamples, 50));
+    const topPodIps = new Set(getTopPodIpsByPeakValue(metricSamples, 50));
 
-    return nodeMetricSamples.filter((sample) => {
+    return metricSamples.filter((sample) => {
       const podIp = getMetricPodIp(sample);
 
       return podIp !== undefined && topPodIps.has(podIp);
     });
-  }, [effectivePodIp, nodeMetricSamples]);
+  }, [effectivePodIp, metricSamples]);
 
   return (
     <Box aria-label="Pod metric timeline">
       <OverviewSectionTitle>Pod metric timeline</OverviewSectionTitle>
       <Box {...PANEL_BORDER} bg={RAY_COLORS.panel} p={3}>
         <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
-          <OverviewSelect label="Node type" onChange={setSelectedNodeType} value={effectiveNodeType}>
-            {nodeTypes.map((nodeType) => (
+          <OverviewSelect label="Node type" onChange={setSelectedNodeType} value={selectedNodeType}>
+            {POD_TIMELINE_NODE_TYPES.map((nodeType) => (
               <option key={nodeType} value={nodeType}>
                 {nodeType}
               </option>
             ))}
           </OverviewSelect>
           <OverviewSelect label="Metric" onChange={setSelectedMetric} value={selectedMetric}>
-            <option value="cpu">cpu使用率</option>
-            <option value="memory">memory使用</option>
-            <option value="disk">磁盘使用</option>
+            {POD_TIMELINE_METRICS.map((metric) => (
+              <option key={metric.value} value={metric.value}>
+                {metric.label}
+              </option>
+            ))}
           </OverviewSelect>
           <OverviewSelect label="pod_ip" onChange={setSelectedPodIp} value={effectivePodIp}>
             <option value="all">all</option>
@@ -1635,6 +1677,7 @@ export const RayDashboard = () => {
   const { dagId = "", mapIndex = "-1", runId = "", taskId = "" } = useParams();
   const [searchParams] = useSearchParams();
   const [selectedSection, setSelectedSection] = useState<RaySection>("overview");
+  const [podTimelineRefreshToken, setPodTimelineRefreshToken] = useState(0);
   const parsedMapIndex = parseInt(mapIndex, 10);
   const tryNumberParam = searchParams.get(SearchParamsKeys.TRY_NUMBER);
 
@@ -1859,6 +1902,7 @@ export const RayDashboard = () => {
   );
   const refreshDashboard = async () => {
     await refetchAvailability();
+    setPodTimelineRefreshToken((token) => token + 1);
     await Promise.all([refetchSnapshots(), refetchMetricSamples(), refetchActorRankings()]);
   };
 
@@ -2201,7 +2245,15 @@ export const RayDashboard = () => {
                 </SimpleGrid>
               </Box>
 
-              <OverviewPodMetricTimeline samples={samples} />
+              <OverviewPodMetricTimeline
+                dagId={dagId}
+                enabled
+                mapIndex={parsedMapIndex}
+                refreshToken={podTimelineRefreshToken}
+                runId={runId}
+                taskId={taskId}
+                tryNumber={tryNumber}
+              />
             </Flex>
           ) : undefined}
 

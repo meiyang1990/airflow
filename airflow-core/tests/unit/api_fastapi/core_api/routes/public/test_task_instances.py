@@ -6019,6 +6019,78 @@ class TestBulkTaskInstances(TestTaskInstanceEndpoint):
         assert response.status_code == 422
 
 
+class TestRayDashboardMetricSamples:
+    TRY_NUMBER = 1
+
+    def teardown_method(self):
+        clear_db_runs()
+
+    @staticmethod
+    def _metrics_url(ti):
+        return (
+            f"/dags/{ti.dag_id}/dagRuns/{ti.run_id}/taskInstances/"
+            f"{ti.task_id}/{ti.map_index}/rayDashboard/metrics?try_number={TestRayDashboardMetricSamples.TRY_NUMBER}"
+        )
+
+    @staticmethod
+    def _create_dashboard(session, ti):
+        return upsert_ray_dashboard_task_instance(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=TestRayDashboardMetricSamples.TRY_NUMBER,
+            session=session,
+        )
+
+    def test_metric_samples_filter_by_metric_node_type_and_pod_ip(
+        self, test_client, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_metric_filters", state=State.RUNNING)
+        dashboard = self._create_dashboard(session, ti)
+        collected_at = pendulum.datetime(2026, 9, 19, 3, 20, tz="UTC")
+        add_ray_dashboard_metric_samples(
+            dashboard=dashboard,
+            samples=[
+                {
+                    "metric_name": "ray_node_cpu_utilization",
+                    "metric_unit": "%",
+                    "labels": {"RayNodeType": "worker", "podIp": "10.0.0.1"},
+                    "value": 42.0,
+                    "sampled_at": collected_at,
+                },
+                {
+                    "metric_name": "ray_node_cpu_utilization",
+                    "metric_unit": "%",
+                    "labels": {"RayNodeType": "head", "podIp": "10.0.0.2"},
+                    "value": 84.0,
+                    "sampled_at": collected_at,
+                },
+                {
+                    "metric_name": "ray_node_mem_used",
+                    "metric_unit": "bytes",
+                    "labels": {"RayNodeType": "worker", "podIp": "10.0.0.1"},
+                    "value": 1024.0,
+                    "sampled_at": collected_at,
+                },
+            ],
+            session=session,
+        )
+        session.commit()
+
+        response = test_client.get(
+            f"{self._metrics_url(ti)}&metric_name=ray_node_cpu_utilization&node_type=worker&pod_ip=10.0.0.1"
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body["total_entries"] == 1
+        assert body["samples"][0]["metric_name"] == "ray_node_cpu_utilization"
+        assert body["samples"][0]["name"] == "worker"
+        assert body["samples"][0]["pod_ip"] == "10.0.0.1"
+        assert body["samples"][0]["value"] == 42.0
+
+
 class TestRayDashboardActorRankings:
     TRY_NUMBER = 1
 

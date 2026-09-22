@@ -47,6 +47,9 @@ const getTimelineSelects = () => {
   return { metricSelect, nodeTypeSelect, podIpSelect };
 };
 
+const getSelectOptionValues = (select: HTMLSelectElement) =>
+  [...select.options].map((option) => option.value);
+
 const defaultActorRankings = {
   cpu: [
     {
@@ -351,12 +354,12 @@ describe("RayDashboard", () => {
 
     const refreshButton = await screen.findByRole("button", { name: /Refresh Ray Dashboard/u });
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5));
 
     vi.mocked(axios.get).mockClear();
     fireEvent.click(refreshButton);
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5));
     expect(vi.mocked(axios.get).mock.calls.map(([url]) => url)).toEqual(
       expect.arrayContaining([
         expect.stringContaining("/rayDashboard"),
@@ -382,17 +385,21 @@ describe("RayDashboard", () => {
     expect(screen.getByText("pending-worker")).toBeInTheDocument();
     expect(screen.getByText("Pod metric timeline")).toBeInTheDocument();
     expect(screen.getByText("cpu使用率")).toBeInTheDocument();
-    await waitFor(() => expect(getTimelineSelects().nodeTypeSelect.options).toHaveLength(1));
-    expect(getTimelineSelects().nodeTypeSelect.options[0]).toHaveValue("worker");
-    expect([...getTimelineSelects().podIpSelect.options].map((option) => option.value)).toEqual([
-      "all",
-      "10.0.0.1",
-    ]);
+    await waitFor(() =>
+      expect(getSelectOptionValues(getTimelineSelects().nodeTypeSelect)).toEqual(["head", "worker"]),
+    );
+    fireEvent.change(getTimelineSelects().nodeTypeSelect, {
+      target: { value: "worker" },
+    });
+    await waitFor(() =>
+      expect(getSelectOptionValues(getTimelineSelects().podIpSelect)).toEqual(["all", "10.0.0.1"]),
+    );
     fireEvent.change(getTimelineSelects().metricSelect, {
       target: { value: "memory" },
     });
-    await waitFor(() => expect(getTimelineSelects().nodeTypeSelect.options).toHaveLength(1));
-    expect(getTimelineSelects().nodeTypeSelect.options[0]).toHaveValue("worker");
+    await waitFor(() =>
+      expect(getSelectOptionValues(getTimelineSelects().nodeTypeSelect)).toEqual(["head", "worker"]),
+    );
     expect(await screen.findByText("GB")).toBeInTheDocument();
     expect(screen.queryByText("View all nodes")).not.toBeInTheDocument();
     expect(screen.queryByText("17:55")).not.toBeInTheDocument();
