@@ -523,7 +523,10 @@ describe("RayDashboard", () => {
       "DEAD",
     ]);
     expect(screen.getByText("value")).toBeInTheDocument();
-    await waitFor(() => expect(hasChartText('"data":[8,7]')).toBe(true));
+    await waitFor(() => expect(hasChartText('"label":"10.0.0.1"')).toBe(true));
+    await waitFor(() => expect(hasChartText('"data":[3,7]')).toBe(true));
+    await waitFor(() => expect(hasChartText('"label":"10.0.0.2"')).toBe(true));
+    await waitFor(() => expect(hasChartText('"data":[5,null]')).toBe(true));
     await waitFor(() => expect(hasActorAliveTimelineRequest()).toBe(true));
     await waitFor(() => expect(hasActorMetricRequest("ALIVE_RUNNING_TASKS")).toBe(true));
 

@@ -648,23 +648,8 @@ const getBucketedPodMetricSamples = (
 
     return result;
   }, new Map<string, MetricSample>());
-  const bucketedValueByTime = [...latestSampleByBucketAndPod.values()].reduce<Map<string, MetricSample>>(
-    (result, sample) => {
-      const currentSample = result.get(sample.sampled_at);
 
-      result.set(sample.sampled_at, {
-        ...sample,
-        id: `bucket-${sample.sampled_at}`,
-        pod_ip: undefined,
-        value: (currentSample?.value ?? 0) + sample.value,
-      });
-
-      return result;
-    },
-    new Map<string, MetricSample>(),
-  );
-
-  return [...bucketedValueByTime.values()].sort((left, right) =>
+  return [...latestSampleByBucketAndPod.values()].sort((left, right) =>
     left.sampled_at.localeCompare(right.sampled_at),
   );
 };
@@ -1392,7 +1377,7 @@ const ActorStateTimeline = ({
           <Text bottom="6px" color={RAY_COLORS.muted} fontSize="12px" position="absolute" right="14px">
             time
           </Text>
-          <MetricChart samples={bucketedSamples} />
+          <MetricChart groupByPodIp maxSeries={50} samples={bucketedSamples} />
         </Box>
       )}
     </SectionFrame>
