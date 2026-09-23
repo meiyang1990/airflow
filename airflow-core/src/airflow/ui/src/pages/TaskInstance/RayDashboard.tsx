@@ -135,7 +135,6 @@ const TABLE_KEYS = [
 
 const STATE_KEYS = ["state", "status", "job_status", "actor_state", "task_status"];
 const TASK_STATE_KEYS = ["state", "status", "task_status", "scheduling_state"];
-const ACTOR_STATE_KEYS = ["state", "status", "actor_state"];
 const CPU_METRIC_PATTERN = /(?:^|_)(?:cpu|cpus)(?:_|$)|cpu_utilization/u;
 const MEMORY_METRIC_PATTERN = /(?:memory|mem)(?:_|$)/u;
 const OBJECT_STORE_METRIC_PATTERN = /object_store|object_spill/u;
@@ -597,6 +596,12 @@ const getPeakRowsFromSnapshots = (snapshots: Array<Snapshot>, section: RaySectio
     .filter((snapshot) => snapshot.section === section)
     .map((snapshot) => getRowsFromPayload(snapshot.payload))
     .sort((left, right) => right.length - left.length)[0] ?? [];
+
+const getPeakActorAliveCount = (timeline?: ActorAliveTimeline) =>
+  Math.max(0, ...((timeline?.points ?? []).map((point) => point.value)));
+
+const getLatestActorAliveCount = (timeline?: ActorAliveTimeline) =>
+  timeline?.points.at(-1)?.value ?? 0;
 
 const getJobRows = (dashboard: RayDashboardAvailability["dashboard"], payload: unknown) => {
   const rows = getRowsFromPayload(payload);
@@ -1143,41 +1148,12 @@ const OverviewSelect = ({
 );
 
 const ActorAliveTimeline = ({
-  dagId,
-  enabled,
-  mapIndex,
-  refreshToken,
-  runId,
-  taskId,
-  tryNumber,
+  actorAliveTimeline,
+  isFetching,
 }: {
-  readonly dagId: string;
-  readonly enabled: boolean;
-  readonly mapIndex: number;
-  readonly refreshToken: number;
-  readonly runId: string;
-  readonly taskId: string;
-  readonly tryNumber: number;
+  readonly actorAliveTimeline?: ActorAliveTimeline;
+  readonly isFetching: boolean;
 }) => {
-  const { data: actorAliveTimeline, isFetching } = useQuery({
-    enabled,
-    queryFn: () =>
-      axios
-        .get<ActorAliveTimeline>(
-          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
-            runId,
-          )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard/actorAliveTimeline`,
-          {
-            params: {
-              bucket_seconds: 10,
-              try_number: tryNumber,
-            },
-          },
-        )
-        .then((response) => response.data),
-    queryKey: ["ray-dashboard-actor-alive-timeline", dagId, runId, taskId, mapIndex, tryNumber, refreshToken],
-    ...MANUAL_REFRESH_QUERY_OPTIONS,
-  });
   const points = actorAliveTimeline?.points ?? [];
   const labels = points.map((point) => point.sampled_at);
   const data: ChartData<"line"> = {
@@ -1723,6 +1699,30 @@ export const RayDashboard = () => {
     ...MANUAL_REFRESH_QUERY_OPTIONS,
   });
 
+  const {
+    data: actorAliveTimeline,
+    isFetching: isFetchingActorAliveTimeline,
+    refetch: refetchActorAliveTimeline,
+  } = useQuery({
+    enabled: availability !== undefined && tryNumber !== undefined,
+    queryFn: () =>
+      axios
+        .get<ActorAliveTimeline>(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+            runId,
+          )}/taskInstances/${encodeURIComponent(taskId)}/${parsedMapIndex}/rayDashboard/actorAliveTimeline`,
+          {
+            params: {
+              bucket_seconds: 10,
+              try_number: tryNumber,
+            },
+          },
+        )
+        .then((response) => response.data),
+    queryKey: ["ray-dashboard-actor-alive-timeline", dagId, runId, taskId, parsedMapIndex, tryNumber],
+    ...MANUAL_REFRESH_QUERY_OPTIONS,
+  });
+
   const latestSnapshots = useMemo(
     () =>
       SECTION_ORDER.map((section) =>
@@ -1782,7 +1782,6 @@ export const RayDashboard = () => {
   const allSnapshots = snapshots?.snapshots ?? [];
   const taskRows = getRowsFromPayload(snapshotBySection.tasks?.payload);
   const peakTaskRows = getPeakRowsFromSnapshots(allSnapshots, "tasks");
-  const actorRows = getRowsFromPayload(snapshotBySection.actors?.payload);
   const jobRows = getJobRows(dashboard, snapshotBySection.jobs?.payload);
   const serveRows = getRowsFromPayload(snapshotBySection.serve?.payload);
   const overviewTaskRows = peakTaskRows.length > 0 ? peakTaskRows : taskRows;
@@ -1790,8 +1789,8 @@ export const RayDashboard = () => {
   const runningTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/run/u]);
   const pendingTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/pending/u, /waiting/u, /sched/u]);
   const failedTasks = countRowsByState(taskRows, TASK_STATE_KEYS, [/fail/u, /error/u]);
-  const aliveActors = countRowsByState(actorRows, ACTOR_STATE_KEYS, [/alive/u, /run/u]);
-  const restartingActors = countRowsByState(actorRows, ACTOR_STATE_KEYS, [/restart/u, /pending/u]);
+  const peakAliveActors = getPeakActorAliveCount(actorAliveTimeline);
+  const latestAliveActors = getLatestActorAliveCount(actorAliveTimeline);
   const cpuSample = getPeakMetricSample(samples, CPU_METRIC_PATTERN);
   const memorySample = getPeakMetricSample(
     samples.filter((sample) => !OBJECT_STORE_METRIC_PATTERN.test(sample.metric_name.toLowerCase())),
@@ -1829,14 +1828,15 @@ export const RayDashboard = () => {
   ];
   const statusColor = getStatusColor(dashboard.status);
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
-  const isRefreshing = isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples;
+  const isRefreshing =
+    isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples || isFetchingActorAliveTimeline;
   const hasDedicatedSection = ["actors", "cluster", "jobs", "metrics", "overview", "tasks"].includes(
     activeSection,
   );
   const refreshDashboard = async () => {
     await refetchAvailability();
     setPodTimelineRefreshToken((token) => token + 1);
-    await Promise.all([refetchSnapshots(), refetchMetricSamples()]);
+    await Promise.all([refetchSnapshots(), refetchMetricSamples(), refetchActorAliveTimeline()]);
   };
 
   return (
@@ -2015,8 +2015,8 @@ export const RayDashboard = () => {
                 />
                 <SummaryCard
                   label="Actors"
-                  meta={`${aliveActors} alive / ${restartingActors} restarting`}
-                  value={formatValue(actorRows.length)}
+                  meta={`${formatValue(latestAliveActors)} alive`}
+                  value={formatValue(peakAliveActors)}
                 />
               </SimpleGrid>
             </>
@@ -2290,13 +2290,8 @@ export const RayDashboard = () => {
 
           {activeSection === "actors" ? (
             <ActorAliveTimeline
-              dagId={dagId}
-              enabled
-              mapIndex={parsedMapIndex}
-              refreshToken={podTimelineRefreshToken}
-              runId={runId}
-              taskId={taskId}
-              tryNumber={tryNumber}
+              actorAliveTimeline={actorAliveTimeline}
+              isFetching={isFetchingActorAliveTimeline}
             />
           ) : undefined}
 

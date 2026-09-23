@@ -241,11 +241,11 @@ describe("RayDashboard", () => {
             points: [
               {
                 sampled_at: "2026-09-18T09:00:00Z",
-                value: 8,
+                value: 25,
               },
               {
                 sampled_at: "2026-09-18T09:00:10Z",
-                value: 10,
+                value: 3,
               },
             ],
           },
@@ -393,12 +393,12 @@ describe("RayDashboard", () => {
 
     const refreshButton = await screen.findByRole("button", { name: /Refresh Ray Dashboard/u });
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5));
 
     vi.mocked(axios.get).mockClear();
     fireEvent.click(refreshButton);
 
-    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(5));
     expect(vi.mocked(axios.get).mock.calls.map(([url]) => url)).toEqual(
       expect.arrayContaining([
         expect.stringContaining("/rayDashboard"),
@@ -460,6 +460,10 @@ describe("RayDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Metrics/u }));
 
     expect(await screen.findByText("CPU utilization")).toBeInTheDocument();
+    expect(screen.getAllByText("Actors").length).toBeGreaterThan(0);
+    expect(screen.getByText("25")).toBeInTheDocument();
+    expect(screen.getByText("3 alive")).toBeInTheDocument();
+    expect(screen.queryByText(/restarting/u)).not.toBeInTheDocument();
     expect(screen.getAllByText("ray_node_cpu_utilization").length).toBeGreaterThan(0);
     expect(screen.getAllByText("84 %").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ray_object_store_memory").length).toBeGreaterThan(0);
@@ -484,7 +488,7 @@ describe("RayDashboard", () => {
     expect(screen.getByText("actors")).toBeInTheDocument();
     expect(screen.getByText("time")).toBeInTheDocument();
     expect(screen.getByTestId("mock-chart")).toBeInTheDocument();
-    await waitFor(() => expect(hasChartText('"data":[8,10]')).toBe(true));
+    await waitFor(() => expect(hasChartText('"data":[25,3]')).toBe(true));
 
     await waitFor(() => expect(hasActorAliveTimelineRequest()).toBe(true));
   });
