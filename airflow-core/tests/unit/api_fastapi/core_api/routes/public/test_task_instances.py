@@ -6412,6 +6412,13 @@ class TestTaskInstanceAIDiagnosis:
         )
 
     @staticmethod
+    def _latest_diagnosis_url(ti):
+        return (
+            f"/dags/{ti.dag_id}/dagRuns/{ti.run_id}/taskInstances/"
+            f"{ti.task_id}/{ti.map_index}/aiDiagnosis/latest"
+        )
+
+    @staticmethod
     def _diagnosis_for_ti(ti):
         from airflow._shared.timezones import timezone
         from airflow.models.task_instance_ai_diagnosis import TaskInstanceAIDiagnosis
@@ -6467,6 +6474,31 @@ class TestTaskInstanceAIDiagnosis:
             }
         ]
         diagnose_mock.assert_called_once()
+
+    def test_latest_ai_diagnosis_returns_history(self, test_client, session, create_task_instance):
+        ti = create_task_instance(task_id="ai_diagnosis_route_history", state=State.FAILED)
+        session.add(self._diagnosis_for_ti(ti))
+        session.commit()
+
+        with mock.patch(
+            "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance",
+        ) as diagnose_mock:
+            response = test_client.get(self._latest_diagnosis_url(ti))
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["cached"] is True
+        assert body["summary"] == "Database connection timed out."
+        assert body["try_number"] == TestTaskInstanceAIDiagnosis.TRY_NUMBER
+        diagnose_mock.assert_not_called()
+
+    def test_latest_ai_diagnosis_returns_404_without_history(self, test_client, create_task_instance):
+        ti = create_task_instance(task_id="ai_diagnosis_route_no_history", state=State.FAILED)
+
+        response = test_client.get(self._latest_diagnosis_url(ti))
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "AI diagnosis history not found"
 
     def test_ai_diagnosis_rejects_non_failed_task(self, test_client, create_task_instance):
         from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis import (

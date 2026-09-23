@@ -16,11 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
+/* eslint-disable i18next/no-literal-string, max-lines */
 import { Badge, Box, Button, Flex, Heading, HStack, Spinner, Table, Text, VStack } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { FiCpu } from "react-icons/fi";
 import { useParams, useSearchParams } from "react-router-dom";
 
@@ -71,6 +72,18 @@ const diagnosisQueryKey = ({
   tryNumber: number | undefined;
 }) => ["task-instance-ai-diagnosis", dagId, runId, taskId, mapIndex, tryNumber];
 
+const diagnosisHistoryQueryKey = ({
+  dagId,
+  mapIndex,
+  runId,
+  taskId,
+}: {
+  dagId: string;
+  mapIndex: number;
+  runId: string;
+  taskId: string;
+}) => ["task-instance-ai-diagnosis-history", dagId, runId, taskId, mapIndex];
+
 const getAIDiagnosis = async ({
   dagId,
   mapIndex,
@@ -93,6 +106,32 @@ const getAIDiagnosis = async ({
     )
     .then((response) => response.data);
 
+const getLatestAIDiagnosis = async ({
+  dagId,
+  mapIndex,
+  runId,
+  taskId,
+}: {
+  dagId: string;
+  mapIndex: number;
+  runId: string;
+  taskId: string;
+}) =>
+  axios
+    .get<AIDiagnosisResponse>(
+      `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+        runId,
+      )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/aiDiagnosis/latest`,
+    )
+    .then((response) => response.data)
+    .catch((error: unknown) => {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return undefined;
+      }
+
+      throw error;
+    });
+
 const getErrorMessage = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail;
@@ -104,7 +143,6 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export const AIDiagnosis = () => {
-  const { t: translate } = useTranslation(["dag", "common"]);
   const { dagId = "", mapIndex = "-1", runId = "", taskId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [hasRequestedDiagnosis, setHasRequestedDiagnosis] = useState(false);
@@ -156,17 +194,30 @@ export const AIDiagnosis = () => {
     retry: false,
   });
 
-  const rows = useMemo(() => aiDiagnosisQuery.data?.items ?? [], [aiDiagnosisQuery.data]);
+  const aiDiagnosisHistoryQuery = useQuery({
+    enabled: dagId !== "" && runId !== "" && taskId !== "" && !isNaN(parsedMapIndex),
+    queryFn: () =>
+      getLatestAIDiagnosis({
+        dagId,
+        mapIndex: parsedMapIndex,
+        runId,
+        taskId,
+      }),
+    queryKey: diagnosisHistoryQueryKey({ dagId, mapIndex: parsedMapIndex, runId, taskId }),
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+
+  const diagnosis = aiDiagnosisQuery.data ?? aiDiagnosisHistoryQuery.data;
+  const rows = useMemo(() => diagnosis?.items ?? [], [diagnosis]);
 
   return (
     <Box bg="bg" p={3}>
       <Flex alignItems="flex-start" gap={3} justifyContent="space-between" mb={4}>
         <VStack align="flex-start" gap={2}>
-          <Heading size="md">{translate("aiDiagnosis.title")}</Heading>
+          <Heading size="md">AI诊断</Heading>
           {taskInstance === undefined ? (
-            <Text color="fg.muted">
-              {translate("common:noItemsFound", { modelName: translate("common:taskInstance_one") })}
-            </Text>
+            <Text color="fg.muted">未找到任务实例</Text>
           ) : (
             <TaskTrySelect
               onSelectTryNumber={onSelectTryNumber}
@@ -176,59 +227,63 @@ export const AIDiagnosis = () => {
           )}
         </VStack>
         <HStack gap={2}>
-          {aiDiagnosisQuery.data?.cached === true ? (
-            <Badge colorPalette="blue">{translate("aiDiagnosis.cached")}</Badge>
+          {diagnosis?.cached === true ? <Badge colorPalette="blue">已缓存</Badge> : undefined}
+          {diagnosis === undefined && !aiDiagnosisHistoryQuery.isFetching ? (
+            <Button
+              colorPalette="brand"
+              disabled={!canDiagnose || aiDiagnosisQuery.isFetching}
+              onClick={() => {
+                setHasRequestedDiagnosis(true);
+                void aiDiagnosisQuery.refetch();
+              }}
+              size="sm"
+            >
+              {aiDiagnosisQuery.isFetching ? <Spinner size="xs" /> : <FiCpu />}
+              AI诊断
+            </Button>
           ) : undefined}
-          <Button
-            colorPalette="brand"
-            disabled={!canDiagnose || aiDiagnosisQuery.isFetching}
-            onClick={() => {
-              setHasRequestedDiagnosis(true);
-              void aiDiagnosisQuery.refetch();
-            }}
-            size="sm"
-          >
-            {aiDiagnosisQuery.isFetching ? <Spinner size="xs" /> : <FiCpu />}
-            {translate("aiDiagnosis.run")}
-          </Button>
         </HStack>
       </Flex>
 
-      {!isFailed && taskInstance !== undefined ? (
-        <Alert status="info">{translate("aiDiagnosis.failedOnly")}</Alert>
+      {!isFailed &&
+      taskInstance !== undefined &&
+      diagnosis === undefined &&
+      !aiDiagnosisHistoryQuery.isFetching ? (
+        <Alert status="info">仅失败状态的任务实例支持 AI 诊断。</Alert>
       ) : undefined}
 
       {aiDiagnosisQuery.isError ? (
-        <Alert status="error">
-          {translate("aiDiagnosis.error", { message: getErrorMessage(aiDiagnosisQuery.error) })}
-        </Alert>
+        <Alert status="error">AI 诊断失败：{getErrorMessage(aiDiagnosisQuery.error)}</Alert>
       ) : undefined}
 
-      {aiDiagnosisQuery.isFetching ? (
+      {aiDiagnosisQuery.isFetching || aiDiagnosisHistoryQuery.isFetching ? (
         <HStack color="fg.muted" gap={2} p={3}>
           <Spinner size="sm" />
-          <Text>{translate("aiDiagnosis.loading")}</Text>
+          <Text>正在分析任务日志...</Text>
         </HStack>
       ) : undefined}
 
-      {aiDiagnosisQuery.data === undefined && !hasRequestedDiagnosis && isFailed ? (
-        <Text color="fg.muted">{translate("aiDiagnosis.emptyDescription")}</Text>
+      {diagnosis === undefined &&
+      !aiDiagnosisHistoryQuery.isFetching &&
+      !hasRequestedDiagnosis &&
+      isFailed ? (
+        <Text color="fg.muted">点击 AI 诊断，根据失败日志生成原因分析。</Text>
       ) : undefined}
 
-      {aiDiagnosisQuery.data === undefined ? undefined : (
+      {diagnosis === undefined ? undefined : (
         <VStack align="stretch" gap={4}>
           <Box borderColor="border" borderWidth={1} p={3}>
             <HStack justify="space-between" mb={2}>
-              <Heading size="sm">{translate("aiDiagnosis.summary")}</Heading>
+              <Heading size="sm">诊断摘要</Heading>
               <Text color="fg.muted" fontSize="sm">
-                {translate("aiDiagnosis.logLines", { count: aiDiagnosisQuery.data.log_line_count })}
+                原始日志 {diagnosis.log_line_count} 行
               </Text>
             </HStack>
-            <Text>{aiDiagnosisQuery.data.summary}</Text>
-            {(aiDiagnosisQuery.data.model ?? "") === "" ? undefined : (
+            <Text>{diagnosis.summary}</Text>
+            {(diagnosis.model ?? "") === "" ? undefined : (
               <Text color="fg.muted" fontSize="sm" mt={2}>
-                {(aiDiagnosisQuery.data.provider ?? "") === "" ? "" : `${aiDiagnosisQuery.data.provider} / `}
-                {aiDiagnosisQuery.data.model}
+                {(diagnosis.provider ?? "") === "" ? "" : `${diagnosis.provider} / `}
+                {diagnosis.model}
               </Text>
             )}
           </Box>
@@ -237,18 +292,18 @@ export const AIDiagnosis = () => {
             <Table.Root size="sm" striped>
               <Table.Header>
                 <Table.Row>
-                  <Table.ColumnHeader>{translate("aiDiagnosis.columns.category")}</Table.ColumnHeader>
-                  <Table.ColumnHeader>{translate("aiDiagnosis.columns.finding")}</Table.ColumnHeader>
-                  <Table.ColumnHeader>{translate("aiDiagnosis.columns.evidence")}</Table.ColumnHeader>
-                  <Table.ColumnHeader>{translate("aiDiagnosis.columns.suggestion")}</Table.ColumnHeader>
-                  <Table.ColumnHeader>{translate("aiDiagnosis.columns.confidence")}</Table.ColumnHeader>
+                  <Table.ColumnHeader>类型</Table.ColumnHeader>
+                  <Table.ColumnHeader>诊断结论</Table.ColumnHeader>
+                  <Table.ColumnHeader>日志证据</Table.ColumnHeader>
+                  <Table.ColumnHeader>修复建议</Table.ColumnHeader>
+                  <Table.ColumnHeader>置信度</Table.ColumnHeader>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
                 {rows.length === 0 ? (
                   <Table.Row>
                     <Table.Cell colSpan={5}>
-                      <Text color="fg.muted">{translate("aiDiagnosis.noItems")}</Text>
+                      <Text color="fg.muted">模型未返回结构化诊断项。</Text>
                     </Table.Cell>
                   </Table.Row>
                 ) : (

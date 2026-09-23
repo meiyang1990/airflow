@@ -116,7 +116,10 @@ from airflow.models.ray_dashboard import (
     RayDashboardSnapshot,
     get_ray_dashboard_task_instance,
 )
-from airflow.models.task_instance_ai_diagnosis import TaskInstanceAIDiagnosis
+from airflow.models.task_instance_ai_diagnosis import (
+    TaskInstanceAIDiagnosis,
+    get_latest_task_instance_ai_diagnosis,
+)
 from airflow.models.taskinstance import TaskInstance as TI, clear_task_instances
 from airflow.models.taskinstancehistory import TaskInstanceHistory as TIH
 from airflow.ti_deps.dep_context import DepContext
@@ -880,6 +883,32 @@ def get_task_instance_ai_diagnosis(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(error)) from error
 
     return _ai_diagnosis_response(diagnosis, cached=cached)
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/aiDiagnosis/latest",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_LOGS))],
+)
+def get_latest_task_instance_ai_diagnosis_history(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    session: SessionDep,
+) -> TaskInstanceAIDiagnosisResponse:
+    """Get the latest stored AI diagnosis for a task instance without generating a new one."""
+    diagnosis = get_latest_task_instance_ai_diagnosis(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        session=session,
+    )
+    if diagnosis is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "AI diagnosis history not found")
+
+    return _ai_diagnosis_response(diagnosis, cached=True)
 
 
 @task_instances_router.get(

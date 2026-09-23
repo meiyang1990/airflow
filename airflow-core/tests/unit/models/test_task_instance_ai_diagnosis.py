@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from airflow.models.dagbundle import DagBundleModel
 from airflow.models.task_instance_ai_diagnosis import (
     TaskInstanceAIDiagnosis,
+    get_latest_task_instance_ai_diagnosis,
     get_task_instance_ai_diagnosis,
 )
 from airflow.utils.state import State
@@ -84,3 +85,22 @@ def test_task_instance_ai_diagnosis_unique_per_try(session, create_task_instance
 
     with pytest.raises(IntegrityError):
         session.flush()
+
+
+def test_get_latest_task_instance_ai_diagnosis(session, create_task_instance):
+    ti = create_task_instance(task_id="ai_diagnosis_latest", state=State.FAILED)
+    older = _diagnosis_for_ti(ti, try_number=1, summary="older diagnosis")
+    newer = _diagnosis_for_ti(ti, try_number=2, summary="newer diagnosis")
+    session.add_all([older, newer])
+    session.flush()
+
+    fetched = get_latest_task_instance_ai_diagnosis(
+        dag_id=ti.dag_id,
+        run_id=ti.run_id,
+        task_id=ti.task_id,
+        map_index=ti.map_index,
+        session=session,
+    )
+
+    assert fetched.id == newer.id
+    assert fetched.summary == "newer diagnosis"

@@ -27,15 +27,8 @@ import { Wrapper } from "src/utils/Wrapper";
 
 import { AIDiagnosis } from "./AIDiagnosis";
 
-const translate = (key: string, options?: { count?: number }) =>
-  key === "aiDiagnosis.logLines" ? `${options?.count ?? 0} log lines` : key;
-
 vi.mock("axios");
 vi.mock("openapi/queries");
-vi.mock("react-i18next", () => ({
-  // eslint-disable-next-line id-length
-  useTranslation: () => ({ t: translate }),
-}));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
 
@@ -84,37 +77,44 @@ describe("AIDiagnosis", () => {
   });
 
   it("requests and renders an AI diagnosis for failed task instances", async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: {
-        cached: false,
-        created_at: "2026-09-23T08:00:00Z",
-        dag_id: "test-dag",
-        items: [
-          {
-            category: "root cause",
-            confidence: "high",
-            evidence: "Connection timed out",
-            finding: "Database timeout",
-            suggestion: "Increase timeout or inspect network.",
-          },
-        ],
-        log_line_count: 423,
-        map_index: -1,
-        model: "diagnosis-model",
-        provider: "mcpserver",
-        run_id: "test-run",
-        state: "failed",
-        summary: "The task failed while connecting to the database.",
-        task_id: "test-task",
-        try_number: 2,
-        updated_at: "2026-09-23T08:00:00Z",
-      },
-    });
+    vi.mocked(axios.get)
+      .mockRejectedValueOnce({ response: { status: 404 } })
+      .mockResolvedValueOnce({
+        data: {
+          cached: false,
+          created_at: "2026-09-23T08:00:00Z",
+          dag_id: "test-dag",
+          items: [
+            {
+              category: "root cause",
+              confidence: "high",
+              evidence: "Connection timed out",
+              finding: "Database timeout",
+              suggestion: "Increase timeout or inspect network.",
+            },
+          ],
+          log_line_count: 423,
+          map_index: -1,
+          model: "diagnosis-model",
+          provider: "mcpserver",
+          run_id: "test-run",
+          state: "failed",
+          summary: "The task failed while connecting to the database.",
+          task_id: "test-task",
+          try_number: 2,
+          updated_at: "2026-09-23T08:00:00Z",
+        },
+      });
 
     render(<AIDiagnosis />, { wrapper: Wrapper });
 
-    fireEvent.click(screen.getByRole("button", { name: /aiDiagnosis.run/u }));
+    fireEvent.click(await screen.findByRole("button", { name: /AI诊断/u }));
 
+    await waitFor(() =>
+      expect(vi.mocked(axios.get)).toHaveBeenCalledWith(
+        "/api/v2/dags/test-dag/dagRuns/test-run/taskInstances/test-task/-1/aiDiagnosis/latest",
+      ),
+    );
     await waitFor(() =>
       expect(vi.mocked(axios.get)).toHaveBeenCalledWith(
         "/api/v2/dags/test-dag/dagRuns/test-run/taskInstances/test-task/-1/aiDiagnosis",
@@ -125,10 +125,49 @@ describe("AIDiagnosis", () => {
     expect(screen.getByText("Database timeout")).toBeInTheDocument();
     expect(screen.getByText("Connection timed out")).toBeInTheDocument();
     expect(screen.getByText("Increase timeout or inspect network.")).toBeInTheDocument();
-    expect(screen.getByText("423 log lines")).toBeInTheDocument();
+    expect(screen.getByText("原始日志 423 行")).toBeInTheDocument();
   });
 
-  it("does not request a diagnosis for non-failed task instances", () => {
+  it("renders existing diagnosis history and hides the diagnosis button", async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: {
+        cached: true,
+        created_at: "2026-09-23T08:00:00Z",
+        dag_id: "test-dag",
+        items: [
+          {
+            category: "根因",
+            confidence: "高",
+            evidence: "Missing field",
+            finding: "字段缺失",
+            suggestion: "补齐字段。",
+          },
+        ],
+        log_line_count: 120,
+        map_index: -1,
+        model: "diagnosis-model",
+        provider: "mcpserver",
+        run_id: "test-run",
+        state: "failed",
+        summary: "已有历史诊断记录。",
+        task_id: "test-task",
+        try_number: 1,
+        updated_at: "2026-09-23T08:00:00Z",
+      },
+    });
+
+    render(<AIDiagnosis />, { wrapper: Wrapper });
+
+    expect(await screen.findByText("已有历史诊断记录。")).toBeInTheDocument();
+    expect(screen.getByText("字段缺失")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /AI诊断/u })).not.toBeInTheDocument();
+    expect(vi.mocked(axios.get)).toHaveBeenCalledWith(
+      "/api/v2/dags/test-dag/dagRuns/test-run/taskInstances/test-task/-1/aiDiagnosis/latest",
+    );
+  });
+
+  it("does not request a diagnosis for non-failed task instances", async () => {
+    vi.mocked(axios.get).mockRejectedValue({ response: { status: 404 } });
     vi.mocked(queries.useTaskInstanceServiceGetMappedTaskInstance).mockReturnValue({
       data: {
         dag_id: "test-dag",
@@ -142,8 +181,7 @@ describe("AIDiagnosis", () => {
 
     render(<AIDiagnosis />, { wrapper: Wrapper });
 
-    expect(screen.getByRole("button", { name: /aiDiagnosis.run/u })).toBeDisabled();
-    expect(screen.getByText("aiDiagnosis.failedOnly")).toBeInTheDocument();
-    expect(vi.mocked(axios.get)).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: /AI诊断/u })).toBeDisabled();
+    expect(await screen.findByText("仅失败状态的任务实例支持 AI 诊断。")).toBeInTheDocument();
   });
 });

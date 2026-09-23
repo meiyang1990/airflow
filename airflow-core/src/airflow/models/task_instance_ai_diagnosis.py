@@ -144,3 +144,27 @@ def get_task_instance_ai_diagnosis(
             try_number=try_number,
         )
     )
+
+
+@provide_session
+def get_latest_task_instance_ai_diagnosis(
+    *,
+    dag_id: str,
+    run_id: str,
+    task_id: str,
+    map_index: int,
+    session: Session = NEW_SESSION,
+) -> TaskInstanceAIDiagnosis | None:
+    """Return the latest successful AI diagnosis for a task instance, if present."""
+    return session.scalar(
+        select(TaskInstanceAIDiagnosis)
+        .where(
+            TaskInstanceAIDiagnosis.dag_id == dag_id,
+            TaskInstanceAIDiagnosis.run_id == run_id,
+            TaskInstanceAIDiagnosis.task_id == task_id,
+            TaskInstanceAIDiagnosis.map_index == map_index,
+            TaskInstanceAIDiagnosis.status == AI_DIAGNOSIS_STATUS_SUCCESS,
+        )
+        .order_by(TaskInstanceAIDiagnosis.created_at.desc(), TaskInstanceAIDiagnosis.id.desc())
+        .limit(1)
+    )
