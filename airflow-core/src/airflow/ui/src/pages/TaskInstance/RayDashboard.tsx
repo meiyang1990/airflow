@@ -158,6 +158,16 @@ const POD_TIMELINE_METRICS = [
   { label: "memory使用", metricName: RAY_NODE_MEM_USED_METRIC_NAME, value: "memory" },
   { label: "磁盘使用", metricName: RAY_NODE_DISK_USAGE_METRIC_NAME, value: "disk" },
 ];
+const ACTOR_STATE_OPTIONS = [
+  "ALIVE_RUNNING_TASKS",
+  "ALIVE_IDLE",
+  "PENDING_CREATION",
+  "ALIVE",
+  "DEAD",
+] as const;
+const ACTOR_TIMELINE_BUCKET_SECONDS = 10;
+const RAY_ACTORS_METRIC_NAME = "ray_actors";
+const ALGO_OPERATOR_ACTOR_NAME = "AlgoOperatorActor";
 const RAY_COLORS = {
   amber: "#f59e0b",
   bg: "light-dark(#edf1f5, #111827)",
@@ -602,6 +612,62 @@ const getPeakActorAliveCount = (timeline?: ActorAliveTimeline) =>
 
 const getLatestActorAliveCount = (timeline?: ActorAliveTimeline) =>
   timeline?.points.at(-1)?.value ?? 0;
+
+const getMetricSampleBucket = (sample: MetricSample, bucketSeconds: number) => {
+  const timestamp = Date.parse(sample.sampled_at);
+
+  if (Number.isNaN(timestamp)) {
+    return sample.sampled_at;
+  }
+
+  return new Date(Math.floor(timestamp / (bucketSeconds * 1000)) * bucketSeconds * 1000).toISOString();
+};
+
+const getBucketedPodMetricSamples = (
+  samples: Array<MetricSample>,
+  bucketSeconds: number,
+): Array<MetricSample> => {
+  const latestSampleByBucketAndPod = samples.reduce<Map<string, MetricSample>>((result, sample) => {
+    const podIp = getMetricPodIp(sample);
+
+    if (podIp === undefined) {
+      return result;
+    }
+
+    const bucket = getMetricSampleBucket(sample, bucketSeconds);
+    const key = `${bucket}:${podIp}`;
+    const currentSample = result.get(key);
+
+    if (
+      currentSample === undefined ||
+      sample.sampled_at.localeCompare(currentSample.sampled_at) > 0 ||
+      (sample.sampled_at === currentSample.sampled_at && sample.id.localeCompare(currentSample.id) > 0)
+    ) {
+      result.set(key, { ...sample, sampled_at: bucket });
+    }
+
+    return result;
+  }, new Map<string, MetricSample>());
+  const bucketedValueByTime = [...latestSampleByBucketAndPod.values()].reduce<Map<string, MetricSample>>(
+    (result, sample) => {
+      const currentSample = result.get(sample.sampled_at);
+
+      result.set(sample.sampled_at, {
+        ...sample,
+        id: `bucket-${sample.sampled_at}`,
+        pod_ip: undefined,
+        value: (currentSample?.value ?? 0) + sample.value,
+      });
+
+      return result;
+    },
+    new Map<string, MetricSample>(),
+  );
+
+  return [...bucketedValueByTime.values()].sort((left, right) =>
+    left.sampled_at.localeCompare(right.sampled_at),
+  );
+};
 
 const getJobRows = (dashboard: RayDashboardAvailability["dashboard"], payload: unknown) => {
   const rows = getRowsFromPayload(payload);
@@ -1230,6 +1296,103 @@ const ActorAliveTimeline = ({
             time
           </Text>
           <Line data={data} options={options} />
+        </Box>
+      )}
+    </SectionFrame>
+  );
+};
+
+const ActorStateTimeline = ({
+  dagId,
+  enabled,
+  mapIndex,
+  refreshToken,
+  runId,
+  taskId,
+  tryNumber,
+}: {
+  readonly dagId: string;
+  readonly enabled: boolean;
+  readonly mapIndex: number;
+  readonly refreshToken: number;
+  readonly runId: string;
+  readonly taskId: string;
+  readonly tryNumber: number;
+}) => {
+  const [selectedState, setSelectedState] = useState<(typeof ACTOR_STATE_OPTIONS)[number]>(
+    ACTOR_STATE_OPTIONS[0],
+  );
+  const { data: actorMetricSamples, isFetching } = useQuery({
+    enabled,
+    queryFn: () =>
+      axios
+        .get<{ samples: Array<MetricSample>; total_entries: number }>(
+          `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
+            runId,
+          )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard/metrics`,
+          {
+            params: {
+              actor_name: ALGO_OPERATOR_ACTOR_NAME,
+              limit: 5000,
+              metric_name: RAY_ACTORS_METRIC_NAME,
+              state: selectedState,
+              try_number: tryNumber,
+            },
+          },
+        )
+        .then((response) => response.data),
+    queryKey: [
+      "ray-dashboard-actor-state-metrics",
+      dagId,
+      runId,
+      taskId,
+      mapIndex,
+      tryNumber,
+      selectedState,
+      refreshToken,
+    ],
+    ...MANUAL_REFRESH_QUERY_OPTIONS,
+  });
+  const bucketedSamples = useMemo(
+    () => getBucketedPodMetricSamples(actorMetricSamples?.samples ?? [], ACTOR_TIMELINE_BUCKET_SECONDS),
+    [actorMetricSamples?.samples],
+  );
+
+  return (
+    <SectionFrame
+      meta={
+        isFetching
+          ? "loading"
+          : `${formatValue(bucketedSamples.length)} buckets / ${formatValue(ACTOR_TIMELINE_BUCKET_SECONDS)}s`
+      }
+      title="Actors by state over time"
+    >
+      <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
+        <OverviewSelect
+          label="actor状态"
+          onChange={(value) => setSelectedState(value as typeof selectedState)}
+          value={selectedState}
+        >
+          {ACTOR_STATE_OPTIONS.map((state) => (
+            <option key={state} value={state}>
+              {state}
+            </option>
+          ))}
+        </OverviewSelect>
+      </SimpleGrid>
+      {bucketedSamples.length === 0 ? (
+        <Box {...PANEL_BORDER} h="260px" p={3}>
+          <Text color={RAY_COLORS.muted}>暂无匹配的 Actor metric samples。</Text>
+        </Box>
+      ) : (
+        <Box {...PANEL_BORDER} h="320px" p="12px 14px 28px 54px" position="relative">
+          <Text color={RAY_COLORS.muted} fontSize="12px" left="12px" position="absolute" top="12px">
+            value
+          </Text>
+          <Text bottom="6px" color={RAY_COLORS.muted} fontSize="12px" position="absolute" right="14px">
+            time
+          </Text>
+          <MetricChart samples={bucketedSamples} />
         </Box>
       )}
     </SectionFrame>
@@ -2289,10 +2452,21 @@ export const RayDashboard = () => {
           ) : undefined}
 
           {activeSection === "actors" ? (
-            <ActorAliveTimeline
-              actorAliveTimeline={actorAliveTimeline}
-              isFetching={isFetchingActorAliveTimeline}
-            />
+            <Flex direction="column" gap={3}>
+              <ActorAliveTimeline
+                actorAliveTimeline={actorAliveTimeline}
+                isFetching={isFetchingActorAliveTimeline}
+              />
+              <ActorStateTimeline
+                dagId={dagId}
+                enabled
+                mapIndex={parsedMapIndex}
+                refreshToken={podTimelineRefreshToken}
+                runId={runId}
+                taskId={taskId}
+                tryNumber={tryNumber}
+              />
+            </Flex>
           ) : undefined}
 
           {activeSection === "tasks" ? (

@@ -61,6 +61,15 @@ const hasActorAliveTimelineRequest = () =>
       config.params.try_number === 1,
   );
 
+const hasActorMetricRequest = (state: string) =>
+  (vi.mocked(axios.get).mock.calls as Array<[string, { params?: Record<string, unknown> }?]>).some(
+    ([url, config]) =>
+      url.includes("/rayDashboard/metrics") &&
+      config?.params?.actor_name === "AlgoOperatorActor" &&
+      config.params.metric_name === "ray_actors" &&
+      config.params.state === state,
+  );
+
 const defaultActorRecords = [
   {
     actor_id: "actor-1",
@@ -266,7 +275,7 @@ describe("RayDashboard", () => {
                 labels: { ActorName: "AlgoOperatorActor", State: config.params.state },
                 metric_name: "ray_actors",
                 pod_ip: "10.0.0.1",
-                sampled_at: "2026-09-18T09:00:00Z",
+                sampled_at: "2026-09-18T09:00:01Z",
                 state: config.params.state,
                 value: 3,
               },
@@ -276,12 +285,22 @@ describe("RayDashboard", () => {
                 labels: { ActorName: "AlgoOperatorActor", State: config.params.state },
                 metric_name: "ray_actors",
                 pod_ip: "10.0.0.2",
-                sampled_at: "2026-09-18T09:01:00Z",
+                sampled_at: "2026-09-18T09:00:09Z",
                 state: config.params.state,
                 value: 5,
               },
+              {
+                actor_name: "AlgoOperatorActor",
+                id: "actor-sample-3",
+                labels: { ActorName: "AlgoOperatorActor", State: config.params.state },
+                metric_name: "ray_actors",
+                pod_ip: "10.0.0.1",
+                sampled_at: "2026-09-18T09:00:11Z",
+                state: config.params.state,
+                value: 7,
+              },
             ],
-            total_entries: 2,
+            total_entries: 3,
           },
         });
       }
@@ -484,13 +503,33 @@ describe("RayDashboard", () => {
     expect(screen.queryByText("MEMORY TOTAL")).not.toBeInTheDocument();
 
     expect(await screen.findByText("Alive actors over time")).toBeInTheDocument();
-    expect(await screen.findByText("2 buckets / 10s")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("2 buckets / 10s").length).toBeGreaterThan(0));
     expect(screen.getByText("actors")).toBeInTheDocument();
-    expect(screen.getByText("time")).toBeInTheDocument();
-    expect(screen.getByTestId("mock-chart")).toBeInTheDocument();
+    expect(screen.getAllByText("time").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("mock-chart").length).toBeGreaterThan(0);
     await waitFor(() => expect(hasChartText('"data":[25,3]')).toBe(true));
 
+    expect(await screen.findByText("Actors by state over time")).toBeInTheDocument();
+    const actorStateSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
+      name: "actor状态",
+    });
+
+    expect(actorStateSelect.value).toBe("ALIVE_RUNNING_TASKS");
+    expect(getSelectOptionValues(actorStateSelect)).toEqual([
+      "ALIVE_RUNNING_TASKS",
+      "ALIVE_IDLE",
+      "PENDING_CREATION",
+      "ALIVE",
+      "DEAD",
+    ]);
+    expect(screen.getByText("value")).toBeInTheDocument();
+    await waitFor(() => expect(hasChartText('"data":[8,7]')).toBe(true));
     await waitFor(() => expect(hasActorAliveTimelineRequest()).toBe(true));
+    await waitFor(() => expect(hasActorMetricRequest("ALIVE_RUNNING_TASKS")).toBe(true));
+
+    fireEvent.change(actorStateSelect, { target: { value: "DEAD" } });
+
+    await waitFor(() => expect(hasActorMetricRequest("DEAD")).toBe(true));
   });
 
   it("renders cluster node resources in a dedicated nodes table", async () => {
