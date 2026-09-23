@@ -458,6 +458,10 @@ describe("RayDashboard", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Actors/u }));
 
+    expect(screen.queryByText("Ray job")).not.toBeInTheDocument();
+    expect(screen.queryByText("CPU TOTAL")).not.toBeInTheDocument();
+    expect(screen.queryByText("MEMORY TOTAL")).not.toBeInTheDocument();
+
     const actorStateSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
       name: "actor状态",
     });

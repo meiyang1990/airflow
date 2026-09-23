@@ -1730,6 +1730,7 @@ export const RayDashboard = () => {
   const { dashboard, sections } = availability;
   const availableSections = SECTION_ORDER.filter((section) => sections.includes(section));
   const activeSection = selectedSection;
+  const showSectionSummary = activeSection !== "overview" && activeSection !== "actors";
   const activeSnapshot = snapshotBySection[activeSection];
   const activeRows = getRowsFromPayload(activeSnapshot?.payload);
   const activeStates = countStates(activeRows);
@@ -1946,7 +1947,7 @@ export const RayDashboard = () => {
         </Flex>
 
         <Box as="main" bg={activeSection === "overview" ? "#ffffff" : undefined} p={3}>
-          {activeSection === "overview" ? undefined : (
+          {showSectionSummary ? (
             <>
               <Flex alignItems="center" justifyContent="space-between" mb={3} wrap="wrap">
                 <Text color={RAY_COLORS.muted} fontSize="12px">
@@ -1987,7 +1988,7 @@ export const RayDashboard = () => {
                 />
               </SimpleGrid>
             </>
-          )}
+          ) : undefined}
 
           {activeSection === "overview" ? (
             <Flex color="#2f343b" direction="column" gap={6}>
