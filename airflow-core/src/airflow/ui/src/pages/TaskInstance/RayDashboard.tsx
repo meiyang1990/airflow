@@ -71,6 +71,16 @@ type MetricSample = {
   value: number;
 };
 
+type ActorAliveTimelinePoint = {
+  sampled_at: string;
+  value: number;
+};
+
+type ActorAliveTimeline = {
+  bucket_seconds: number;
+  points: Array<ActorAliveTimelinePoint>;
+};
+
 type RaySection =
   | "actors"
   | "cluster"
@@ -149,15 +159,6 @@ const POD_TIMELINE_METRICS = [
   { label: "memory使用", metricName: RAY_NODE_MEM_USED_METRIC_NAME, value: "memory" },
   { label: "磁盘使用", metricName: RAY_NODE_DISK_USAGE_METRIC_NAME, value: "disk" },
 ];
-const ACTOR_STATE_OPTIONS = [
-  "ALIVE_RUNNING_TASKS",
-  "ALIVE_IDLE",
-  "PENDING_CREATION",
-  "ALIVE",
-  "DEAD",
-] as const;
-const RAY_ACTORS_METRIC_NAME = "ray_actors";
-const ALGO_OPERATOR_ACTOR_NAME = "AlgoOperatorActor";
 const RAY_COLORS = {
   amber: "#f59e0b",
   bg: "light-dark(#edf1f5, #111827)",
@@ -1141,7 +1142,7 @@ const OverviewSelect = ({
   </Box>
 );
 
-const ActorStateTimeline = ({
+const ActorAliveTimeline = ({
   dagId,
   enabled,
   mapIndex,
@@ -1158,70 +1159,101 @@ const ActorStateTimeline = ({
   readonly taskId: string;
   readonly tryNumber: number;
 }) => {
-  const [selectedState, setSelectedState] = useState<(typeof ACTOR_STATE_OPTIONS)[number]>(
-    ACTOR_STATE_OPTIONS[0],
-  );
-  const { data: actorMetricSamples, isFetching } = useQuery({
+  const { data: actorAliveTimeline, isFetching } = useQuery({
     enabled,
     queryFn: () =>
       axios
-        .get<{ samples: Array<MetricSample>; total_entries: number }>(
+        .get<ActorAliveTimeline>(
           `${OpenAPI.BASE}/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(
             runId,
-          )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard/metrics`,
+          )}/taskInstances/${encodeURIComponent(taskId)}/${mapIndex}/rayDashboard/actorAliveTimeline`,
           {
             params: {
-              actor_name: ALGO_OPERATOR_ACTOR_NAME,
-              limit: 5000,
-              metric_name: RAY_ACTORS_METRIC_NAME,
-              state: selectedState,
+              bucket_seconds: 10,
               try_number: tryNumber,
             },
           },
         )
         .then((response) => response.data),
-    queryKey: [
-      "ray-dashboard-actor-state-metrics",
-      dagId,
-      runId,
-      taskId,
-      mapIndex,
-      tryNumber,
-      selectedState,
-      refreshToken,
-    ],
+    queryKey: ["ray-dashboard-actor-alive-timeline", dagId, runId, taskId, mapIndex, tryNumber, refreshToken],
     ...MANUAL_REFRESH_QUERY_OPTIONS,
   });
-  const samples = actorMetricSamples?.samples ?? [];
+  const points = actorAliveTimeline?.points ?? [];
+  const labels = points.map((point) => point.sampled_at);
+  const data: ChartData<"line"> = {
+    datasets: [
+      {
+        backgroundColor: `${RAY_COLORS.blue}22`,
+        borderColor: RAY_COLORS.blue,
+        data: points.map((point) => point.value),
+        fill: true,
+        label: "Alive actors",
+        pointRadius: 2,
+        tension: 0.25,
+      },
+    ],
+    labels,
+  };
+  const options: ChartOptions<"line"> = {
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          title: (items) => formatUtcPlus8(labels[items[0]?.dataIndex ?? 0] ?? ""),
+        },
+        intersect: false,
+        mode: "index",
+      },
+    },
+    responsive: true,
+    scales: {
+      x: {
+        grid: {
+          color: CHART_COLORS.border,
+        },
+        ticks: {
+          callback: (value) => formatUtcPlus8Time(labels[Number(value)] ?? String(value)),
+          color: CHART_COLORS.muted,
+          maxRotation: 0,
+        },
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: CHART_COLORS.border,
+        },
+        ticks: {
+          color: CHART_COLORS.muted,
+        },
+      },
+    },
+  };
 
   return (
-    <SectionFrame meta={isFetching ? "loading" : `${formatValue(samples.length)} samples`} title="Actors">
-      <SimpleGrid columns={{ base: 1, md: 3 }} gap={3} mb={3}>
-        <OverviewSelect
-          label="actor状态"
-          onChange={(value) => setSelectedState(value as typeof selectedState)}
-          value={selectedState}
-        >
-          {ACTOR_STATE_OPTIONS.map((state) => (
-            <option key={state} value={state}>
-              {state}
-            </option>
-          ))}
-        </OverviewSelect>
-      </SimpleGrid>
-      {samples.length === 0 ? (
+    <SectionFrame
+      meta={
+        isFetching
+          ? "loading"
+          : `${formatValue(points.length)} buckets / ${formatValue(actorAliveTimeline?.bucket_seconds ?? 10)}s`
+      }
+      title="Alive actors over time"
+    >
+      {points.length === 0 ? (
         <Box {...PANEL_BORDER} h="260px" p={3}>
-          <Text color={RAY_COLORS.muted}>暂无匹配的 Actor metric samples。</Text>
+          <Text color={RAY_COLORS.muted}>暂无匹配的 Alive actor timeline data。</Text>
         </Box>
       ) : (
         <Box {...PANEL_BORDER} h="320px" p="12px 14px 28px 54px" position="relative">
           <Text color={RAY_COLORS.muted} fontSize="12px" left="12px" position="absolute" top="12px">
-            value
+            actors
           </Text>
           <Text bottom="6px" color={RAY_COLORS.muted} fontSize="12px" position="absolute" right="14px">
             time
           </Text>
-          <MetricChart groupByPodIp maxSeries={50} samples={samples} />
+          <Line data={data} options={options} />
         </Box>
       )}
     </SectionFrame>
@@ -2257,7 +2289,7 @@ export const RayDashboard = () => {
           ) : undefined}
 
           {activeSection === "actors" ? (
-            <ActorStateTimeline
+            <ActorAliveTimeline
               dagId={dagId}
               enabled
               mapIndex={parsedMapIndex}

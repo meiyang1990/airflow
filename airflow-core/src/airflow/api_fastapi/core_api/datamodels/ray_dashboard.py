@@ -125,3 +125,17 @@ class RayDashboardActorRankingsResponse(BaseModel):
 
     cpu: list[RayDashboardActorResourceRankingRow] = Field(default_factory=list)
     memory: list[RayDashboardActorResourceRankingRow] = Field(default_factory=list)
+
+
+class RayDashboardActorAliveTimelinePoint(BaseModel):
+    """Actor alive count for one time bucket."""
+
+    sampled_at: datetime
+    value: float
+
+
+class RayDashboardActorAliveTimelineResponse(BaseModel):
+    """Alive actor count timeline for a task attempt."""
+
+    bucket_seconds: int
+    points: list[RayDashboardActorAliveTimelinePoint] = Field(default_factory=list)

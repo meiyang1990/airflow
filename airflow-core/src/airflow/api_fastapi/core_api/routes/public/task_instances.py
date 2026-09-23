@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Literal, cast
 
 import structlog
@@ -67,6 +67,8 @@ from airflow.api_fastapi.common.parameters import (
 from airflow.api_fastapi.common.router import AirflowRouter
 from airflow.api_fastapi.core_api.datamodels.common import BulkBody, BulkResponse
 from airflow.api_fastapi.core_api.datamodels.ray_dashboard import (
+    RayDashboardActorAliveTimelinePoint,
+    RayDashboardActorAliveTimelineResponse,
     RayDashboardActorRankingsResponse,
     RayDashboardActorResourceRankingRow,
     RayDashboardAvailabilityResponse,
@@ -115,6 +117,10 @@ task_instances_router = AirflowRouter(tags=["Task Instance"], prefix="/dags/{dag
 task_instances_prefix = "/dagRuns/{dag_run_id}/taskInstances"
 RAY_DASHBOARD_ACTOR_RANKING_LIMIT = 20
 RAY_DASHBOARD_ACTOR_RANKING_SAMPLE_LIMIT = 5000
+RAY_DASHBOARD_ALIVE_ACTOR_TIMELINE_SAMPLE_LIMIT = 5000
+RAY_DASHBOARD_ALIVE_ACTOR_METRIC_NAME = "ray_actors"
+RAY_DASHBOARD_ALIVE_ACTOR_NAME = "AlgoOperatorActor"
+RAY_DASHBOARD_ALIVE_ACTOR_STATE = "ALIVE_RUNNING_TASKS"
 RAY_DASHBOARD_ACTOR_LABEL_KEYS = ("actor_id", "ActorID", "actor", "ActorName", "Name")
 RAY_DASHBOARD_ACTOR_ID_KEYS = ("actor_id", "ActorID", "id")
 RAY_DASHBOARD_ACTOR_NAME_KEYS = ("name", "Name", "actor_name", "ActorName", "actor")
@@ -218,6 +224,41 @@ def _actor_ranking_row(
         value=sample.value,
         sampled_at=sample.sampled_at,
     )
+
+
+def _bucket_start(sampled_at: datetime, bucket_seconds: int) -> datetime:
+    bucket_timestamp = int(sampled_at.timestamp()) // bucket_seconds * bucket_seconds
+    return datetime.fromtimestamp(bucket_timestamp, tz=timezone.utc)
+
+
+def _actor_alive_timeline_points(
+    samples: list[RayDashboardMetricSample], bucket_seconds: int
+) -> list[RayDashboardActorAliveTimelinePoint]:
+    latest_sample_by_bucket_and_pod: dict[
+        tuple[datetime, str], tuple[datetime, datetime, RayDashboardMetricSample]
+    ] = {}
+
+    for sample in samples:
+        if sample.pod_ip is None:
+            continue
+        bucket = _bucket_start(sample.sampled_at, bucket_seconds)
+        latest_key = (sample.sampled_at, sample.created_at)
+        current_sample = latest_sample_by_bucket_and_pod.get((bucket, sample.pod_ip))
+        if current_sample is None or latest_key > (current_sample[0], current_sample[1]):
+            latest_sample_by_bucket_and_pod[(bucket, sample.pod_ip)] = (
+                sample.sampled_at,
+                sample.created_at,
+                sample,
+            )
+
+    values_by_bucket: dict[datetime, float] = {}
+    for (bucket, _), (_, _, sample) in latest_sample_by_bucket_and_pod.items():
+        values_by_bucket[bucket] = values_by_bucket.get(bucket, 0.0) + sample.value
+
+    return [
+        RayDashboardActorAliveTimelinePoint(sampled_at=bucket, value=value)
+        for bucket, value in sorted(values_by_bucket.items())
+    ]
 
 
 def _top_actor_ranking_rows(
@@ -651,6 +692,56 @@ def get_ray_dashboard_actor_rankings(
     return RayDashboardActorRankingsResponse(
         cpu=_top_actor_ranking_rows(cpu_samples_by_actor, context_by_key),
         memory=_top_actor_ranking_rows(memory_samples_by_actor, context_by_key),
+    )
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/rayDashboard/actorAliveTimeline",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_INSTANCE))],
+)
+def get_ray_dashboard_actor_alive_timeline(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    try_number: Annotated[int, Query(ge=1)],
+    session: SessionDep,
+    bucket_seconds: Annotated[int, Query(ge=1, le=3600)] = 10,
+    start_date: Annotated[datetime | None, Query()] = None,
+    end_date: Annotated[datetime | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=RAY_DASHBOARD_ALIVE_ACTOR_TIMELINE_SAMPLE_LIMIT)] = (
+        RAY_DASHBOARD_ALIVE_ACTOR_TIMELINE_SAMPLE_LIMIT
+    ),
+) -> RayDashboardActorAliveTimelineResponse:
+    """Get alive AlgoOperatorActor counts over time using pod-level time buckets."""
+    dashboard = get_ray_dashboard_task_instance(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        try_number=try_number,
+        session=session,
+    )
+    if dashboard is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ray Dashboard data not found")
+
+    query = select(RayDashboardMetricSample).where(
+        RayDashboardMetricSample.dashboard_id == dashboard.id,
+        RayDashboardMetricSample.metric_name == RAY_DASHBOARD_ALIVE_ACTOR_METRIC_NAME,
+        RayDashboardMetricSample.actor_name == RAY_DASHBOARD_ALIVE_ACTOR_NAME,
+        RayDashboardMetricSample.state == RAY_DASHBOARD_ALIVE_ACTOR_STATE,
+        RayDashboardMetricSample.pod_ip.is_not(None),
+    )
+    if start_date is not None:
+        query = query.where(RayDashboardMetricSample.sampled_at >= start_date)
+    if end_date is not None:
+        query = query.where(RayDashboardMetricSample.sampled_at <= end_date)
+
+    samples = session.scalars(query.order_by(RayDashboardMetricSample.sampled_at.asc()).limit(limit)).all()
+    return RayDashboardActorAliveTimelineResponse(
+        bucket_seconds=bucket_seconds,
+        points=_actor_alive_timeline_points(samples, bucket_seconds),
     )
 
 

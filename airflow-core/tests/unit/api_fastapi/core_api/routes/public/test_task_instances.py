@@ -6257,3 +6257,145 @@ class TestRayDashboardActorRankings:
         response = test_client.get(self._rankings_url(ti))
 
         assert response.status_code == 404
+
+
+class TestRayDashboardActorAliveTimeline:
+    TRY_NUMBER = 1
+
+    def teardown_method(self):
+        clear_db_runs()
+
+    @staticmethod
+    def _timeline_url(ti):
+        return (
+            f"/dags/{ti.dag_id}/dagRuns/{ti.run_id}/taskInstances/"
+            f"{ti.task_id}/{ti.map_index}/rayDashboard/actorAliveTimeline"
+            f"?try_number={TestRayDashboardActorAliveTimeline.TRY_NUMBER}&bucket_seconds=10"
+        )
+
+    @staticmethod
+    def _create_dashboard(session, ti):
+        return upsert_ray_dashboard_task_instance(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=TestRayDashboardActorAliveTimeline.TRY_NUMBER,
+            session=session,
+        )
+
+    def test_actor_alive_timeline_sums_latest_pod_samples_per_bucket(
+        self, test_client, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_actor_alive_timeline", state=State.RUNNING)
+        dashboard = self._create_dashboard(session, ti)
+        sampled_at = pendulum.datetime(2026, 9, 19, 3, 20, tz="UTC")
+        add_ray_dashboard_metric_samples(
+            dashboard=dashboard,
+            samples=[
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.1",
+                    },
+                    "value": 2.0,
+                    "sampled_at": sampled_at.add(seconds=1),
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.1",
+                    },
+                    "value": 3.0,
+                    "sampled_at": sampled_at.add(seconds=8),
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.2",
+                    },
+                    "value": 5.0,
+                    "sampled_at": sampled_at.add(seconds=3),
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.1",
+                    },
+                    "value": 4.0,
+                    "sampled_at": sampled_at.add(seconds=12),
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.2",
+                    },
+                    "value": 6.0,
+                    "sampled_at": sampled_at.add(seconds=18),
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_IDLE",
+                        "podIp": "10.0.0.3",
+                    },
+                    "value": 99.0,
+                    "sampled_at": sampled_at.add(seconds=4),
+                },
+                {
+                    "metric_name": "ray_actors",
+                    "labels": {
+                        "ActorName": "OtherActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.4",
+                    },
+                    "value": 99.0,
+                    "sampled_at": sampled_at.add(seconds=5),
+                },
+                {
+                    "metric_name": "ray_node_cpu_utilization",
+                    "labels": {
+                        "ActorName": "AlgoOperatorActor",
+                        "State": "ALIVE_RUNNING_TASKS",
+                        "podIp": "10.0.0.5",
+                    },
+                    "value": 99.0,
+                    "sampled_at": sampled_at.add(seconds=6),
+                },
+            ],
+            session=session,
+        )
+        session.commit()
+
+        response = test_client.get(self._timeline_url(ti))
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body == {
+            "bucket_seconds": 10,
+            "points": [
+                {"sampled_at": "2026-09-19T03:20:00Z", "value": 8.0},
+                {"sampled_at": "2026-09-19T03:20:10Z", "value": 10.0},
+            ],
+        }
+
+    def test_actor_alive_timeline_returns_404_without_dashboard(
+        self, test_client, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_missing_actor_alive_timeline", state=State.RUNNING)
+        session.commit()
+
+        response = test_client.get(self._timeline_url(ti))
+
+        assert response.status_code == 404
