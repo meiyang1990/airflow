@@ -1504,6 +1504,67 @@ secrets:
       type: integer
       example: ~
       default: "900"
+ai_diagnosis:
+  description: ~
+  options:
+    enabled:
+      description: |
+        Enables AI-assisted diagnosis for failed task instances.
+      version_added: ~
+      type: boolean
+      example: ~
+      default: "False"
+    mcp_llm_proxy_url:
+      description: |
+        HTTP URL for the mcpserver LLM proxy used by task instance AI diagnosis.
+      version_added: ~
+      type: string
+      example: "http://zerith-common-mcp-server.bigdata.svc.cluster.local:8000/llm/proxy"
+      default: "http://zerith-common-mcp-server.bigdata.svc.cluster.local:8000/llm/proxy"
+    mcp_auth_type:
+      description: |
+        Authentication type for the mcpserver LLM proxy. Currently ``basic`` is supported by deployments
+        that configure ``mcp_authorization_header``.
+      version_added: ~
+      type: string
+      example: "basic"
+      default: "basic"
+    mcp_authorization_header:
+      description: |
+        Complete HTTP Authorization header value sent to the mcpserver LLM proxy.
+      version_added: ~
+      type: string
+      sensitive: true
+      example: "Basic <token>"
+      default: ~
+    request_timeout_seconds:
+      description: |
+        Number of seconds to wait for the mcpserver LLM proxy to return a diagnosis.
+      version_added: ~
+      type: integer
+      example: ~
+      default: "70"
+    log_context_start_line:
+      description: |
+        First 1-based log line included in the contextual log excerpt sent for AI diagnosis.
+      version_added: ~
+      type: integer
+      example: ~
+      default: "18"
+    log_context_end_line:
+      description: |
+        Last 1-based log line included in the contextual log excerpt sent for AI diagnosis.
+      version_added: ~
+      type: integer
+      example: ~
+      default: "140"
+    log_tail_lines:
+      description: |
+        Number of final task log lines included in the log excerpt sent for AI diagnosis.
+      version_added: ~
+      type: integer
+      example: ~
+      default: "300"
 api:
   description: ~
   options:

@@ -482,6 +482,22 @@ extraConfigMaps: {}
 extraEnv: |
   - name: AIRFLOW_CONN_AIRFLOW_DAGS_REPO
     value: '{"conn_type": "git", "host": "git@github.com:inFpZero/airflow_dags.git", "login": "git", "extra": {"key_file": "/etc/git-secret/ssh"}}'
+  - name: AIRFLOW__AI_DIAGNOSIS__ENABLED
+    value: "True"
+  - name: AIRFLOW__AI_DIAGNOSIS__MCP_LLM_PROXY_URL
+    value: "http://zerith-common-mcp-server.bigdata.svc.cluster.local:8000/llm/proxy"
+  - name: AIRFLOW__AI_DIAGNOSIS__MCP_AUTH_TYPE
+    value: "basic"
+  - name: AIRFLOW__AI_DIAGNOSIS__MCP_AUTHORIZATION_HEADER
+    value: "Basic c3Rvcm06TWVpeWFuZzEyMzQ1NkA="
+  - name: AIRFLOW__AI_DIAGNOSIS__REQUEST_TIMEOUT_SECONDS
+    value: "70"
+  - name: AIRFLOW__AI_DIAGNOSIS__LOG_CONTEXT_START_LINE
+    value: "18"
+  - name: AIRFLOW__AI_DIAGNOSIS__LOG_CONTEXT_END_LINE
+    value: "140"
+  - name: AIRFLOW__AI_DIAGNOSIS__LOG_TAIL_LINES
+    value: "300"
 
 # Extra envFrom 'items' that will be added to the definition of Airflow containers
 # A string is expected (templated).

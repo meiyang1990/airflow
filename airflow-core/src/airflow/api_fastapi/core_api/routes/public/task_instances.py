@@ -75,6 +75,10 @@ from airflow.api_fastapi.core_api.datamodels.ray_dashboard import (
     RayDashboardMetricSampleCollectionResponse,
     RayDashboardSnapshotCollectionResponse,
 )
+from airflow.api_fastapi.core_api.datamodels.task_instance_ai_diagnosis import (
+    TaskInstanceAIDiagnosisItem,
+    TaskInstanceAIDiagnosisResponse,
+)
 from airflow.api_fastapi.core_api.datamodels.task_instance_history import (
     TaskInstanceHistoryCollectionResponse,
     TaskInstanceHistoryResponse,
@@ -90,6 +94,14 @@ from airflow.api_fastapi.core_api.datamodels.task_instances import (
 )
 from airflow.api_fastapi.core_api.openapi.exceptions import create_openapi_http_exception_doc
 from airflow.api_fastapi.core_api.security import GetUserDep, ReadableTIFilterDep, requires_access_dag
+from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis import (
+    AIDiagnosisDisabledError,
+    AIDiagnosisInvalidTaskStateError,
+    AIDiagnosisLLMProxyError,
+    AIDiagnosisLogReadError,
+    AIDiagnosisTaskNotFoundError,
+    diagnose_task_instance,
+)
 from airflow.api_fastapi.core_api.services.public.task_instances import (
     BulkTaskInstanceService,
     _patch_task_instance_note,
@@ -104,6 +116,7 @@ from airflow.models.ray_dashboard import (
     RayDashboardSnapshot,
     get_ray_dashboard_task_instance,
 )
+from airflow.models.task_instance_ai_diagnosis import TaskInstanceAIDiagnosis
 from airflow.models.taskinstance import TaskInstance as TI, clear_task_instances
 from airflow.models.taskinstancehistory import TaskInstanceHistory as TIH
 from airflow.ti_deps.dep_context import DepContext
@@ -800,6 +813,73 @@ def get_ray_dashboard_metric_samples(
         query.order_by(RayDashboardMetricSample.sampled_at.asc()).limit(limit).offset(offset)
     ).all()
     return RayDashboardMetricSampleCollectionResponse(samples=samples, total_entries=total_entries)
+
+
+def _ai_diagnosis_response(
+    diagnosis: TaskInstanceAIDiagnosis, *, cached: bool
+) -> TaskInstanceAIDiagnosisResponse:
+    return TaskInstanceAIDiagnosisResponse(
+        cached=cached,
+        dag_id=diagnosis.dag_id,
+        run_id=diagnosis.run_id,
+        task_id=diagnosis.task_id,
+        map_index=diagnosis.map_index,
+        try_number=diagnosis.try_number,
+        state=diagnosis.state,
+        log_line_count=diagnosis.log_line_count,
+        log_excerpt_sha256=diagnosis.log_excerpt_sha256,
+        request_id=diagnosis.llm_request_id,
+        provider=diagnosis.provider,
+        model=diagnosis.model,
+        summary=diagnosis.summary,
+        items=[TaskInstanceAIDiagnosisItem.model_validate(item) for item in diagnosis.diagnosis_items],
+        created_at=diagnosis.created_at,
+        updated_at=diagnosis.updated_at,
+    )
+
+
+@task_instances_router.get(
+    task_instances_prefix + "/{task_id}/{map_index}/aiDiagnosis",
+    responses=create_openapi_http_exception_doc(
+        [
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_502_BAD_GATEWAY,
+        ]
+    ),
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_LOGS))],
+)
+def get_task_instance_ai_diagnosis(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: str,
+    map_index: int,
+    try_number: Annotated[int, Query(ge=1)],
+    dag_bag: DagBagDep,
+    session: SessionDep,
+) -> TaskInstanceAIDiagnosisResponse:
+    """Get or generate AI diagnosis for a failed task instance attempt."""
+    try:
+        diagnosis, cached = diagnose_task_instance(
+            dag_id=dag_id,
+            run_id=dag_run_id,
+            task_id=task_id,
+            map_index=map_index,
+            try_number=try_number,
+            dag_bag=dag_bag,
+            session=session,
+        )
+    except AIDiagnosisDisabledError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+    except AIDiagnosisTaskNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+    except AIDiagnosisInvalidTaskStateError as error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
+    except (AIDiagnosisLogReadError, AIDiagnosisLLMProxyError) as error:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(error)) from error
+
+    return _ai_diagnosis_response(diagnosis, cached=cached)
 
 
 @task_instances_router.get(

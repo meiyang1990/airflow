@@ -1,6 +1,21 @@
 {
   "aiDiagnosis": {
-    "emptyDescription": "AI 诊断暂不可用。",
+    "cached": "已缓存",
+    "columns": {
+      "category": "类型",
+      "confidence": "置信度",
+      "evidence": "日志证据",
+      "finding": "诊断结论",
+      "suggestion": "修复建议"
+    },
+    "emptyDescription": "点击 AI 诊断，根据失败日志生成原因分析。",
+    "error": "AI 诊断失败：{{message}}",
+    "failedOnly": "仅失败状态的任务实例支持 AI 诊断。",
+    "loading": "正在分析任务日志...",
+    "logLines": "原始日志 {{count}} 行",
+    "noItems": "模型未返回结构化诊断项。",
+    "run": "AI诊断",
+    "summary": "诊断摘要",
     "title": "AI诊断"
   },
   "allRuns": "所有执行",

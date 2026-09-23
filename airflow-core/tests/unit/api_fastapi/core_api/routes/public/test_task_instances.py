@@ -6399,3 +6399,94 @@ class TestRayDashboardActorAliveTimeline:
         response = test_client.get(self._timeline_url(ti))
 
         assert response.status_code == 404
+
+
+class TestTaskInstanceAIDiagnosis:
+    TRY_NUMBER = 1
+
+    @staticmethod
+    def _diagnosis_url(ti):
+        return (
+            f"/dags/{ti.dag_id}/dagRuns/{ti.run_id}/taskInstances/"
+            f"{ti.task_id}/{ti.map_index}/aiDiagnosis?try_number={TestTaskInstanceAIDiagnosis.TRY_NUMBER}"
+        )
+
+    @staticmethod
+    def _diagnosis_for_ti(ti):
+        from airflow._shared.timezones import timezone
+        from airflow.models.task_instance_ai_diagnosis import TaskInstanceAIDiagnosis
+
+        now = timezone.utcnow()
+        return TaskInstanceAIDiagnosis(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=TestTaskInstanceAIDiagnosis.TRY_NUMBER,
+            state=State.FAILED,
+            log_line_count=500,
+            log_excerpt_sha256="b" * 64,
+            llm_request_id="request-1",
+            provider="baidu_qianfan",
+            model="ernie-4.5-turbo-128k",
+            summary="Database connection timed out.",
+            diagnosis_items=[
+                {
+                    "category": "root cause",
+                    "finding": "timeout",
+                    "evidence": "connection timeout",
+                    "suggestion": "check database network",
+                    "confidence": "high",
+                }
+            ],
+            created_at=now,
+            updated_at=now,
+        )
+
+    def test_ai_diagnosis_returns_cached_result(self, test_client, create_task_instance):
+        ti = create_task_instance(task_id="ai_diagnosis_route", state=State.FAILED)
+        diagnosis = self._diagnosis_for_ti(ti)
+
+        with mock.patch(
+            "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance",
+            return_value=(diagnosis, True),
+        ) as diagnose_mock:
+            response = test_client.get(self._diagnosis_url(ti))
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["cached"] is True
+        assert body["summary"] == "Database connection timed out."
+        assert body["items"] == [
+            {
+                "category": "root cause",
+                "finding": "timeout",
+                "evidence": "connection timeout",
+                "suggestion": "check database network",
+                "confidence": "high",
+            }
+        ]
+        diagnose_mock.assert_called_once()
+
+    def test_ai_diagnosis_rejects_non_failed_task(self, test_client, create_task_instance):
+        from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis import (
+            AIDiagnosisInvalidTaskStateError,
+        )
+
+        ti = create_task_instance(task_id="ai_diagnosis_success", state=State.SUCCESS)
+
+        with mock.patch(
+            "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance",
+            side_effect=AIDiagnosisInvalidTaskStateError("AI diagnosis is only available for failed tasks"),
+        ):
+            response = test_client.get(self._diagnosis_url(ti))
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "AI diagnosis is only available for failed tasks"
+
+    def test_ai_diagnosis_requires_authentication(self, unauthenticated_test_client, create_task_instance):
+        ti = create_task_instance(task_id="ai_diagnosis_auth", state=State.FAILED)
+
+        response = unauthenticated_test_client.get(self._diagnosis_url(ti))
+
+        assert response.status_code == 401

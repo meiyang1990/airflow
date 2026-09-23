@@ -72,6 +72,7 @@ def import_all_models():
     import airflow.models.ray_dashboard
     import airflow.models.revoked_token
     import airflow.models.serialized_dag
+    import airflow.models.task_instance_ai_diagnosis
     import airflow.models.taskinstancehistory
     import airflow.models.tasklog
     import airflow.models.team

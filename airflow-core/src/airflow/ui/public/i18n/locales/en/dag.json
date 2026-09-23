@@ -1,6 +1,21 @@
 {
   "aiDiagnosis": {
-    "emptyDescription": "AI diagnostics are not available yet.",
+    "cached": "Cached",
+    "columns": {
+      "category": "Type",
+      "confidence": "Confidence",
+      "evidence": "Log Evidence",
+      "finding": "Finding",
+      "suggestion": "Suggestion"
+    },
+    "emptyDescription": "Run AI diagnostics to analyze the failed task logs.",
+    "error": "AI diagnostics failed: {{message}}",
+    "failedOnly": "AI diagnostics are only available for failed task instances.",
+    "loading": "Analyzing task logs...",
+    "logLines": "{{count}} original log lines",
+    "noItems": "The model did not return structured diagnosis items.",
+    "run": "AI Diagnostics",
+    "summary": "Summary",
     "title": "AI Diagnostics"
   },
   "allRuns": "All Runs",
