@@ -50,6 +50,9 @@ const getTimelineSelects = () => {
 const getSelectOptionValues = (select: HTMLSelectElement) =>
   [...select.options].map((option) => option.value);
 
+const hasChartText = (text: string) =>
+  screen.getAllByTestId("mock-chart").some((chart) => chart.textContent.includes(text));
+
 const hasActorMetricRequest = (state: string) =>
   (vi.mocked(axios.get).mock.calls as Array<[string, { params?: Record<string, unknown> }?]>).some(
     ([url, config]) =>
@@ -73,6 +76,9 @@ let currentActorRecords = defaultActorRecords;
 
 vi.mock("axios");
 vi.mock("openapi/queries");
+vi.mock("react-chartjs-2", () => ({
+  Line: ({ data }: { readonly data: unknown }) => <div data-testid="mock-chart">{JSON.stringify(data)}</div>,
+}));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
 
@@ -313,6 +319,15 @@ describe("RayDashboard", () => {
               value: 0,
             },
             {
+              id: "disk-sample-id",
+              labels: { instance: "worker-1", JobId: "job-id", node_type: "worker" },
+              metric_name: "ray_node_disk_usage",
+              metric_unit: "bytes",
+              pod_ip: "10.0.0.1",
+              sampled_at: "2026-09-18T09:00:00Z",
+              value: 1_234_567_890,
+            },
+            {
               id: "active-worker-sample-id",
               labels: { name: "worker" },
               metric_name: "ray_cluster_active_nodes",
@@ -407,6 +422,11 @@ describe("RayDashboard", () => {
       expect(getSelectOptionValues(getTimelineSelects().nodeTypeSelect)).toEqual(["head", "worker"]),
     );
     expect(await screen.findByText("GB")).toBeInTheDocument();
+    fireEvent.change(getTimelineSelects().metricSelect, {
+      target: { value: "disk" },
+    });
+    expect(await screen.findByText("GB")).toBeInTheDocument();
+    await waitFor(() => expect(hasChartText('"data":[1.15]')).toBe(true));
     expect(screen.queryByText("View all nodes")).not.toBeInTheDocument();
     expect(screen.queryByText("17:55")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("4 nodes").length).toBeGreaterThan(0));

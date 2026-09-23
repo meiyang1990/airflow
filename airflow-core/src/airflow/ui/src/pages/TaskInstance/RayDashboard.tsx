@@ -376,6 +376,12 @@ const getGigabytesValue = (value: number, unit?: string | null) => {
   return Math.round(gigabytes * 100) / 100;
 };
 
+const toGigabyteMetricSample = (sample: MetricSample): MetricSample => ({
+  ...sample,
+  metric_unit: "GB",
+  value: getGigabytesValue(sample.value, sample.metric_unit),
+});
+
 const isMemoryValueKey = (key: string) => MEMORY_VALUE_KEY_PATTERN.test(key.toLowerCase());
 
 const isMemoryMetricSample = (sample: MetricSample) =>
@@ -1067,11 +1073,13 @@ const getPodMetricSamples = (samples: Array<MetricSample>, metric: string) => {
   if (metric === "memory") {
     return samples
       .filter((sample) => sample.metric_name === RAY_NODE_MEM_USED_METRIC_NAME)
-      .map((sample) => ({
-        ...sample,
-        metric_unit: "GB",
-        value: getGigabytesValue(sample.value, sample.metric_unit),
-      }));
+      .map(toGigabyteMetricSample);
+  }
+
+  if (metric === "disk") {
+    return samples
+      .filter((sample) => sample.metric_name === RAY_NODE_DISK_USAGE_METRIC_NAME)
+      .map(toGigabyteMetricSample);
   }
 
   return getMetricSamplesByPattern(samples, DISK_METRIC_PATTERN);
