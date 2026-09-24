@@ -136,11 +136,25 @@ describe("AIDiagnosis", () => {
         dag_id: "test-dag",
         items: [
           {
+            category: "风险",
+            confidence: "中",
+            evidence: "May retry repeatedly",
+            finding: "可能持续失败",
+            suggestion: "确认上游数据。",
+          },
+          {
             category: "根因",
             confidence: "高",
             evidence: "Missing field",
             finding: "字段缺失",
             suggestion: "补齐字段。",
+          },
+          {
+            category: "证据",
+            confidence: "高",
+            evidence: "Validation error",
+            finding: "校验失败",
+            suggestion: "检查输入。",
           },
         ],
         log_line_count: 120,
@@ -160,6 +174,12 @@ describe("AIDiagnosis", () => {
 
     expect(await screen.findByText("已有历史诊断记录。")).toBeInTheDocument();
     expect(screen.getByText("字段缺失")).toBeInTheDocument();
+    expect(screen.getAllByRole("row").map((row) => row.textContent)).toEqual([
+      "类型诊断结论日志证据修复建议置信度",
+      "直接原因校验失败Validation error检查输入。高",
+      "核心原因字段缺失Missing field补齐字段。高",
+      "风险点可能持续失败May retry repeatedly确认上游数据。中",
+    ]);
     expect(screen.queryByRole("button", { name: /AI诊断/u })).not.toBeInTheDocument();
     expect(vi.mocked(axios.get)).toHaveBeenCalledWith(
       "/api/v2/dags/test-dag/dagRuns/test-run/taskInstances/test-task/-1/aiDiagnosis/latest",

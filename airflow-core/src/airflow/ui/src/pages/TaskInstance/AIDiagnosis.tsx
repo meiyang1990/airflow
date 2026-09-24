@@ -58,6 +58,25 @@ type AIDiagnosisResponse = {
   updated_at: string;
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  evidence: "直接原因",
+  risk: "风险点",
+  "root cause": "核心原因",
+  根因: "核心原因",
+  证据: "直接原因",
+  风险: "风险点",
+};
+
+const CATEGORY_ORDER = new Map([
+  ["核心原因", 1],
+  ["直接原因", 0],
+  ["风险点", 2],
+]);
+
+const getCategoryLabel = (category: string) => CATEGORY_LABELS[category] ?? category;
+
+const getCategoryOrder = (category: string) => CATEGORY_ORDER.get(getCategoryLabel(category)) ?? 99;
+
 const diagnosisQueryKey = ({
   dagId,
   mapIndex,
@@ -209,7 +228,14 @@ export const AIDiagnosis = () => {
   });
 
   const diagnosis = aiDiagnosisQuery.data ?? aiDiagnosisHistoryQuery.data;
-  const rows = useMemo(() => diagnosis?.items ?? [], [diagnosis]);
+  const rows = useMemo(
+    () =>
+      [...(diagnosis?.items ?? [])].sort(
+        (firstItem, secondItem) =>
+          getCategoryOrder(firstItem.category) - getCategoryOrder(secondItem.category),
+      ),
+    [diagnosis],
+  );
 
   return (
     <Box bg="bg" p={3}>
@@ -307,21 +333,35 @@ export const AIDiagnosis = () => {
                     </Table.Cell>
                   </Table.Row>
                 ) : (
-                  rows.map((item) => (
-                    <Table.Row key={`${item.category}-${item.finding}-${item.evidence}`}>
-                      <Table.Cell minW="100px">
-                        <Badge colorPalette="gray">{item.category}</Badge>
-                      </Table.Cell>
-                      <Table.Cell minW="220px">{item.finding}</Table.Cell>
-                      <Table.Cell fontFamily="mono" minW="280px" whiteSpace="pre-wrap">
-                        {item.evidence}
-                      </Table.Cell>
-                      <Table.Cell minW="260px">{item.suggestion}</Table.Cell>
-                      <Table.Cell minW="90px">
-                        <Badge colorPalette="blue">{item.confidence}</Badge>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))
+                  rows.map((item) => {
+                    const categoryLabel = getCategoryLabel(item.category);
+
+                    return (
+                      <Table.Row key={`${item.category}-${item.finding}-${item.evidence}`}>
+                        <Table.Cell minW="100px">
+                          <Badge colorPalette="gray">
+                            <span
+                              style={
+                                categoryLabel === "核心原因"
+                                  ? { color: "var(--chakra-colors-red-500)" }
+                                  : undefined
+                              }
+                            >
+                              {categoryLabel}
+                            </span>
+                          </Badge>
+                        </Table.Cell>
+                        <Table.Cell minW="220px">{item.finding}</Table.Cell>
+                        <Table.Cell fontFamily="mono" minW="280px" whiteSpace="pre-wrap">
+                          {item.evidence}
+                        </Table.Cell>
+                        <Table.Cell minW="260px">{item.suggestion}</Table.Cell>
+                        <Table.Cell minW="90px">
+                          <Badge colorPalette="blue">{item.confidence}</Badge>
+                        </Table.Cell>
+                      </Table.Row>
+                    );
+                  })
                 )}
               </Table.Body>
             </Table.Root>

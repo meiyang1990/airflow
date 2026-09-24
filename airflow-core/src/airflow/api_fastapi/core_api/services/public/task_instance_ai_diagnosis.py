@@ -133,9 +133,10 @@ def diagnose_task_instance(
                 "content": (
                     "你是 Apache Airflow 任务失败诊断助手。"
                     "只能根据用户提供的任务元数据和日志判断，不要编造日志中不存在的信息。"
+                    "items 请按 直接原因、核心原因、风险点 的顺序返回。"
                     "请严格返回 JSON，格式为："
                     '{"summary": "一句话总结", "items": ['
-                    '{"category": "根因|证据|建议|风险", "finding": "诊断结论", '
+                    '{"category": "直接原因|核心原因|风险点", "finding": "诊断结论", '
                     '"evidence": "日志证据", "suggestion": "修复建议", "confidence": "高|中|低"}'
                     "]}。"
                 ),
