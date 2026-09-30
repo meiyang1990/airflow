@@ -48,6 +48,18 @@ DEFAULT_REQUEST_TIMEOUT_SECONDS = 70
 DEFAULT_CONTEXT_START_LINE = 18
 DEFAULT_CONTEXT_END_LINE = 140
 DEFAULT_TAIL_LINES = 300
+AI_DIAGNOSIS_SYSTEM_PROMPT = (
+    "你是 Apache Airflow 任务失败诊断助手。"
+    "只能根据用户提供的任务元数据和日志判断，不要编造日志中不存在的信息。"
+    "如果日志显示 Iceberg 表 schema 相关错误，可以调用 MCP Server 提供的相关接口查询 Iceberg 库表信息，"
+    "包括表 schema；使用查询结果时，请在 evidence 中明确其来源。"
+    "items 请按 直接原因、核心原因、风险点 的顺序返回。"
+    "请严格返回 JSON，格式为："
+    '{"summary": "一句话总结", "items": ['
+    '{"category": "直接原因|核心原因|风险点", "finding": "诊断结论", '
+    '"evidence": "日志证据", "suggestion": "修复建议", "confidence": "高|中|低"}'
+    "]}。"
+)
 
 
 class AIDiagnosisDisabledError(Exception):
@@ -130,16 +142,7 @@ def diagnose_task_instance(
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "你是 Apache Airflow 任务失败诊断助手。"
-                    "只能根据用户提供的任务元数据和日志判断，不要编造日志中不存在的信息。"
-                    "items 请按 直接原因、核心原因、风险点 的顺序返回。"
-                    "请严格返回 JSON，格式为："
-                    '{"summary": "一句话总结", "items": ['
-                    '{"category": "直接原因|核心原因|风险点", "finding": "诊断结论", '
-                    '"evidence": "日志证据", "suggestion": "修复建议", "confidence": "高|中|低"}'
-                    "]}。"
-                ),
+                "content": AI_DIAGNOSIS_SYSTEM_PROMPT,
             },
             {
                 "role": "user",

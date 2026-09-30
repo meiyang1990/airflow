@@ -21,6 +21,7 @@ import httpx
 import pytest
 
 from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis import (
+    AI_DIAGNOSIS_SYSTEM_PROMPT,
     AIDiagnosisLLMProxyError,
     _call_llm_proxy,
     _parse_model_content,
@@ -28,6 +29,12 @@ from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis imp
 )
 
 from tests_common.test_utils.config import conf_vars
+
+
+def test_ai_diagnosis_system_prompt_allows_iceberg_schema_lookup_with_mcp_server():
+    assert "Iceberg 表 schema 相关错误" in AI_DIAGNOSIS_SYSTEM_PROMPT
+    assert "MCP Server" in AI_DIAGNOSIS_SYSTEM_PROMPT
+    assert "查询 Iceberg 库表信息" in AI_DIAGNOSIS_SYSTEM_PROMPT
 
 
 def test_extract_diagnosis_log_excerpt_keeps_context_and_tail_without_duplicates():
