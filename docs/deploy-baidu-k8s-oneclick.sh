@@ -178,9 +178,13 @@ if [[ "${SKIP_DEPENDENCY_BUILD}" != "true" ]]; then
     helm dependency build "${CHART_DIR}"
 fi
 
+# Keep Helm 4 compatible with releases created by earlier Helm versions.
+# The chart has existing client-side managed resources, so do not switch
+# their apply strategy implicitly during an image-only deployment.
 helm upgrade --install "${RELEASE_NAME}" "${CHART_DIR}" \
     -n "${NAMESPACE}" \
     -f "${VALUES_FILE}" \
+    --server-side=false \
     --set-string "defaultAirflowRepository=${AIRFLOW_IMAGE_REPOSITORY}" \
     --set-string "defaultAirflowTag=${AIRFLOW_IMAGE_TAG}" \
     --set-string "images.airflow.repository=${AIRFLOW_IMAGE_REPOSITORY}" \
