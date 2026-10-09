@@ -1301,6 +1301,137 @@ export type QueuedEventResponse = {
 };
 
 /**
+ * Actor alive count for one time bucket.
+ */
+export type RayDashboardActorAliveTimelinePoint = {
+    sampled_at: string;
+    value: number;
+};
+
+/**
+ * Alive actor count timeline for a task attempt.
+ */
+export type RayDashboardActorAliveTimelineResponse = {
+    bucket_seconds: number;
+    points?: Array<RayDashboardActorAliveTimelinePoint>;
+};
+
+/**
+ * Actor CPU and memory rankings for a task attempt.
+ */
+export type RayDashboardActorRankingsResponse = {
+    cpu?: Array<RayDashboardActorResourceRankingRow>;
+    memory?: Array<RayDashboardActorResourceRankingRow>;
+};
+
+/**
+ * Actor-scoped Ray resource ranking row.
+ */
+export type RayDashboardActorResourceRankingRow = {
+    actor_key: string;
+    actor_id?: string | null;
+    actor_name?: string | null;
+    class_name?: string | null;
+    state?: string | null;
+    metric_name: string;
+    metric_unit: string | null;
+    labels: {
+    [key: string]: unknown;
+} | null;
+    value: number;
+    sampled_at: string;
+};
+
+/**
+ * Available Ray Dashboard data for a task attempt.
+ */
+export type RayDashboardAvailabilityResponse = {
+    dashboard: RayDashboardResponse;
+    sections?: Array<(string)>;
+    metrics?: Array<(string)>;
+};
+
+/**
+ * Ray Dashboard metric sample collection response.
+ */
+export type RayDashboardMetricSampleCollectionResponse = {
+    samples: Array<RayDashboardMetricSampleResponse>;
+    total_entries: number;
+};
+
+/**
+ * Ray Dashboard metric sample response.
+ */
+export type RayDashboardMetricSampleResponse = {
+    id: string;
+    dashboard_id: string;
+    metric_name: string;
+    metric_unit: string | null;
+    pod_name: string | null;
+    pod_id: string | null;
+    pod_ip: string | null;
+    actor_name: string | null;
+    actor_class: string | null;
+    actor_id: string | null;
+    name: string | null;
+    state: string | null;
+    labels: {
+    [key: string]: unknown;
+} | null;
+    value: number;
+    sampled_at: string;
+    created_at: string;
+};
+
+/**
+ * Ray Dashboard metadata response.
+ */
+export type RayDashboardResponse = {
+    id: string;
+    dag_id: string;
+    run_id: string;
+    task_id: string;
+    map_index: number;
+    try_number: number;
+    dashboard_url: string | null;
+    ray_cluster_id: string | null;
+    ray_cluster_name: string | null;
+    ray_namespace: string | null;
+    ray_job_id: string | null;
+    ray_submission_id: string | null;
+    status: string | null;
+    collector_status: string | null;
+    collector_error: string | null;
+    collector_metadata: {
+    [key: string]: unknown;
+} | null;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Ray Dashboard section snapshot collection response.
+ */
+export type RayDashboardSnapshotCollectionResponse = {
+    snapshots: Array<RayDashboardSnapshotResponse>;
+    total_entries: number;
+};
+
+/**
+ * Ray Dashboard section snapshot response.
+ */
+export type RayDashboardSnapshotResponse = {
+    id: string;
+    dashboard_id: string;
+    section: string;
+    source_status: string | null;
+    source_error: string | null;
+    payload: JsonValue | null;
+    collected_at: string;
+    created_at: string;
+};
+
+/**
  * Serializer for React App Plugin responses.
  */
 export type ReactAppResponse = {
@@ -1369,6 +1500,39 @@ export type TaskDependencyResponse = {
 export type TaskInletAssetReference = {
     dag_id: string;
     task_id: string;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * One structured AI diagnosis finding.
+ */
+export type TaskInstanceAIDiagnosisItem = {
+    category?: string;
+    finding?: string;
+    evidence?: string;
+    suggestion?: string;
+    confidence?: string;
+};
+
+/**
+ * AI diagnosis response for a task instance attempt.
+ */
+export type TaskInstanceAIDiagnosisResponse = {
+    cached: boolean;
+    dag_id: string;
+    run_id: string;
+    task_id: string;
+    map_index: number;
+    try_number: number;
+    state: string | null;
+    log_line_count: number;
+    log_excerpt_sha256: string;
+    request_id?: string | null;
+    provider?: string | null;
+    model?: string | null;
+    summary: string;
+    items?: Array<TaskInstanceAIDiagnosisItem>;
     created_at: string;
     updated_at: string;
 };
@@ -1512,6 +1676,8 @@ export type TaskInstancesBatchBody = {
 export type TaskInstancesLogResponse = {
     content: Array<StructuredLogMessage> | Array<(string)>;
     continuation_token: string | null;
+    next_page_token?: string | null;
+    previous_page_token?: string | null;
 };
 
 /**
@@ -3036,6 +3202,91 @@ export type GetMappedTaskInstanceTriesData = {
 
 export type GetMappedTaskInstanceTriesResponse = TaskInstanceHistoryCollectionResponse;
 
+export type GetRayDashboardAvailabilityData = {
+    dagId: string;
+    dagRunId: string;
+    mapIndex: number;
+    taskId: string;
+    tryNumber: number;
+};
+
+export type GetRayDashboardAvailabilityResponse = RayDashboardAvailabilityResponse;
+
+export type GetRayDashboardSnapshotsData = {
+    dagId: string;
+    dagRunId: string;
+    limit?: number;
+    mapIndex: number;
+    offset?: number;
+    section?: string | null;
+    taskId: string;
+    tryNumber: number;
+};
+
+export type GetRayDashboardSnapshotsResponse = RayDashboardSnapshotCollectionResponse;
+
+export type GetRayDashboardActorRankingsData = {
+    dagId: string;
+    dagRunId: string;
+    mapIndex: number;
+    taskId: string;
+    tryNumber: number;
+};
+
+export type GetRayDashboardActorRankingsResponse = RayDashboardActorRankingsResponse;
+
+export type GetRayDashboardActorAliveTimelineData = {
+    bucketSeconds?: number;
+    dagId: string;
+    dagRunId: string;
+    endDate?: string | null;
+    limit?: number;
+    mapIndex: number;
+    startDate?: string | null;
+    taskId: string;
+    tryNumber: number;
+};
+
+export type GetRayDashboardActorAliveTimelineResponse = RayDashboardActorAliveTimelineResponse;
+
+export type GetRayDashboardMetricSamplesData = {
+    actorName?: string | null;
+    dagId: string;
+    dagRunId: string;
+    endDate?: string | null;
+    limit?: number;
+    mapIndex: number;
+    metricName?: string | null;
+    nodeType?: string | null;
+    offset?: number;
+    podIp?: string | null;
+    startDate?: string | null;
+    state?: string | null;
+    taskId: string;
+    tryNumber: number;
+};
+
+export type GetRayDashboardMetricSamplesResponse = RayDashboardMetricSampleCollectionResponse;
+
+export type GetTaskInstanceAiDiagnosisData = {
+    dagId: string;
+    dagRunId: string;
+    mapIndex: number;
+    taskId: string;
+    tryNumber: number;
+};
+
+export type GetTaskInstanceAiDiagnosisResponse = TaskInstanceAIDiagnosisResponse;
+
+export type GetLatestTaskInstanceAiDiagnosisHistoryData = {
+    dagId: string;
+    dagRunId: string;
+    mapIndex: number;
+    taskId: string;
+};
+
+export type GetLatestTaskInstanceAiDiagnosisHistoryResponse = TaskInstanceAIDiagnosisResponse;
+
 export type GetMappedTaskInstanceData = {
     dagId: string;
     dagRunId: string;
@@ -3199,8 +3450,12 @@ export type GetLogData = {
     accept?: 'application/json' | 'application/x-ndjson' | '*/*';
     dagId: string;
     dagRunId: string;
+    download?: boolean;
     fullContent?: boolean;
+    limit?: number | null;
     mapIndex?: number;
+    pageToken?: string | null;
+    tail?: boolean;
     taskId: string;
     token?: string | null;
     tryNumber: number;
@@ -5509,6 +5764,203 @@ export type $OpenApiTs = {
                  * Successful Response
                  */
                 200: TaskInstanceHistoryCollectionResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard': {
+        get: {
+            req: GetRayDashboardAvailabilityData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: RayDashboardAvailabilityResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/snapshots': {
+        get: {
+            req: GetRayDashboardSnapshotsData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: RayDashboardSnapshotCollectionResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/actorRankings': {
+        get: {
+            req: GetRayDashboardActorRankingsData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: RayDashboardActorRankingsResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/actorAliveTimeline': {
+        get: {
+            req: GetRayDashboardActorAliveTimelineData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: RayDashboardActorAliveTimelineResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/metrics': {
+        get: {
+            req: GetRayDashboardMetricSamplesData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: RayDashboardMetricSampleCollectionResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/aiDiagnosis': {
+        get: {
+            req: GetTaskInstanceAiDiagnosisData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: TaskInstanceAIDiagnosisResponse;
+                /**
+                 * Bad Request
+                 */
+                400: HTTPExceptionResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+                /**
+                 * Bad Gateway
+                 */
+                502: HTTPExceptionResponse;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/aiDiagnosis/latest': {
+        get: {
+            req: GetLatestTaskInstanceAiDiagnosisHistoryData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: TaskInstanceAIDiagnosisResponse;
                 /**
                  * Unauthorized
                  */

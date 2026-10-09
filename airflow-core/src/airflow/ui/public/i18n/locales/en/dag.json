@@ -87,7 +87,11 @@
       "tooltip": "Press {{hotkey}} for fullscreen"
     },
     "info": "INFO",
+    "loadNewer": "Load newer logs",
+    "loadOlder": "Load older logs",
+    "loadedFilterScope": "Filters apply to loaded log entries only.",
     "noTryNumber": "No try number",
+    "olderEntriesDiscarded": "Older entries were removed from the browser window.",
     "settings": "Log Settings",
     "viewInExternal": "View logs in {{name}} (attempt {{attempt}})",
     "warning": "WARNING"

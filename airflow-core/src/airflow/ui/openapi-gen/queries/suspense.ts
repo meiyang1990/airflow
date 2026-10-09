@@ -880,6 +880,169 @@ export const useTaskInstanceServiceGetMappedTaskInstanceTriesSuspense = <TData =
   taskId: string;
 }, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetMappedTaskInstanceTriesKeyFn({ dagId, dagRunId, mapIndex, taskId }, queryKey), queryFn: () => TaskInstanceService.getMappedTaskInstanceTries({ dagId, dagRunId, mapIndex, taskId }) as TData, ...options });
 /**
+* Get Ray Dashboard Availability
+* Get Ray Dashboard availability for a task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @returns RayDashboardAvailabilityResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetRayDashboardAvailabilitySuspense = <TData = Common.TaskInstanceServiceGetRayDashboardAvailabilityDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardAvailabilityKeyFn({ dagId, dagRunId, mapIndex, taskId, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getRayDashboardAvailability({ dagId, dagRunId, mapIndex, taskId, tryNumber }) as TData, ...options });
+/**
+* Get Ray Dashboard Snapshots
+* Get Ray Dashboard section snapshots for a task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @param data.section
+* @param data.limit
+* @param data.offset
+* @returns RayDashboardSnapshotCollectionResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetRayDashboardSnapshotsSuspense = <TData = Common.TaskInstanceServiceGetRayDashboardSnapshotsDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  limit?: number;
+  mapIndex: number;
+  offset?: number;
+  section?: string;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardSnapshotsKeyFn({ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getRayDashboardSnapshots({ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }) as TData, ...options });
+/**
+* Get Ray Dashboard Actor Rankings
+* Get actor CPU and memory rankings for a Ray Dashboard task attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @returns RayDashboardActorRankingsResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetRayDashboardActorRankingsSuspense = <TData = Common.TaskInstanceServiceGetRayDashboardActorRankingsDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardActorRankingsKeyFn({ dagId, dagRunId, mapIndex, taskId, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getRayDashboardActorRankings({ dagId, dagRunId, mapIndex, taskId, tryNumber }) as TData, ...options });
+/**
+* Get Ray Dashboard Actor Alive Timeline
+* Get alive AlgoOperatorActor counts over time using pod-level time buckets.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @param data.bucketSeconds
+* @param data.startDate
+* @param data.endDate
+* @param data.limit
+* @returns RayDashboardActorAliveTimelineResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetRayDashboardActorAliveTimelineSuspense = <TData = Common.TaskInstanceServiceGetRayDashboardActorAliveTimelineDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }: {
+  bucketSeconds?: number;
+  dagId: string;
+  dagRunId: string;
+  endDate?: string;
+  limit?: number;
+  mapIndex: number;
+  startDate?: string;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardActorAliveTimelineKeyFn({ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getRayDashboardActorAliveTimeline({ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }) as TData, ...options });
+/**
+* Get Ray Dashboard Metric Samples
+* Get Ray Dashboard metric samples for a task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @param data.metricName
+* @param data.actorName
+* @param data.nodeType
+* @param data.podIp
+* @param data.state
+* @param data.startDate
+* @param data.endDate
+* @param data.limit
+* @param data.offset
+* @returns RayDashboardMetricSampleCollectionResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetRayDashboardMetricSamplesSuspense = <TData = Common.TaskInstanceServiceGetRayDashboardMetricSamplesDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }: {
+  actorName?: string;
+  dagId: string;
+  dagRunId: string;
+  endDate?: string;
+  limit?: number;
+  mapIndex: number;
+  metricName?: string;
+  nodeType?: string;
+  offset?: number;
+  podIp?: string;
+  startDate?: string;
+  state?: string;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardMetricSamplesKeyFn({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getRayDashboardMetricSamples({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }) as TData, ...options });
+/**
+* Get Task Instance Ai Diagnosis
+* Get or generate AI diagnosis for a failed task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @returns TaskInstanceAIDiagnosisResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetTaskInstanceAiDiagnosisSuspense = <TData = Common.TaskInstanceServiceGetTaskInstanceAiDiagnosisDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetTaskInstanceAiDiagnosisKeyFn({ dagId, dagRunId, mapIndex, taskId, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getTaskInstanceAiDiagnosis({ dagId, dagRunId, mapIndex, taskId, tryNumber }) as TData, ...options });
+/**
+* Get Latest Task Instance Ai Diagnosis History
+* Get the latest stored AI diagnosis for a task instance without generating a new one.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @returns TaskInstanceAIDiagnosisResponse Successful Response
+* @throws ApiError
+*/
+export const useTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistorySuspense = <TData = Common.TaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ dagId, dagRunId, mapIndex, taskId }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryKeyFn({ dagId, dagRunId, mapIndex, taskId }, queryKey), queryFn: () => TaskInstanceService.getLatestTaskInstanceAiDiagnosisHistory({ dagId, dagRunId, mapIndex, taskId }) as TData, ...options });
+/**
 * Get Mapped Task Instance
 * Get task instance.
 * @param data The data for the request.
@@ -1038,28 +1201,41 @@ export const useTaskInstanceServiceGetMappedTaskInstanceTryDetailsSuspense = <TD
 /**
 * Get Log
 * Get logs for a specific task instance.
+*
+* Set ``limit`` with ``tail=true`` for an initial bounded latest page, then use the
+* opaque page tokens returned by the response to navigate. Requests without a limit
+* retain the legacy response behavior. Set ``download=true`` to stream the complete
+* selected attempt as a text attachment.
 * @param data The data for the request.
 * @param data.dagId
 * @param data.dagRunId
 * @param data.taskId
 * @param data.tryNumber
+* @param data.download
 * @param data.fullContent
+* @param data.limit
 * @param data.mapIndex
+* @param data.pageToken
+* @param data.tail
 * @param data.token
 * @param data.accept
 * @returns TaskInstancesLogResponse Successful Response
 * @throws ApiError
 */
-export const useTaskInstanceServiceGetLogSuspense = <TData = Common.TaskInstanceServiceGetLogDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }: {
+export const useTaskInstanceServiceGetLogSuspense = <TData = Common.TaskInstanceServiceGetLogDefaultResponse, TError = unknown, TQueryKey extends Array<unknown> = unknown[]>({ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }: {
   accept?: "application/json" | "*/*" | "application/x-ndjson";
   dagId: string;
   dagRunId: string;
+  download?: boolean;
   fullContent?: boolean;
+  limit?: number;
   mapIndex?: number;
+  pageToken?: string;
+  tail?: boolean;
   taskId: string;
   token?: string;
   tryNumber: number;
-}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetLogKeyFn({ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getLog({ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }) as TData, ...options });
+}, queryKey?: TQueryKey, options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">) => useSuspenseQuery<TData, TError>({ queryKey: Common.UseTaskInstanceServiceGetLogKeyFn({ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }, queryKey), queryFn: () => TaskInstanceService.getLog({ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }) as TData, ...options });
 /**
 * Get External Log Url
 * Get external log URL for a specific task instance.

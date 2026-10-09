@@ -26,7 +26,7 @@ import { ClearTaskInstanceButton } from "src/components/Clear";
 import { StateBadge } from "src/components/StateBadge";
 import Time from "src/components/Time";
 import { TaskLogContent } from "src/pages/TaskInstance/Logs/TaskLogContent";
-import { useLogs } from "src/queries/useLogs";
+import { usePagedLogs } from "src/queries/usePagedLogs";
 import { getTaskInstanceLink } from "src/utils/links";
 
 export const TaskLogPreview = ({
@@ -43,20 +43,13 @@ export const TaskLogPreview = ({
     error,
     isLoading,
     parsedData: data,
-  } = useLogs(
-    {
-      dagId: taskInstance.dag_id,
-      limit: 100,
-      logLevelFilters: ["error", "critical"],
-      taskInstance,
-      tryNumber: taskInstance.try_number,
-    },
-    {
-      enabled: isExpanded,
-      refetchInterval: false,
-      retry: false,
-    },
-  );
+  } = usePagedLogs({
+    dagId: taskInstance.dag_id,
+    enabled: isExpanded,
+    logLevelFilters: ["error", "critical"],
+    taskInstance,
+    tryNumber: taskInstance.try_number,
+  });
 
   return (
     <Box borderRadius={4} borderStyle="solid" borderWidth={1} key={taskInstance.id} width="100%">
@@ -84,6 +77,7 @@ export const TaskLogPreview = ({
         <Box borderTopStyle="solid" borderTopWidth={1} maxHeight="200px" overflow="auto">
           <TaskLogContent
             error={error}
+            height="200px"
             isLoading={isLoading}
             logError={error}
             parsedLogs={data.parsedLogs ?? []}

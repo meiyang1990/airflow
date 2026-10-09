@@ -6338,6 +6338,660 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Ray Dashboard Availability
+      description: Get Ray Dashboard availability for a task instance attempt.
+      operationId: get_ray_dashboard_availability
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      - name: try_number
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          title: Try Number
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RayDashboardAvailabilityResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/snapshots:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Ray Dashboard Snapshots
+      description: Get Ray Dashboard section snapshots for a task instance attempt.
+      operationId: get_ray_dashboard_snapshots
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      - name: try_number
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          title: Try Number
+      - name: section
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Section
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RayDashboardSnapshotCollectionResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/actorRankings:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Ray Dashboard Actor Rankings
+      description: Get actor CPU and memory rankings for a Ray Dashboard task attempt.
+      operationId: get_ray_dashboard_actor_rankings
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      - name: try_number
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          title: Try Number
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RayDashboardActorRankingsResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/actorAliveTimeline:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Ray Dashboard Actor Alive Timeline
+      description: Get alive AlgoOperatorActor counts over time using pod-level time
+        buckets.
+      operationId: get_ray_dashboard_actor_alive_timeline
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      - name: try_number
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          title: Try Number
+      - name: bucket_seconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 3600
+          minimum: 1
+          default: 10
+          title: Bucket Seconds
+      - name: start_date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Date
+      - name: end_date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Date
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 5000
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RayDashboardActorAliveTimelineResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/rayDashboard/metrics:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Ray Dashboard Metric Samples
+      description: Get Ray Dashboard metric samples for a task instance attempt.
+      operationId: get_ray_dashboard_metric_samples
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      - name: try_number
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          title: Try Number
+      - name: metric_name
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Metric Name
+      - name: actor_name
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Name
+      - name: node_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Node Type
+      - name: pod_ip
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pod Ip
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: start_date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Date
+      - name: end_date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Date
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 1000
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RayDashboardMetricSampleCollectionResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/aiDiagnosis:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Task Instance Ai Diagnosis
+      description: Get or generate AI diagnosis for a failed task instance attempt.
+      operationId: get_task_instance_ai_diagnosis
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      - name: try_number
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          title: Try Number
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskInstanceAIDiagnosisResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Bad Request
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Bad Gateway
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}/aiDiagnosis/latest:
+    get:
+      tags:
+      - Task Instance
+      summary: Get Latest Task Instance Ai Diagnosis History
+      description: Get the latest stored AI diagnosis for a task instance without
+        generating a new one.
+      operationId: get_latest_task_instance_ai_diagnosis_history
+      security:
+      - OAuth2PasswordBearer: []
+      - HTTPBearer: []
+      parameters:
+      - name: dag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Id
+      - name: dag_run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Dag Run Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      - name: map_index
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Map Index
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskInstanceAIDiagnosisResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPExceptionResponse'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/{map_index}:
     get:
       tags:
@@ -7933,7 +8587,18 @@ paths:
       tags:
       - Task Instance
       summary: Get Log
-      description: Get logs for a specific task instance.
+      description: 'Get logs for a specific task instance.
+
+
+        Set ``limit`` with ``tail=true`` for an initial bounded latest page, then
+        use the
+
+        opaque page tokens returned by the response to navigate. Requests without
+        a limit
+
+        retain the legacy response behavior. Set ``download=true`` to stream the complete
+
+        selected attempt as a text attachment.'
       operationId: get_log
       security:
       - OAuth2PasswordBearer: []
@@ -7964,6 +8629,13 @@ paths:
           type: integer
           minimum: 0
           title: Try Number
+      - name: download
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Download
       - name: full_content
         in: query
         required: false
@@ -7971,6 +8643,16 @@ paths:
           type: boolean
           default: false
           title: Full Content
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 5000
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Limit
       - name: map_index
         in: query
         required: false
@@ -7978,6 +8660,21 @@ paths:
           type: integer
           default: -1
           title: Map Index
+      - name: page_token
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Page Token
+      - name: tail
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Tail
       - name: token
         in: query
         required: false
@@ -8012,6 +8709,10 @@ paths:
                   {"content": "content"}
 
                   '
+            text/plain:
+              schema:
+                type: string
+                format: binary
         '401':
           content:
             application/json:
@@ -12386,6 +13087,402 @@ components:
       - dag_display_name
       title: QueuedEventResponse
       description: Queued Event serializer for responses..
+    RayDashboardActorAliveTimelinePoint:
+      properties:
+        sampled_at:
+          type: string
+          format: date-time
+          title: Sampled At
+        value:
+          type: number
+          title: Value
+      type: object
+      required:
+      - sampled_at
+      - value
+      title: RayDashboardActorAliveTimelinePoint
+      description: Actor alive count for one time bucket.
+    RayDashboardActorAliveTimelineResponse:
+      properties:
+        bucket_seconds:
+          type: integer
+          title: Bucket Seconds
+        points:
+          items:
+            $ref: '#/components/schemas/RayDashboardActorAliveTimelinePoint'
+          type: array
+          title: Points
+      type: object
+      required:
+      - bucket_seconds
+      title: RayDashboardActorAliveTimelineResponse
+      description: Alive actor count timeline for a task attempt.
+    RayDashboardActorRankingsResponse:
+      properties:
+        cpu:
+          items:
+            $ref: '#/components/schemas/RayDashboardActorResourceRankingRow'
+          type: array
+          title: Cpu
+        memory:
+          items:
+            $ref: '#/components/schemas/RayDashboardActorResourceRankingRow'
+          type: array
+          title: Memory
+      type: object
+      title: RayDashboardActorRankingsResponse
+      description: Actor CPU and memory rankings for a task attempt.
+    RayDashboardActorResourceRankingRow:
+      properties:
+        actor_key:
+          type: string
+          title: Actor Key
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        actor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Name
+        class_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Class Name
+        state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+        metric_name:
+          type: string
+          title: Metric Name
+        metric_unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Metric Unit
+        labels:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Labels
+        value:
+          type: number
+          title: Value
+        sampled_at:
+          type: string
+          format: date-time
+          title: Sampled At
+      type: object
+      required:
+      - actor_key
+      - metric_name
+      - metric_unit
+      - labels
+      - value
+      - sampled_at
+      title: RayDashboardActorResourceRankingRow
+      description: Actor-scoped Ray resource ranking row.
+    RayDashboardAvailabilityResponse:
+      properties:
+        dashboard:
+          $ref: '#/components/schemas/RayDashboardResponse'
+        sections:
+          items:
+            type: string
+          type: array
+          title: Sections
+        metrics:
+          items:
+            type: string
+          type: array
+          title: Metrics
+      type: object
+      required:
+      - dashboard
+      title: RayDashboardAvailabilityResponse
+      description: Available Ray Dashboard data for a task attempt.
+    RayDashboardMetricSampleCollectionResponse:
+      properties:
+        samples:
+          items:
+            $ref: '#/components/schemas/RayDashboardMetricSampleResponse'
+          type: array
+          title: Samples
+        total_entries:
+          type: integer
+          title: Total Entries
+      type: object
+      required:
+      - samples
+      - total_entries
+      title: RayDashboardMetricSampleCollectionResponse
+      description: Ray Dashboard metric sample collection response.
+    RayDashboardMetricSampleResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        dashboard_id:
+          type: string
+          format: uuid
+          title: Dashboard Id
+        metric_name:
+          type: string
+          title: Metric Name
+        metric_unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Metric Unit
+        pod_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pod Name
+        pod_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pod Id
+        pod_ip:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pod Ip
+        actor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Name
+        actor_class:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Class
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+        labels:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Labels
+        value:
+          type: number
+          title: Value
+        sampled_at:
+          type: string
+          format: date-time
+          title: Sampled At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - dashboard_id
+      - metric_name
+      - metric_unit
+      - pod_name
+      - pod_id
+      - pod_ip
+      - actor_name
+      - actor_class
+      - actor_id
+      - name
+      - state
+      - labels
+      - value
+      - sampled_at
+      - created_at
+      title: RayDashboardMetricSampleResponse
+      description: Ray Dashboard metric sample response.
+    RayDashboardResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        dag_id:
+          type: string
+          title: Dag Id
+        run_id:
+          type: string
+          title: Run Id
+        task_id:
+          type: string
+          title: Task Id
+        map_index:
+          type: integer
+          title: Map Index
+        try_number:
+          type: integer
+          title: Try Number
+        dashboard_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dashboard Url
+        ray_cluster_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ray Cluster Id
+        ray_cluster_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ray Cluster Name
+        ray_namespace:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ray Namespace
+        ray_job_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ray Job Id
+        ray_submission_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ray Submission Id
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        collector_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Collector Status
+        collector_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Collector Error
+        collector_metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Collector Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - dag_id
+      - run_id
+      - task_id
+      - map_index
+      - try_number
+      - dashboard_url
+      - ray_cluster_id
+      - ray_cluster_name
+      - ray_namespace
+      - ray_job_id
+      - ray_submission_id
+      - status
+      - collector_status
+      - collector_error
+      - collector_metadata
+      - created_at
+      - updated_at
+      title: RayDashboardResponse
+      description: Ray Dashboard metadata response.
+    RayDashboardSnapshotCollectionResponse:
+      properties:
+        snapshots:
+          items:
+            $ref: '#/components/schemas/RayDashboardSnapshotResponse'
+          type: array
+          title: Snapshots
+        total_entries:
+          type: integer
+          title: Total Entries
+      type: object
+      required:
+      - snapshots
+      - total_entries
+      title: RayDashboardSnapshotCollectionResponse
+      description: Ray Dashboard section snapshot collection response.
+    RayDashboardSnapshotResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        dashboard_id:
+          type: string
+          format: uuid
+          title: Dashboard Id
+        section:
+          type: string
+          title: Section
+        source_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Status
+        source_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Error
+        payload:
+          anyOf:
+          - $ref: '#/components/schemas/JsonValue'
+          - type: 'null'
+        collected_at:
+          type: string
+          format: date-time
+          title: Collected At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - dashboard_id
+      - section
+      - source_status
+      - source_error
+      - payload
+      - collected_at
+      - created_at
+      title: RayDashboardSnapshotResponse
+      description: Ray Dashboard section snapshot response.
     ReactAppResponse:
       properties:
         name:
@@ -12544,6 +13641,109 @@ components:
       - updated_at
       title: TaskInletAssetReference
       description: Task inlet reference serializer for assets.
+    TaskInstanceAIDiagnosisItem:
+      properties:
+        category:
+          type: string
+          title: Category
+          default: ''
+        finding:
+          type: string
+          title: Finding
+          default: ''
+        evidence:
+          type: string
+          title: Evidence
+          default: ''
+        suggestion:
+          type: string
+          title: Suggestion
+          default: ''
+        confidence:
+          type: string
+          title: Confidence
+          default: ''
+      type: object
+      title: TaskInstanceAIDiagnosisItem
+      description: One structured AI diagnosis finding.
+    TaskInstanceAIDiagnosisResponse:
+      properties:
+        cached:
+          type: boolean
+          title: Cached
+        dag_id:
+          type: string
+          title: Dag Id
+        run_id:
+          type: string
+          title: Run Id
+        task_id:
+          type: string
+          title: Task Id
+        map_index:
+          type: integer
+          title: Map Index
+        try_number:
+          type: integer
+          title: Try Number
+        state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+        log_line_count:
+          type: integer
+          title: Log Line Count
+        log_excerpt_sha256:
+          type: string
+          title: Log Excerpt Sha256
+        request_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Request Id
+        provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider
+        model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
+        summary:
+          type: string
+          title: Summary
+        items:
+          items:
+            $ref: '#/components/schemas/TaskInstanceAIDiagnosisItem'
+          type: array
+          title: Items
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - cached
+      - dag_id
+      - run_id
+      - task_id
+      - map_index
+      - try_number
+      - state
+      - log_line_count
+      - log_excerpt_sha256
+      - summary
+      - created_at
+      - updated_at
+      title: TaskInstanceAIDiagnosisResponse
+      description: AI diagnosis response for a task instance attempt.
     TaskInstanceCollectionResponse:
       properties:
         task_instances:
@@ -13127,6 +14327,16 @@ components:
           - type: string
           - type: 'null'
           title: Continuation Token
+        next_page_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Page Token
+        previous_page_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Previous Page Token
       type: object
       required:
       - content

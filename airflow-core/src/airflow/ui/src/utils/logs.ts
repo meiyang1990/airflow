@@ -79,3 +79,23 @@ export const parseStreamingLogContent = (
 
   return [];
 };
+
+export const getLogDownloadUrl = ({
+  dagId,
+  mapIndex,
+  runId,
+  taskId,
+  tryNumber,
+}: {
+  dagId: string;
+  mapIndex: number;
+  runId: string;
+  taskId: string;
+  tryNumber: number;
+}) =>
+  `/api/v2/dags/${encodeURIComponent(dagId)}/dagRuns/${encodeURIComponent(runId)}/taskInstances/${encodeURIComponent(taskId)}/logs/${tryNumber}?map_index=${mapIndex}&download=true`;
+
+export const downloadTaskLog = (
+  parameters: Parameters<typeof getLogDownloadUrl>[0],
+  navigate: (url: string) => void = (url) => globalThis.location.assign(url),
+) => navigate(getLogDownloadUrl(parameters));

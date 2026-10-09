@@ -17,13 +17,16 @@
  * under the License.
  */
 import { Box, Spinner, Text, VStack } from "@chakra-ui/react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { JSX } from "react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ErrorAlert } from "src/components/ErrorAlert";
 
 type Props = {
   readonly error?: unknown;
+  readonly height?: string;
   readonly isLoading?: boolean;
   readonly logError?: unknown;
   readonly parsedLogs: Array<JSX.Element | "">;
@@ -31,9 +34,24 @@ type Props = {
   readonly wrap?: boolean;
 };
 
-export const TaskLogContent = ({ error, isLoading, logError, parsedLogs, warning, wrap = false }: Props) => {
+export const TaskLogContent = ({
+  error,
+  height = "calc(100vh - 230px)",
+  isLoading,
+  logError,
+  parsedLogs,
+  warning,
+  wrap = false,
+}: Props) => {
   const { t: translate } = useTranslation("common");
   const displayError = error ?? logError;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: parsedLogs.length,
+    estimateSize: () => 21,
+    getScrollElement: () => scrollRef.current,
+    overscan: 20,
+  });
 
   if (isLoading === true) {
     return (
@@ -69,20 +87,33 @@ export const TaskLogContent = ({ error, isLoading, logError, parsedLogs, warning
 
   return (
     <Box
-      as="pre"
       fontFamily="mono"
       fontSize="sm"
+      height={height}
       lineHeight="1.5"
-      m={0}
       maxW="100%"
-      overflowWrap={wrap ? "anywhere" : "normal"}
-      overflowX={wrap ? "hidden" : "auto"}
-      overflowY="auto"
-      p={2}
-      whiteSpace={wrap ? "pre-wrap" : "pre"}
-      wordBreak={wrap ? "break-word" : "normal"}
+      overflow="auto"
+      ref={scrollRef}
     >
-      {parsedLogs}
+      <Box height={`${virtualizer.getTotalSize()}px`} position="relative" width="100%">
+        {virtualizer.getVirtualItems().map((virtualRow) => (
+          <Box
+            data-index={virtualRow.index}
+            key={virtualRow.key}
+            left={0}
+            overflowWrap={wrap ? "anywhere" : "normal"}
+            position="absolute"
+            ref={virtualizer.measureElement}
+            top={0}
+            transform={`translateY(${virtualRow.start}px)`}
+            whiteSpace={wrap ? "pre-wrap" : "pre"}
+            width="100%"
+            wordBreak={wrap ? "break-word" : "normal"}
+          >
+            {parsedLogs[virtualRow.index]}
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 };

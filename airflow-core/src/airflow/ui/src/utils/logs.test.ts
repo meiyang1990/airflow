@@ -16,11 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { describe, it, expect } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { TaskInstancesLogResponse } from "openapi/requests/types.gen";
 
-import { parseStreamingLogContent } from "./logs";
+import { downloadTaskLog, getLogDownloadUrl, parseStreamingLogContent } from "./logs";
 
 describe("parseStreamingLogContent", () => {
   it("returns content when data has content property", () => {
@@ -104,5 +104,40 @@ describe("parseStreamingLogContent", () => {
     expect(parseStreamingLogContent(data)).toEqual([
       { level: "info", message: "log message", timestamp: "2024-01-01" },
     ]);
+  });
+});
+
+describe("getLogDownloadUrl", () => {
+  it("builds an encoded browser download URL", () => {
+    expect(
+      getLogDownloadUrl({
+        dagId: "dag/one",
+        mapIndex: -1,
+        runId: "manual__2026-10-09T02:32:10+00:00",
+        taskId: "task one",
+        tryNumber: 2,
+      }),
+    ).toBe(
+      "/api/v2/dags/dag%2Fone/dagRuns/manual__2026-10-09T02%3A32%3A10%2B00%3A00/taskInstances/task%20one/logs/2?map_index=-1&download=true",
+    );
+  });
+
+  it("starts a direct browser download without constructing a Blob", () => {
+    const navigate = vi.fn();
+
+    downloadTaskLog(
+      {
+        dagId: "dag",
+        mapIndex: 3,
+        runId: "run",
+        taskId: "task",
+        tryNumber: 4,
+      },
+      navigate,
+    );
+
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(
+      "/api/v2/dags/dag/dagRuns/run/taskInstances/task/logs/4?map_index=3&download=true",
+    );
   });
 });

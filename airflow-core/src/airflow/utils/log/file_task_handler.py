@@ -604,6 +604,7 @@ class FileTaskHandler(logging.Handler):
                              This is determined by the status of the TaskInstance
                  log_pos: (absolute) Char position to which the log is retrieved
         """
+        bounded_read = bool(metadata and metadata.pop("_bounded_read", False))  # type: ignore[typeddict-item]
         # Task instance here might be different from task instance when
         # initializing the handler. Thus explicitly getting log location
         # is needed to get correct log path.
@@ -677,6 +678,22 @@ class FileTaskHandler(logging.Handler):
             TaskInstanceState.RUNNING,
             TaskInstanceState.DEFERRED,
         )
+
+        if bounded_read:
+            log_pos = metadata.get("log_pos", 0) if metadata else 0
+            if log_pos:
+                out_stream = islice(out_stream, log_pos, None)
+                prefix: list[StructuredLogMessage] = []
+            else:
+                prefix = header
+            out_metadata: LogMetadata = {"end_of_log": end_of_log, "log_pos": log_pos}
+
+            def track_position():
+                for log in out_stream:
+                    out_metadata["log_pos"] += 1
+                    yield log
+
+            return chain(prefix, track_position()), out_metadata
 
         with LogStreamAccumulator(out_stream, HEAP_DUMP_SIZE) as stream_accumulator:
             log_pos = stream_accumulator.total_lines

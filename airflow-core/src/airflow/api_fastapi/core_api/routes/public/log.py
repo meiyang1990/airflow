@@ -18,10 +18,12 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import textwrap
 from collections.abc import Generator, Iterable
+from typing import TYPE_CHECKING, Annotated, cast
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import NonNegativeInt, PositiveInt
@@ -42,6 +44,9 @@ from airflow.models import TaskInstance, Trigger
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.utils.log.log_reader import TaskLogReader
 
+if TYPE_CHECKING:
+    from airflow.utils.log.file_task_handler import LogMetadata
+
 _NDJSON_BATCH_SIZE = conf.getint("api", "log_stream_buffer_size")
 
 task_instances_log_router = AirflowRouter(
@@ -59,7 +64,8 @@ ndjson_example_response_for_get_log = {
     """
             ),
         }
-    }
+    },
+    Mimetype.TEXT: {"schema": {"type": "string", "format": "binary"}},
 }
 
 
@@ -74,6 +80,16 @@ def _buffered_ndjson_stream(
             buf.clear()
     if buf:
         yield "".join(buf)
+
+
+def _plain_text_log_stream(raw_stream: Iterable[str]) -> Generator[str, None, None]:
+    """Convert the structured NDJSON stream into a browser-downloadable text stream."""
+    for line in raw_stream:
+        try:
+            event = json.loads(line).get("event")
+        except (json.JSONDecodeError, AttributeError):
+            event = None
+        yield f"{event}\n" if isinstance(event, str) else line
 
 
 @task_instances_log_router.get(
@@ -98,11 +114,22 @@ def get_log(
     request: Request,
     dag_bag: DagBagDep,
     session: SessionDep,
+    download: bool = False,
     full_content: bool = False,
+    limit: Annotated[int | None, Query(gt=0, le=5000)] = None,
     map_index: int = -1,
+    page_token: str | None = None,
+    tail: bool = False,
     token: str | None = None,
 ):
-    """Get logs for a specific task instance."""
+    """
+    Get logs for a specific task instance.
+
+    Set ``limit`` with ``tail=true`` for an initial bounded latest page, then use the
+    opaque page tokens returned by the response to navigate. Requests without a limit
+    retain the legacy response behavior. Set ``download=true`` to stream the complete
+    selected attempt as a text attachment.
+    """
     if not token:
         metadata = {}
     else:
@@ -116,7 +143,32 @@ def get_log(
     if metadata.get("download_logs") and metadata["download_logs"]:
         full_content = True
 
+    if download:
+        full_content = True
+
     metadata["download_logs"] = full_content
+
+    page_start = None
+    if page_token and limit is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "A page token requires a page limit.")
+    if page_token:
+        try:
+            page_metadata = URLSafeSerializer(request.app.state.secret_key).loads(page_token)
+        except BadSignature:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bad Signature. Please use a valid page token.")
+        expected_scope = [dag_id, dag_run_id, task_id, map_index, try_number]
+        if page_metadata.get("scope") != expected_scope:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Page token does not match this task instance.")
+        page_start = page_metadata.get("start")
+        if not isinstance(page_start, int) or page_start < 0:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Page token has an invalid position.")
+        if page_metadata.get("direction") not in {"next", "previous"}:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Page token has an invalid direction.")
+        cursor_metadata = page_metadata.get("metadata", {})
+        if not isinstance(cursor_metadata, dict):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Page token has invalid handler metadata.")
+        metadata = cursor_metadata
+        tail = False
 
     task_log_reader = TaskLogReader()
 
@@ -160,6 +212,58 @@ def get_log(
     if dag:
         with contextlib.suppress(TaskNotFound):
             ti.task = dag.get_task(ti.task_id)
+
+    if download:
+        raw_stream = task_log_reader.read_log_stream(ti, try_number, metadata)  # type: ignore[arg-type]
+        safe_filename = f"{dag_id}-{task_id}-try-{try_number}.log".replace('"', "")
+        return StreamingResponse(
+            media_type="text/plain; charset=utf-8",
+            content=_plain_text_log_stream(raw_stream),
+            headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+        )
+
+    if limit is not None:
+        if accept == Mimetype.NDJSON:
+            raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, "Bounded log reads require application/json.")
+        page, out_metadata = task_log_reader.read_log_page(
+            ti,
+            try_number,
+            cast("LogMetadata", metadata),
+            limit=limit,
+            start=page_start,
+            tail=tail,  # type: ignore[arg-type]
+        )
+        scope = [dag_id, dag_run_id, task_id, map_index, try_number]
+        serializer = URLSafeSerializer(request.app.state.secret_key)
+        previous_page_token = None
+        if page.start > 0 and task_log_reader.supports_older_log_pages:
+            previous_page_token = serializer.dumps(
+                {
+                    "direction": "previous",
+                    "metadata": metadata,
+                    "scope": scope,
+                    "start": max(0, page.start - limit),
+                }
+            )
+        next_page_token = None
+        if page.has_more_after:
+            next_page_token = serializer.dumps(
+                {
+                    "direction": "next",
+                    "metadata": metadata,
+                    "scope": scope,
+                    "start": page.start + len(page.content),
+                }
+            )
+        encoded_token = None
+        if not page.has_more_after and not out_metadata.get("end_of_log", False):
+            encoded_token = serializer.dumps(out_metadata)
+        return TaskInstancesLogResponse.model_construct(
+            content=page.content,
+            continuation_token=encoded_token,
+            next_page_token=next_page_token,
+            previous_page_token=previous_page_token,
+        )
 
     if accept == Mimetype.NDJSON:  # only specified application/x-ndjson will return streaming response
         # LogMetadata(TypedDict) is used as type annotation for log_reader; added ignore to suppress mypy error

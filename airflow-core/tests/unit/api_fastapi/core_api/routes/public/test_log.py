@@ -179,6 +179,143 @@ class TestTaskInstancesLog:
         assert response.json()["continuation_token"] is None
         assert response.status_code == 200
 
+    def test_should_return_bounded_tail_page(self):
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 1, "tail": True},
+            headers={"Accept": "application/json"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["content"]) == 1
+        assert body["content"][0]["event"] == "Log for testing."
+        assert body["previous_page_token"] is not None
+        assert body["next_page_token"] is None
+
+    def test_should_continue_bounded_page(self):
+        tail_response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 1, "tail": True},
+            headers={"Accept": "application/json"},
+        )
+        page_token = tail_response.json()["previous_page_token"]
+
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 1, "page_token": page_token},
+            headers={"Accept": "application/json"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["content"]) == 1
+        assert body["next_page_token"] is not None
+
+        newer_response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 1, "page_token": body["next_page_token"]},
+            headers={"Accept": "application/json"},
+        )
+
+        assert newer_response.status_code == 200
+        assert newer_response.json()["content"][0]["event"] == "Log for testing."
+
+    def test_should_reject_page_token_for_another_task(self):
+        serializer = URLSafeSerializer(self.app.state.secret_key)
+        token = serializer.dumps(
+            {
+                "direction": "previous",
+                "scope": [self.DAG_ID, self.RUN_ID, "another-task", -1, 1],
+                "start": 0,
+            }
+        )
+
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 1, "page_token": token},
+            headers={"Accept": "application/json"},
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": "Page token does not match this task instance."}
+
+    def test_should_reject_page_token_without_limit(self):
+        serializer = URLSafeSerializer(self.app.state.secret_key)
+        token = serializer.dumps({"scope": [self.DAG_ID, self.RUN_ID, self.TASK_ID, -1, 1], "start": 0})
+
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"page_token": token},
+            headers={"Accept": "application/json"},
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": "A page token requires a page limit."}
+
+    def test_should_reject_page_token_with_invalid_direction(self):
+        serializer = URLSafeSerializer(self.app.state.secret_key)
+        token = serializer.dumps(
+            {
+                "direction": "sideways",
+                "scope": [self.DAG_ID, self.RUN_ID, self.TASK_ID, -1, 1],
+                "start": 0,
+            }
+        )
+
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 1, "page_token": token},
+            headers={"Accept": "application/json"},
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": "Page token has an invalid direction."}
+
+    def test_should_bound_large_file_log_response(self):
+        log_path = (
+            self.log_dir
+            / f"dag_id={self.DAG_ID}"
+            / f"run_id={self.RUN_ID}"
+            / f"task_id={self.TASK_ID}"
+            / "attempt=1.log"
+        )
+        log_path.write_text("".join(f"large-log-line-{index}\n" for index in range(10_000)))
+
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"limit": 100, "tail": True},
+            headers={"Accept": "application/json"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["content"]) == 100
+        assert body["content"][-1]["event"] == "large-log-line-9999"
+        assert body["previous_page_token"] is not None
+
+    def test_should_stream_download_as_attachment(self):
+        log_path = (
+            self.log_dir
+            / f"dag_id={self.DAG_ID}"
+            / f"run_id={self.RUN_ID}"
+            / f"task_id={self.TASK_ID}"
+            / "attempt=2.log"
+        )
+        log_path.write_text("".join(f"download-line-{index}\n" for index in range(2_000)))
+
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/2",
+            params={"download": True},
+        )
+
+        assert response.status_code == 200
+        assert "try-2.log" in response.headers["content-disposition"]
+        assert response.headers["content-type"].startswith("text/plain")
+        assert "download-line-0" in response.text
+        assert "download-line-1999" in response.text
+        assert "Log for testing." not in response.text
+
     @pytest.mark.parametrize(
         ("request_url", "expected_filename", "extra_query_string", "try_number"),
         [

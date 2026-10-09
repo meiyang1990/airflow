@@ -29,7 +29,8 @@ from airflow import settings
 from airflow._shared.timezones import timezone
 from airflow.config_templates.airflow_local_settings import DEFAULT_LOGGING_CONFIG
 from airflow.models.tasklog import LogTemplate
-from airflow.utils.log.log_reader import TaskLogReader
+from airflow.utils.log.file_task_handler import FileTaskHandler, StructuredLogMessage
+from airflow.utils.log.log_reader import TaskLogReader, _read_page_from_stream
 from airflow.utils.log.logging_mixin import ExternalLoggingMixin
 from airflow.utils.state import TaskInstanceState
 from airflow.utils.types import DagRunType
@@ -137,6 +138,82 @@ class TestLogView:
         assert logs[1].event == "::endgroup::"
         assert logs[2].event == "try_number=1."
         assert metadata == {"end_of_log": True, "log_pos": 1}
+
+    def test_read_log_page_from_start(self):
+        stream = iter(StructuredLogMessage(event=f"line-{index}") for index in range(5))
+
+        page = _read_page_from_stream(stream, limit=2, start=1, tail=False)
+
+        assert [entry.event for entry in page.content] == ["line-1", "line-2"]
+        assert page.start == 1
+        assert page.has_more_after is True
+
+    def test_read_log_tail_page_is_memory_bounded(self):
+        stream = iter(StructuredLogMessage(event=f"line-{index}") for index in range(10_000))
+
+        page = _read_page_from_stream(stream, limit=3, start=None, tail=True)
+
+        assert [entry.event for entry in page.content] == ["line-9997", "line-9998", "line-9999"]
+        assert page.start == 9997
+        assert page.has_more_after is False
+
+    def test_read_log_page_honors_byte_budget(self):
+        stream = iter(StructuredLogMessage(event="12345") for _ in range(5))
+
+        page = _read_page_from_stream(stream, limit=5, max_bytes=100, start=0, tail=False)
+
+        assert 0 < len(page.content) < 5
+        assert page.has_more_after is True
+
+    def test_read_log_page_preserves_structured_group_records(self):
+        stream = iter(
+            [
+                StructuredLogMessage(event="::group::source details", sources=["worker.log"]),
+                StructuredLogMessage(event="inside group", logger="task"),
+                StructuredLogMessage(event="::endgroup::"),
+            ]
+        )
+
+        page = _read_page_from_stream(stream, limit=3, start=0, tail=False)
+
+        assert [entry.event for entry in page.content] == [
+            "::group::source details",
+            "inside group",
+            "::endgroup::",
+        ]
+        assert page.content[0].sources == ["worker.log"]
+        assert page.content[1].logger == "task"
+
+    def test_read_log_page_with_stale_position_is_empty(self):
+        stream = iter(StructuredLogMessage(event=f"line-{index}") for index in range(2))
+
+        page = _read_page_from_stream(stream, limit=2, start=10, tail=False)
+
+        assert page.content == []
+        assert page.has_more_after is False
+
+    @mock.patch(
+        "airflow.utils.log.file_task_handler.LogStreamAccumulator",
+        side_effect=AssertionError("bounded file pages must not accumulate the complete stream"),
+    )
+    def test_read_log_page_continues_after_file_grows(self, _mock_accumulator):
+        task_log_reader = TaskLogReader()
+        ti = copy.copy(self.ti)
+        ti.state = TaskInstanceState.SUCCESS
+        first_page, metadata = task_log_reader.read_log_page(
+            ti=ti, try_number=1, metadata={}, limit=10, tail=True
+        )
+        log_path = f"{self.log_dir}/dag_log_reader/task_log_reader/2017-09-01T00.00.00+00.00/1.log"
+
+        with open(log_path, "a") as log_file:
+            log_file.write("grew-after-first-page\n")
+
+        continued_page, _ = task_log_reader.read_log_page(
+            ti=ti, try_number=1, metadata=metadata, limit=10, start=0
+        )
+
+        assert first_page.content[-1].event == "try_number=1."
+        assert [entry.event for entry in continued_page.content] == ["grew-after-first-page"]
 
     def test_test_read_log_chunks_should_read_latest_files(self):
         task_log_reader = TaskLogReader()
@@ -282,6 +359,15 @@ class TestLogView:
 
         mock_prop.return_value = True
         assert task_log_reader.supports_external_link
+
+    def test_reports_backward_page_capability_only_for_local_file_handler(self):
+        task_log_reader = TaskLogReader()
+
+        task_log_reader.log_handler = FileTaskHandler(self.log_dir)
+        assert task_log_reader.supports_older_log_pages is True
+
+        task_log_reader.log_handler = mock.MagicMock()
+        assert task_log_reader.supports_older_log_pages is False
 
     @pytest.mark.parametrize(
         ("state", "try_number", "expected_event", "use_self_ti"),

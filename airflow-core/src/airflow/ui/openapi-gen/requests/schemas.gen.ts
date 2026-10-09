@@ -5077,6 +5077,593 @@ export const $QueuedEventResponse = {
     description: 'Queued Event serializer for responses..'
 } as const;
 
+export const $RayDashboardActorAliveTimelinePoint = {
+    properties: {
+        sampled_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Sampled At'
+        },
+        value: {
+            type: 'number',
+            title: 'Value'
+        }
+    },
+    type: 'object',
+    required: ['sampled_at', 'value'],
+    title: 'RayDashboardActorAliveTimelinePoint',
+    description: 'Actor alive count for one time bucket.'
+} as const;
+
+export const $RayDashboardActorAliveTimelineResponse = {
+    properties: {
+        bucket_seconds: {
+            type: 'integer',
+            title: 'Bucket Seconds'
+        },
+        points: {
+            items: {
+                '$ref': '#/components/schemas/RayDashboardActorAliveTimelinePoint'
+            },
+            type: 'array',
+            title: 'Points'
+        }
+    },
+    type: 'object',
+    required: ['bucket_seconds'],
+    title: 'RayDashboardActorAliveTimelineResponse',
+    description: 'Alive actor count timeline for a task attempt.'
+} as const;
+
+export const $RayDashboardActorRankingsResponse = {
+    properties: {
+        cpu: {
+            items: {
+                '$ref': '#/components/schemas/RayDashboardActorResourceRankingRow'
+            },
+            type: 'array',
+            title: 'Cpu'
+        },
+        memory: {
+            items: {
+                '$ref': '#/components/schemas/RayDashboardActorResourceRankingRow'
+            },
+            type: 'array',
+            title: 'Memory'
+        }
+    },
+    type: 'object',
+    title: 'RayDashboardActorRankingsResponse',
+    description: 'Actor CPU and memory rankings for a task attempt.'
+} as const;
+
+export const $RayDashboardActorResourceRankingRow = {
+    properties: {
+        actor_key: {
+            type: 'string',
+            title: 'Actor Key'
+        },
+        actor_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Id'
+        },
+        actor_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Name'
+        },
+        class_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Class Name'
+        },
+        state: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'State'
+        },
+        metric_name: {
+            type: 'string',
+            title: 'Metric Name'
+        },
+        metric_unit: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Metric Unit'
+        },
+        labels: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Labels'
+        },
+        value: {
+            type: 'number',
+            title: 'Value'
+        },
+        sampled_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Sampled At'
+        }
+    },
+    type: 'object',
+    required: ['actor_key', 'metric_name', 'metric_unit', 'labels', 'value', 'sampled_at'],
+    title: 'RayDashboardActorResourceRankingRow',
+    description: 'Actor-scoped Ray resource ranking row.'
+} as const;
+
+export const $RayDashboardAvailabilityResponse = {
+    properties: {
+        dashboard: {
+            '$ref': '#/components/schemas/RayDashboardResponse'
+        },
+        sections: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Sections'
+        },
+        metrics: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Metrics'
+        }
+    },
+    type: 'object',
+    required: ['dashboard'],
+    title: 'RayDashboardAvailabilityResponse',
+    description: 'Available Ray Dashboard data for a task attempt.'
+} as const;
+
+export const $RayDashboardMetricSampleCollectionResponse = {
+    properties: {
+        samples: {
+            items: {
+                '$ref': '#/components/schemas/RayDashboardMetricSampleResponse'
+            },
+            type: 'array',
+            title: 'Samples'
+        },
+        total_entries: {
+            type: 'integer',
+            title: 'Total Entries'
+        }
+    },
+    type: 'object',
+    required: ['samples', 'total_entries'],
+    title: 'RayDashboardMetricSampleCollectionResponse',
+    description: 'Ray Dashboard metric sample collection response.'
+} as const;
+
+export const $RayDashboardMetricSampleResponse = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        dashboard_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Dashboard Id'
+        },
+        metric_name: {
+            type: 'string',
+            title: 'Metric Name'
+        },
+        metric_unit: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Metric Unit'
+        },
+        pod_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Pod Name'
+        },
+        pod_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Pod Id'
+        },
+        pod_ip: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Pod Ip'
+        },
+        actor_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Name'
+        },
+        actor_class: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Class'
+        },
+        actor_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Actor Id'
+        },
+        name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Name'
+        },
+        state: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'State'
+        },
+        labels: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Labels'
+        },
+        value: {
+            type: 'number',
+            title: 'Value'
+        },
+        sampled_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Sampled At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'dashboard_id', 'metric_name', 'metric_unit', 'pod_name', 'pod_id', 'pod_ip', 'actor_name', 'actor_class', 'actor_id', 'name', 'state', 'labels', 'value', 'sampled_at', 'created_at'],
+    title: 'RayDashboardMetricSampleResponse',
+    description: 'Ray Dashboard metric sample response.'
+} as const;
+
+export const $RayDashboardResponse = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        dag_id: {
+            type: 'string',
+            title: 'Dag Id'
+        },
+        run_id: {
+            type: 'string',
+            title: 'Run Id'
+        },
+        task_id: {
+            type: 'string',
+            title: 'Task Id'
+        },
+        map_index: {
+            type: 'integer',
+            title: 'Map Index'
+        },
+        try_number: {
+            type: 'integer',
+            title: 'Try Number'
+        },
+        dashboard_url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Dashboard Url'
+        },
+        ray_cluster_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ray Cluster Id'
+        },
+        ray_cluster_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ray Cluster Name'
+        },
+        ray_namespace: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ray Namespace'
+        },
+        ray_job_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ray Job Id'
+        },
+        ray_submission_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Ray Submission Id'
+        },
+        status: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Status'
+        },
+        collector_status: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Collector Status'
+        },
+        collector_error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Collector Error'
+        },
+        collector_metadata: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Collector Metadata'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'dag_id', 'run_id', 'task_id', 'map_index', 'try_number', 'dashboard_url', 'ray_cluster_id', 'ray_cluster_name', 'ray_namespace', 'ray_job_id', 'ray_submission_id', 'status', 'collector_status', 'collector_error', 'collector_metadata', 'created_at', 'updated_at'],
+    title: 'RayDashboardResponse',
+    description: 'Ray Dashboard metadata response.'
+} as const;
+
+export const $RayDashboardSnapshotCollectionResponse = {
+    properties: {
+        snapshots: {
+            items: {
+                '$ref': '#/components/schemas/RayDashboardSnapshotResponse'
+            },
+            type: 'array',
+            title: 'Snapshots'
+        },
+        total_entries: {
+            type: 'integer',
+            title: 'Total Entries'
+        }
+    },
+    type: 'object',
+    required: ['snapshots', 'total_entries'],
+    title: 'RayDashboardSnapshotCollectionResponse',
+    description: 'Ray Dashboard section snapshot collection response.'
+} as const;
+
+export const $RayDashboardSnapshotResponse = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        dashboard_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Dashboard Id'
+        },
+        section: {
+            type: 'string',
+            title: 'Section'
+        },
+        source_status: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Source Status'
+        },
+        source_error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Source Error'
+        },
+        payload: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/JsonValue'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        collected_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Collected At'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'dashboard_id', 'section', 'source_status', 'source_error', 'payload', 'collected_at', 'created_at'],
+    title: 'RayDashboardSnapshotResponse',
+    description: 'Ray Dashboard section snapshot response.'
+} as const;
+
 export const $ReactAppResponse = {
     properties: {
         name: {
@@ -5283,6 +5870,145 @@ export const $TaskInletAssetReference = {
     required: ['dag_id', 'task_id', 'created_at', 'updated_at'],
     title: 'TaskInletAssetReference',
     description: 'Task inlet reference serializer for assets.'
+} as const;
+
+export const $TaskInstanceAIDiagnosisItem = {
+    properties: {
+        category: {
+            type: 'string',
+            title: 'Category',
+            default: ''
+        },
+        finding: {
+            type: 'string',
+            title: 'Finding',
+            default: ''
+        },
+        evidence: {
+            type: 'string',
+            title: 'Evidence',
+            default: ''
+        },
+        suggestion: {
+            type: 'string',
+            title: 'Suggestion',
+            default: ''
+        },
+        confidence: {
+            type: 'string',
+            title: 'Confidence',
+            default: ''
+        }
+    },
+    type: 'object',
+    title: 'TaskInstanceAIDiagnosisItem',
+    description: 'One structured AI diagnosis finding.'
+} as const;
+
+export const $TaskInstanceAIDiagnosisResponse = {
+    properties: {
+        cached: {
+            type: 'boolean',
+            title: 'Cached'
+        },
+        dag_id: {
+            type: 'string',
+            title: 'Dag Id'
+        },
+        run_id: {
+            type: 'string',
+            title: 'Run Id'
+        },
+        task_id: {
+            type: 'string',
+            title: 'Task Id'
+        },
+        map_index: {
+            type: 'integer',
+            title: 'Map Index'
+        },
+        try_number: {
+            type: 'integer',
+            title: 'Try Number'
+        },
+        state: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'State'
+        },
+        log_line_count: {
+            type: 'integer',
+            title: 'Log Line Count'
+        },
+        log_excerpt_sha256: {
+            type: 'string',
+            title: 'Log Excerpt Sha256'
+        },
+        request_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Request Id'
+        },
+        provider: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Provider'
+        },
+        model: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Model'
+        },
+        summary: {
+            type: 'string',
+            title: 'Summary'
+        },
+        items: {
+            items: {
+                '$ref': '#/components/schemas/TaskInstanceAIDiagnosisItem'
+            },
+            type: 'array',
+            title: 'Items'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['cached', 'dag_id', 'run_id', 'task_id', 'map_index', 'try_number', 'state', 'log_line_count', 'log_excerpt_sha256', 'summary', 'created_at', 'updated_at'],
+    title: 'TaskInstanceAIDiagnosisResponse',
+    description: 'AI diagnosis response for a task instance attempt.'
 } as const;
 
 export const $TaskInstanceCollectionResponse = {
@@ -6245,6 +6971,28 @@ export const $TaskInstancesLogResponse = {
                 }
             ],
             title: 'Continuation Token'
+        },
+        next_page_token: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Next Page Token'
+        },
+        previous_page_token: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Previous Page Token'
         }
     },
     type: 'object',

@@ -880,6 +880,169 @@ export const prefetchUseTaskInstanceServiceGetMappedTaskInstanceTries = (queryCl
   taskId: string;
 }) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetMappedTaskInstanceTriesKeyFn({ dagId, dagRunId, mapIndex, taskId }), queryFn: () => TaskInstanceService.getMappedTaskInstanceTries({ dagId, dagRunId, mapIndex, taskId }) });
 /**
+* Get Ray Dashboard Availability
+* Get Ray Dashboard availability for a task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @returns RayDashboardAvailabilityResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetRayDashboardAvailability = (queryClient: QueryClient, { dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardAvailabilityKeyFn({ dagId, dagRunId, mapIndex, taskId, tryNumber }), queryFn: () => TaskInstanceService.getRayDashboardAvailability({ dagId, dagRunId, mapIndex, taskId, tryNumber }) });
+/**
+* Get Ray Dashboard Snapshots
+* Get Ray Dashboard section snapshots for a task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @param data.section
+* @param data.limit
+* @param data.offset
+* @returns RayDashboardSnapshotCollectionResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetRayDashboardSnapshots = (queryClient: QueryClient, { dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  limit?: number;
+  mapIndex: number;
+  offset?: number;
+  section?: string;
+  taskId: string;
+  tryNumber: number;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardSnapshotsKeyFn({ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }), queryFn: () => TaskInstanceService.getRayDashboardSnapshots({ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }) });
+/**
+* Get Ray Dashboard Actor Rankings
+* Get actor CPU and memory rankings for a Ray Dashboard task attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @returns RayDashboardActorRankingsResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetRayDashboardActorRankings = (queryClient: QueryClient, { dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardActorRankingsKeyFn({ dagId, dagRunId, mapIndex, taskId, tryNumber }), queryFn: () => TaskInstanceService.getRayDashboardActorRankings({ dagId, dagRunId, mapIndex, taskId, tryNumber }) });
+/**
+* Get Ray Dashboard Actor Alive Timeline
+* Get alive AlgoOperatorActor counts over time using pod-level time buckets.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @param data.bucketSeconds
+* @param data.startDate
+* @param data.endDate
+* @param data.limit
+* @returns RayDashboardActorAliveTimelineResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetRayDashboardActorAliveTimeline = (queryClient: QueryClient, { bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }: {
+  bucketSeconds?: number;
+  dagId: string;
+  dagRunId: string;
+  endDate?: string;
+  limit?: number;
+  mapIndex: number;
+  startDate?: string;
+  taskId: string;
+  tryNumber: number;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardActorAliveTimelineKeyFn({ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }), queryFn: () => TaskInstanceService.getRayDashboardActorAliveTimeline({ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }) });
+/**
+* Get Ray Dashboard Metric Samples
+* Get Ray Dashboard metric samples for a task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @param data.metricName
+* @param data.actorName
+* @param data.nodeType
+* @param data.podIp
+* @param data.state
+* @param data.startDate
+* @param data.endDate
+* @param data.limit
+* @param data.offset
+* @returns RayDashboardMetricSampleCollectionResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetRayDashboardMetricSamples = (queryClient: QueryClient, { actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }: {
+  actorName?: string;
+  dagId: string;
+  dagRunId: string;
+  endDate?: string;
+  limit?: number;
+  mapIndex: number;
+  metricName?: string;
+  nodeType?: string;
+  offset?: number;
+  podIp?: string;
+  startDate?: string;
+  state?: string;
+  taskId: string;
+  tryNumber: number;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardMetricSamplesKeyFn({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }), queryFn: () => TaskInstanceService.getRayDashboardMetricSamples({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }) });
+/**
+* Get Task Instance Ai Diagnosis
+* Get or generate AI diagnosis for a failed task instance attempt.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @param data.tryNumber
+* @returns TaskInstanceAIDiagnosisResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetTaskInstanceAiDiagnosis = (queryClient: QueryClient, { dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetTaskInstanceAiDiagnosisKeyFn({ dagId, dagRunId, mapIndex, taskId, tryNumber }), queryFn: () => TaskInstanceService.getTaskInstanceAiDiagnosis({ dagId, dagRunId, mapIndex, taskId, tryNumber }) });
+/**
+* Get Latest Task Instance Ai Diagnosis History
+* Get the latest stored AI diagnosis for a task instance without generating a new one.
+* @param data The data for the request.
+* @param data.dagId
+* @param data.dagRunId
+* @param data.taskId
+* @param data.mapIndex
+* @returns TaskInstanceAIDiagnosisResponse Successful Response
+* @throws ApiError
+*/
+export const prefetchUseTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistory = (queryClient: QueryClient, { dagId, dagRunId, mapIndex, taskId }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryKeyFn({ dagId, dagRunId, mapIndex, taskId }), queryFn: () => TaskInstanceService.getLatestTaskInstanceAiDiagnosisHistory({ dagId, dagRunId, mapIndex, taskId }) });
+/**
 * Get Mapped Task Instance
 * Get task instance.
 * @param data The data for the request.
@@ -1038,28 +1201,41 @@ export const prefetchUseTaskInstanceServiceGetMappedTaskInstanceTryDetails = (qu
 /**
 * Get Log
 * Get logs for a specific task instance.
+*
+* Set ``limit`` with ``tail=true`` for an initial bounded latest page, then use the
+* opaque page tokens returned by the response to navigate. Requests without a limit
+* retain the legacy response behavior. Set ``download=true`` to stream the complete
+* selected attempt as a text attachment.
 * @param data The data for the request.
 * @param data.dagId
 * @param data.dagRunId
 * @param data.taskId
 * @param data.tryNumber
+* @param data.download
 * @param data.fullContent
+* @param data.limit
 * @param data.mapIndex
+* @param data.pageToken
+* @param data.tail
 * @param data.token
 * @param data.accept
 * @returns TaskInstancesLogResponse Successful Response
 * @throws ApiError
 */
-export const prefetchUseTaskInstanceServiceGetLog = (queryClient: QueryClient, { accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }: {
+export const prefetchUseTaskInstanceServiceGetLog = (queryClient: QueryClient, { accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }: {
   accept?: "application/json" | "*/*" | "application/x-ndjson";
   dagId: string;
   dagRunId: string;
+  download?: boolean;
   fullContent?: boolean;
+  limit?: number;
   mapIndex?: number;
+  pageToken?: string;
+  tail?: boolean;
   taskId: string;
   token?: string;
   tryNumber: number;
-}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetLogKeyFn({ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }), queryFn: () => TaskInstanceService.getLog({ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }) });
+}) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetLogKeyFn({ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }), queryFn: () => TaskInstanceService.getLog({ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }) });
 /**
 * Get External Log Url
 * Get external log URL for a specific task instance.

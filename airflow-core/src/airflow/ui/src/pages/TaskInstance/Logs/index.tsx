@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Box, createListCollection, Flex, IconButton, Switch, Text } from "@chakra-ui/react";
+import { Box, Button, createListCollection, Flex, IconButton, Switch, Text } from "@chakra-ui/react";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FiDownload, FiMaximize2, FiMinimize2, FiSettings } from "react-icons/fi";
@@ -26,11 +26,14 @@ import { useTaskInstanceServiceGetMappedTaskInstance } from "openapi/queries";
 import { TaskTrySelect } from "src/components/TaskTrySelect";
 import { ClipboardIconButton, ClipboardRoot, Popover, Select, Tooltip } from "src/components/ui";
 import { SearchParamsKeys } from "src/constants/searchParams";
-import { useLogs } from "src/queries/useLogs";
+import { usePagedLogs } from "src/queries/usePagedLogs";
 import { isStatePending, useAutoRefresh } from "src/utils";
-import { LogLevel, logLevelOptions, parseStreamingLogContent } from "src/utils/logs";
+import { downloadTaskLog, LogLevel, logLevelOptions } from "src/utils/logs";
+import type { parseStreamingLogContent } from "src/utils/logs";
 
 import { TaskLogContent } from "./TaskLogContent";
+
+/* eslint-disable max-lines */
 
 const ALL_LOG_LEVELS = "all";
 const ALL_LOG_SOURCES = "all";
@@ -47,11 +50,60 @@ const stringifyLogDatum = (datum: ReturnType<typeof parseStreamingLogContent>[nu
   return JSON.stringify(datum);
 };
 
+type LogPageControlsProps = {
+  readonly hasMoreNewer: boolean;
+  readonly hasMoreOlder: boolean;
+  readonly isLoadingNewer: boolean;
+  readonly isLoadingOlder: boolean;
+  readonly loadNewer: () => Promise<void>;
+  readonly loadOlder: () => Promise<void>;
+  readonly wasDiscarded: boolean;
+};
+
+export const LogPageControls = ({
+  hasMoreNewer,
+  hasMoreOlder,
+  isLoadingNewer,
+  isLoadingOlder,
+  loadNewer,
+  loadOlder,
+  wasDiscarded,
+}: LogPageControlsProps) => {
+  const { t: translate } = useTranslation(["dag"]);
+
+  if (!hasMoreOlder && !hasMoreNewer && !wasDiscarded) {
+    return undefined;
+  }
+
+  return (
+    <Flex alignItems="center" gap={3} justifyContent="center" py={2}>
+      {hasMoreOlder ? (
+        <Button loading={isLoadingOlder} onClick={() => void loadOlder()} size="sm" variant="outline">
+          {translate("dag:logs.loadOlder")}
+        </Button>
+      ) : undefined}
+      {hasMoreNewer ? (
+        <Button loading={isLoadingNewer} onClick={() => void loadNewer()} size="sm" variant="outline">
+          {translate("dag:logs.loadNewer")}
+        </Button>
+      ) : undefined}
+      <Text color="fg.muted" fontSize="sm">
+        {translate("dag:logs.loadedFilterScope")}
+      </Text>
+      {wasDiscarded ? (
+        <Text color="fg.warning" fontSize="sm">
+          {translate("dag:logs.olderEntriesDiscarded")}
+        </Text>
+      ) : undefined}
+    </Flex>
+  );
+};
+
 export const Logs = () => {
   const { t: translate } = useTranslation(["dag", "common", "components"]);
   const { dagId = "", mapIndex = "-1", runId = "", taskId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedLogLevels, setSelectedLogLevels] = useState([LogLevel.INFO]);
+  const [selectedLogLevels, setSelectedLogLevels] = useState<Array<string>>([LogLevel.INFO]);
   const [selectedSources, setSelectedSources] = useState([ALL_LOG_SOURCES]);
   const [showSource, setShowSource] = useState(false);
   const [showTimestamp, setShowTimestamp] = useState(true);
@@ -88,11 +140,18 @@ export const Logs = () => {
   };
 
   const {
+    content: fetchedData,
     error,
-    fetchedData,
+    hasMoreNewer,
+    hasMoreOlder,
     isLoading,
+    isLoadingNewer,
+    isLoadingOlder,
+    loadNewer,
+    loadOlder,
     parsedData: data,
-  } = useLogs({
+    wasDiscarded,
+  } = usePagedLogs({
     dagId,
     logLevelFilters: selectedLogLevels.includes(ALL_LOG_LEVELS) ? undefined : selectedLogLevels,
     showSource,
@@ -113,24 +172,16 @@ export const Logs = () => {
     [data.sources, translate],
   );
 
-  const rawLogText = useMemo(
-    () => parseStreamingLogContent(fetchedData).map(stringifyLogDatum).join("\n"),
-    [fetchedData],
-  );
+  const rawLogText = useMemo(() => fetchedData.map(stringifyLogDatum).join("\n"), [fetchedData]);
 
   const downloadLogs = () => {
-    if (rawLogText.length === 0) {
-      return;
-    }
-
-    const blob = new Blob([rawLogText], { type: "text/plain;charset=utf-8" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-
-    link.href = url;
-    link.download = `${dagId}-${taskId}-try-${tryNumber ?? 1}.log`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadTaskLog({
+      dagId,
+      mapIndex: parsedMapIndex,
+      runId,
+      taskId,
+      tryNumber: tryNumber ?? 1,
+    });
   };
 
   const toggleFullscreen = async () => {
@@ -264,6 +315,15 @@ export const Logs = () => {
           </Tooltip>
         </Flex>
       </Flex>
+      <LogPageControls
+        hasMoreNewer={hasMoreNewer}
+        hasMoreOlder={hasMoreOlder}
+        isLoadingNewer={isLoadingNewer}
+        isLoadingOlder={isLoadingOlder}
+        loadNewer={loadNewer}
+        loadOlder={loadOlder}
+        wasDiscarded={wasDiscarded}
+      />
       <TaskLogContent
         error={taskInstanceError ?? error}
         isLoading={isLoading}

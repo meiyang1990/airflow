@@ -465,6 +465,91 @@ export const UseTaskInstanceServiceGetMappedTaskInstanceTriesKeyFn = ({ dagId, d
   mapIndex: number;
   taskId: string;
 }, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetMappedTaskInstanceTriesKey, ...(queryKey ?? [{ dagId, dagRunId, mapIndex, taskId }])];
+export type TaskInstanceServiceGetRayDashboardAvailabilityDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getRayDashboardAvailability>>;
+export type TaskInstanceServiceGetRayDashboardAvailabilityQueryResult<TData = TaskInstanceServiceGetRayDashboardAvailabilityDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetRayDashboardAvailabilityKey = "TaskInstanceServiceGetRayDashboardAvailability";
+export const UseTaskInstanceServiceGetRayDashboardAvailabilityKeyFn = ({ dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetRayDashboardAvailabilityKey, ...(queryKey ?? [{ dagId, dagRunId, mapIndex, taskId, tryNumber }])];
+export type TaskInstanceServiceGetRayDashboardSnapshotsDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getRayDashboardSnapshots>>;
+export type TaskInstanceServiceGetRayDashboardSnapshotsQueryResult<TData = TaskInstanceServiceGetRayDashboardSnapshotsDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetRayDashboardSnapshotsKey = "TaskInstanceServiceGetRayDashboardSnapshots";
+export const UseTaskInstanceServiceGetRayDashboardSnapshotsKeyFn = ({ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  limit?: number;
+  mapIndex: number;
+  offset?: number;
+  section?: string;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetRayDashboardSnapshotsKey, ...(queryKey ?? [{ dagId, dagRunId, limit, mapIndex, offset, section, taskId, tryNumber }])];
+export type TaskInstanceServiceGetRayDashboardActorRankingsDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getRayDashboardActorRankings>>;
+export type TaskInstanceServiceGetRayDashboardActorRankingsQueryResult<TData = TaskInstanceServiceGetRayDashboardActorRankingsDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetRayDashboardActorRankingsKey = "TaskInstanceServiceGetRayDashboardActorRankings";
+export const UseTaskInstanceServiceGetRayDashboardActorRankingsKeyFn = ({ dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetRayDashboardActorRankingsKey, ...(queryKey ?? [{ dagId, dagRunId, mapIndex, taskId, tryNumber }])];
+export type TaskInstanceServiceGetRayDashboardActorAliveTimelineDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getRayDashboardActorAliveTimeline>>;
+export type TaskInstanceServiceGetRayDashboardActorAliveTimelineQueryResult<TData = TaskInstanceServiceGetRayDashboardActorAliveTimelineDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetRayDashboardActorAliveTimelineKey = "TaskInstanceServiceGetRayDashboardActorAliveTimeline";
+export const UseTaskInstanceServiceGetRayDashboardActorAliveTimelineKeyFn = ({ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }: {
+  bucketSeconds?: number;
+  dagId: string;
+  dagRunId: string;
+  endDate?: string;
+  limit?: number;
+  mapIndex: number;
+  startDate?: string;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetRayDashboardActorAliveTimelineKey, ...(queryKey ?? [{ bucketSeconds, dagId, dagRunId, endDate, limit, mapIndex, startDate, taskId, tryNumber }])];
+export type TaskInstanceServiceGetRayDashboardMetricSamplesDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getRayDashboardMetricSamples>>;
+export type TaskInstanceServiceGetRayDashboardMetricSamplesQueryResult<TData = TaskInstanceServiceGetRayDashboardMetricSamplesDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetRayDashboardMetricSamplesKey = "TaskInstanceServiceGetRayDashboardMetricSamples";
+export const UseTaskInstanceServiceGetRayDashboardMetricSamplesKeyFn = ({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }: {
+  actorName?: string;
+  dagId: string;
+  dagRunId: string;
+  endDate?: string;
+  limit?: number;
+  mapIndex: number;
+  metricName?: string;
+  nodeType?: string;
+  offset?: number;
+  podIp?: string;
+  startDate?: string;
+  state?: string;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetRayDashboardMetricSamplesKey, ...(queryKey ?? [{ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }])];
+export type TaskInstanceServiceGetTaskInstanceAiDiagnosisDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getTaskInstanceAiDiagnosis>>;
+export type TaskInstanceServiceGetTaskInstanceAiDiagnosisQueryResult<TData = TaskInstanceServiceGetTaskInstanceAiDiagnosisDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetTaskInstanceAiDiagnosisKey = "TaskInstanceServiceGetTaskInstanceAiDiagnosis";
+export const UseTaskInstanceServiceGetTaskInstanceAiDiagnosisKeyFn = ({ dagId, dagRunId, mapIndex, taskId, tryNumber }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+  tryNumber: number;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetTaskInstanceAiDiagnosisKey, ...(queryKey ?? [{ dagId, dagRunId, mapIndex, taskId, tryNumber }])];
+export type TaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getLatestTaskInstanceAiDiagnosisHistory>>;
+export type TaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryQueryResult<TData = TaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
+export const useTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryKey = "TaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistory";
+export const UseTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryKeyFn = ({ dagId, dagRunId, mapIndex, taskId }: {
+  dagId: string;
+  dagRunId: string;
+  mapIndex: number;
+  taskId: string;
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetLatestTaskInstanceAiDiagnosisHistoryKey, ...(queryKey ?? [{ dagId, dagRunId, mapIndex, taskId }])];
 export type TaskInstanceServiceGetMappedTaskInstanceDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getMappedTaskInstance>>;
 export type TaskInstanceServiceGetMappedTaskInstanceQueryResult<TData = TaskInstanceServiceGetMappedTaskInstanceDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
 export const useTaskInstanceServiceGetMappedTaskInstanceKey = "TaskInstanceServiceGetMappedTaskInstance";
@@ -547,16 +632,20 @@ export const UseTaskInstanceServiceGetMappedTaskInstanceTryDetailsKeyFn = ({ dag
 export type TaskInstanceServiceGetLogDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getLog>>;
 export type TaskInstanceServiceGetLogQueryResult<TData = TaskInstanceServiceGetLogDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
 export const useTaskInstanceServiceGetLogKey = "TaskInstanceServiceGetLog";
-export const UseTaskInstanceServiceGetLogKeyFn = ({ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }: {
+export const UseTaskInstanceServiceGetLogKeyFn = ({ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }: {
   accept?: "application/json" | "*/*" | "application/x-ndjson";
   dagId: string;
   dagRunId: string;
+  download?: boolean;
   fullContent?: boolean;
+  limit?: number;
   mapIndex?: number;
+  pageToken?: string;
+  tail?: boolean;
   taskId: string;
   token?: string;
   tryNumber: number;
-}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetLogKey, ...(queryKey ?? [{ accept, dagId, dagRunId, fullContent, mapIndex, taskId, token, tryNumber }])];
+}, queryKey?: Array<unknown>) => [useTaskInstanceServiceGetLogKey, ...(queryKey ?? [{ accept, dagId, dagRunId, download, fullContent, limit, mapIndex, pageToken, tail, taskId, token, tryNumber }])];
 export type TaskInstanceServiceGetExternalLogUrlDefaultResponse = Awaited<ReturnType<typeof TaskInstanceService.getExternalLogUrl>>;
 export type TaskInstanceServiceGetExternalLogUrlQueryResult<TData = TaskInstanceServiceGetExternalLogUrlDefaultResponse, TError = unknown> = UseQueryResult<TData, TError>;
 export const useTaskInstanceServiceGetExternalLogUrlKey = "TaskInstanceServiceGetExternalLogUrl";

@@ -19,7 +19,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import deque
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -39,6 +41,61 @@ if TYPE_CHECKING:
 LogReaderOutputStream: TypeAlias = Generator[str, None, None]
 
 READ_BATCH_SIZE = 1024
+MAX_LOG_PAGE_BYTES = 5 * 1024 * 1024
+
+
+@dataclass
+class TaskLogPage:
+    """A bounded page of task-log entries."""
+
+    content: list[StructuredLogMessage]
+    has_more_after: bool
+    start: int
+
+
+def _read_page_from_stream(
+    log_stream: LogHandlerOutputStream,
+    *,
+    limit: int,
+    max_bytes: int = MAX_LOG_PAGE_BYTES,
+    start: int | None,
+    tail: bool,
+) -> TaskLogPage:
+    """Read a bounded page without building a complete in-memory log list."""
+    if tail:
+        tail_entries: deque[StructuredLogMessage] = deque()
+        entry_sizes: deque[int] = deque()
+        retained_bytes = 0
+        total = 0
+        for entry in log_stream:
+            entry_size = len(entry.model_dump_json().encode())
+            tail_entries.append(entry)
+            entry_sizes.append(entry_size)
+            retained_bytes += entry_size
+            total += 1
+            while len(tail_entries) > 1 and (len(tail_entries) > limit or retained_bytes > max_bytes):
+                tail_entries.popleft()
+                retained_bytes -= entry_sizes.popleft()
+        return TaskLogPage(
+            content=list(tail_entries),
+            has_more_after=False,
+            start=max(0, total - len(tail_entries)),
+        )
+
+    page_start = start or 0
+    entries: list[StructuredLogMessage] = []
+    retained_bytes = 0
+    has_more_after = False
+    for index, entry in enumerate(log_stream):
+        if index < page_start:
+            continue
+        entry_size = len(entry.model_dump_json().encode())
+        if len(entries) == limit or (entries and retained_bytes + entry_size > max_bytes):
+            has_more_after = True
+            break
+        entries.append(entry)
+        retained_bytes += entry_size
+    return TaskLogPage(content=entries, has_more_after=has_more_after, start=page_start)
 
 
 class TaskLogReader:
@@ -154,6 +211,31 @@ class TaskLogReader:
                 metadata.update(out_metadata)
                 return
 
+    def read_log_page(
+        self,
+        ti: TaskInstance | TaskInstanceHistory,
+        try_number: int | None,
+        metadata: LogMetadata,
+        *,
+        limit: int,
+        start: int | None = None,
+        tail: bool = False,
+    ) -> tuple[TaskLogPage, LogMetadata]:
+        """
+        Read one bounded page of task logs.
+
+        The underlying handler remains responsible for producing correctly ordered
+        structured entries. This method intentionally retains no more than one page
+        in memory while consuming that stream.
+        """
+        page_metadata = dict(metadata)
+        if self.supports_older_log_pages:
+            # FileTaskHandler can stream bounded requests directly instead of first
+            # accumulating the complete source stream in its temporary spill file.
+            page_metadata["_bounded_read"] = True  # type: ignore[typeddict-unknown-key]
+        log_stream, out_metadata = self.read_log_chunks(ti, try_number, page_metadata)  # type: ignore[arg-type]
+        return _read_page_from_stream(log_stream, limit=limit, start=start, tail=tail), out_metadata
+
     @cached_property
     def log_handler(self):
         """Get the log handler which is configured to read logs."""
@@ -178,6 +260,13 @@ class TaskLogReader:
     def supports_read(self):
         """Checks if a read operation is supported by a current log handler."""
         return hasattr(self.log_handler, "read")
+
+    @property
+    def supports_older_log_pages(self) -> bool:
+        """Whether the configured handler can safely advertise backward page navigation."""
+        return isinstance(self.log_handler, FileTaskHandler) and not isinstance(
+            self.log_handler, ExternalLoggingMixin
+        )
 
     @property
     def supports_external_link(self) -> bool:

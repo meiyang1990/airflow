@@ -22,14 +22,14 @@ import dayjs from "dayjs";
 import type { TFunction } from "i18next";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
-import innerText from "react-innertext";
 
 import { useTaskInstanceServiceGetLog } from "openapi/queries";
 import type { TaskInstanceResponse, TaskInstancesLogResponse } from "openapi/requests/types.gen";
-import { renderStructuredLog } from "src/components/renderStructuredLog";
 import { isStatePending, useAutoRefresh } from "src/utils";
 import { getTaskInstanceLink } from "src/utils/links";
 import { parseStreamingLogContent } from "src/utils/logs";
+
+import { StructuredLogLine } from "./StructuredLogLine";
 
 type Props = {
   accept?: "*/*" | "application/json" | "application/x-ndjson";
@@ -45,7 +45,7 @@ type Props = {
 };
 
 type ParseLogsProps = {
-  data: TaskInstancesLogResponse["content"];
+  data: Array<TaskInstancesLogResponse["content"][number]>;
   expanded?: boolean;
   logLevelFilters?: Array<string>;
   showSource?: boolean;
@@ -62,7 +62,32 @@ const getSource = (datum: Exclude<TaskInstancesLogResponse["content"][number], s
   return typeof source === "string" ? source : undefined;
 };
 
-const parseLogs = ({
+const isVisibleLogEntry = (
+  datum: TaskInstancesLogResponse["content"][number],
+  logLevelFilters?: Array<string>,
+  sourceFilters?: Array<string>,
+) => {
+  if (typeof datum === "string") {
+    return true;
+  }
+  const source = getSource(datum);
+
+  if (
+    logLevelFilters !== undefined &&
+    logLevelFilters.length > 0 &&
+    (typeof datum.level !== "string" || !logLevelFilters.includes(datum.level))
+  ) {
+    return false;
+  }
+
+  return !(
+    sourceFilters !== undefined &&
+    sourceFilters.length > 0 &&
+    (source === undefined || !sourceFilters.includes(source))
+  );
+};
+
+export const parseLogs = ({
   data,
   expanded,
   logLevelFilters,
@@ -74,7 +99,6 @@ const parseLogs = ({
   tryNumber,
 }: ParseLogsProps) => {
   let warning;
-  let parsedLines;
   const sources: Array<string> = [];
 
   const open = expanded ?? Boolean(globalThis.location.hash);
@@ -95,8 +119,10 @@ const parseLogs = ({
       return current;
     });
 
-    parsedLines = data
+    const preparedLines = data
       .map((datum, index) => {
+        const event = typeof datum === "string" ? datum : datum.event;
+
         if (typeof datum !== "string") {
           const source = getSource(datum);
 
@@ -105,46 +131,47 @@ const parseLogs = ({
           }
         }
 
-        return renderStructuredLog({
-          index: lineNumbers[index] ?? index,
-          logLevelFilters,
-          logLink,
-          logMessage: datum,
-          renderingMode: "jsx",
-          showSource,
-          showTimestamp,
-          sourceFilters,
-          translate,
-        });
+        if (event.includes("::group::") || event.includes("::endgroup::")) {
+          return { event, line: <span>{event}</span> };
+        }
+
+        if (!isVisibleLogEntry(datum, logLevelFilters, sourceFilters)) {
+          return undefined;
+        }
+
+        return {
+          event,
+          line: (
+            <StructuredLogLine
+              datum={datum}
+              index={lineNumbers[index] ?? index}
+              key={lineNumbers[index] ?? index}
+              logLevelFilters={logLevelFilters}
+              logLink={logLink}
+              showSource={showSource}
+              showTimestamp={showTimestamp}
+              sourceFilters={sourceFilters}
+              translate={translate}
+            />
+          ),
+        };
       })
-      .filter((parsedLine) => parsedLine !== "");
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "An error occurred.";
+      .filter((line) => line !== undefined);
 
-    // eslint-disable-next-line no-console
-    console.warn(`Error parsing logs: ${errorMessage}`);
-    warning = "Unable to show logs. There was an error parsing logs.";
-
-    return { data, warning };
-  }
-
-  parsedLines = (() => {
     type Group = { level: number; lines: Array<JSX.Element | "">; name: string };
     const groupStack: Array<Group> = [];
-    const result: Array<JSX.Element | ""> = [];
+    const parsedLines: Array<JSX.Element | ""> = [];
 
-    parsedLines.forEach((line) => {
-      const text = innerText(line);
-
-      if (text.includes("::group::")) {
-        const groupName = text.split("::group::")[1] as string;
+    preparedLines.forEach(({ event, line }) => {
+      if (event.includes("::group::")) {
+        const groupName = event.split("::group::")[1] as string;
 
         groupStack.push({ level: groupStack.length, lines: [], name: groupName });
 
         return;
       }
 
-      if (text.includes("::endgroup::")) {
+      if (event.includes("::endgroup::")) {
         const finishedGroup = groupStack.pop();
 
         if (finishedGroup) {
@@ -160,23 +187,24 @@ const parseLogs = ({
               </chakra.details>
             </Box>
           );
-
           const lastGroup = groupStack[groupStack.length - 1];
 
-          if (groupStack.length > 0 && lastGroup) {
+          if (lastGroup) {
             lastGroup.lines.push(groupElement);
           } else {
-            result.push(groupElement);
+            parsedLines.push(groupElement);
           }
         }
 
         return;
       }
 
-      if (groupStack.length > 0 && groupStack[groupStack.length - 1]) {
-        groupStack[groupStack.length - 1]?.lines.push(line);
+      const currentGroup = groupStack[groupStack.length - 1];
+
+      if (currentGroup) {
+        currentGroup.lines.push(line);
       } else {
-        result.push(line);
+        parsedLines.push(line);
       }
     });
 
@@ -184,7 +212,7 @@ const parseLogs = ({
       const unfinished = groupStack.pop();
 
       if (unfinished) {
-        result.push(
+        parsedLines.push(
           <Box key={unfinished.name} mb={2} pl={unfinished.level * 2}>
             {unfinished.lines}
           </Box>,
@@ -192,14 +220,20 @@ const parseLogs = ({
       }
     }
 
-    return result;
-  })();
+    return {
+      parsedLogs: parsedLines,
+      sources,
+      warning,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "An error occurred.";
 
-  return {
-    parsedLogs: parsedLines,
-    sources,
-    warning,
-  };
+    // eslint-disable-next-line no-console
+    console.warn(`Error parsing logs: ${errorMessage}`);
+    warning = "Unable to show logs. There was an error parsing logs.";
+
+    return { data, warning };
+  }
 };
 
 // Log truncation is performed in the frontend because the backend

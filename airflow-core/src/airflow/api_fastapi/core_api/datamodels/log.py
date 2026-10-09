@@ -44,6 +44,10 @@ class TaskInstancesLogResponse(BaseModel):
     content: list[StructuredLogMessage] | list[str]
     """Either a list of parsed events, or a list of lines on parse error"""
     continuation_token: str | None
+    next_page_token: str | None = None
+    """Opaque token used to retrieve the next page of a bounded log response."""
+    previous_page_token: str | None = None
+    """Opaque token used to retrieve the previous page of a bounded log response."""
 
 
 class ExternalLogUrlResponse(BaseModel):
