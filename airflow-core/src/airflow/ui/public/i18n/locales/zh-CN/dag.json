@@ -84,6 +84,8 @@
       "tooltip": "按下 {{hotkey}} 进入全屏"
     },
     "info": "INFO",
+    "loadOlder": "加载更多日志",
+    "loadedFilterScope": "筛选条件仅应用于已加载的日志条目。",
     "noTryNumber": "没有重试次数",
     "settings": "日志设置",
     "viewInExternal": "在 {{name}} 中查看日志(重试 {{attempt}})",

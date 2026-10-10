@@ -28,9 +28,27 @@ import { isStatePending, useAutoRefresh } from "src/utils";
 import { parseLogs } from "./useLogs";
 
 export const LOG_PAGE_SIZE = 1000;
+export const TAIL_LOG_PAGE_SIZE = 500;
 export const MAX_RETAINED_LOG_ENTRIES = 5000;
 
 type LogEntry = TaskInstancesLogResponse["content"][number];
+
+const mergeLogContent = (first: Array<LogEntry>, second: Array<LogEntry>) => {
+  const overlapLimit = Math.min(first.length, second.length);
+
+  for (let overlap = overlapLimit; overlap > 0; overlap -= 1) {
+    const firstOverlap = first.slice(-overlap);
+    const secondOverlap = second.slice(0, overlap);
+
+    if (
+      firstOverlap.every((entry, index) => JSON.stringify(entry) === JSON.stringify(secondOverlap[index]))
+    ) {
+      return [...first, ...second.slice(overlap)];
+    }
+  }
+
+  return [...first, ...second];
+};
 
 type Props = {
   dagId: string;
@@ -55,7 +73,8 @@ export const usePagedLogs = ({
 }: Props) => {
   const { t: translate } = useTranslation("common");
   const refreshInterval = useAutoRefresh({ dagId });
-  const [content, setContent] = useState<Array<LogEntry>>([]);
+  const [firstPageContent, setFirstPageContent] = useState<Array<LogEntry>>([]);
+  const [tailContent, setTailContent] = useState<Array<LogEntry>>([]);
   const [continuationToken, setContinuationToken] = useState<string | null>();
   const [error, setError] = useState<unknown>();
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +82,7 @@ export const usePagedLogs = ({
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | null>();
   const [previousPageToken, setPreviousPageToken] = useState<string | null>();
+  const [refreshCycle, setRefreshCycle] = useState(0);
   const [wasDiscarded, setWasDiscarded] = useState(false);
   const requestId = useRef(0);
   const dagRunId = taskInstance?.dag_run_id;
@@ -70,22 +90,29 @@ export const usePagedLogs = ({
   const taskId = taskInstance?.task_id;
   const enabled =
     requestedEnabled && dagRunId !== undefined && mapIndex !== undefined && taskId !== undefined;
+  const content = useMemo(
+    () => mergeLogContent(firstPageContent, tailContent),
+    [firstPageContent, tailContent],
+  );
 
-  const appendContent = useCallback((newContent: Array<LogEntry>) => {
-    setContent((current) => {
-      const combined = [...current, ...newContent];
+  const appendContent = useCallback(
+    (newContent: Array<LogEntry>) => {
+      setTailContent((current) => {
+        const combined = [...current, ...newContent];
 
-      if (combined.length <= MAX_RETAINED_LOG_ENTRIES) {
-        return combined;
-      }
-      setWasDiscarded(true);
+        if (firstPageContent.length + combined.length <= MAX_RETAINED_LOG_ENTRIES) {
+          return combined;
+        }
+        setWasDiscarded(true);
 
-      return combined.slice(-MAX_RETAINED_LOG_ENTRIES);
-    });
-  }, []);
+        return combined.slice(-(MAX_RETAINED_LOG_ENTRIES - firstPageContent.length));
+      });
+    },
+    [firstPageContent.length],
+  );
 
   const requestPage = useCallback(
-    (options: { pageToken?: string; tail?: boolean; token?: string }) => {
+    (options: { limit?: number; pageToken?: string; tail?: boolean; token?: string }) => {
       if (dagRunId === undefined || mapIndex === undefined || taskId === undefined) {
         return undefined;
       }
@@ -94,7 +121,7 @@ export const usePagedLogs = ({
         accept: "application/json",
         dagId,
         dagRunId,
-        limit: LOG_PAGE_SIZE,
+        limit: options.limit ?? LOG_PAGE_SIZE,
         mapIndex,
         pageToken: options.pageToken,
         tail: options.tail,
@@ -106,11 +133,42 @@ export const usePagedLogs = ({
     [dagId, dagRunId, mapIndex, taskId, tryNumber],
   );
 
+  const pollLogs = useCallback(
+    async (token: string) => {
+      const currentRequest = requestId.current;
+      const request = requestPage({ token });
+
+      if (request === undefined) {
+        return;
+      }
+
+      try {
+        const response = await request;
+
+        if (requestId.current !== currentRequest) {
+          return;
+        }
+        appendContent(response.content);
+        setContinuationToken(response.continuation_token);
+        setNextPageToken(response.next_page_token);
+      } catch (requestError) {
+        if (requestId.current === currentRequest) {
+          setError(requestError);
+        }
+      }
+      if (requestId.current === currentRequest) {
+        setRefreshCycle((cycle) => cycle + 1);
+      }
+    },
+    [appendContent, requestPage],
+  );
+
   useEffect(() => {
     requestId.current += 1;
     const currentRequest = requestId.current;
 
-    setContent([]);
+    setFirstPageContent([]);
+    setTailContent([]);
     setContinuationToken(undefined);
     setError(undefined);
     setIsLoading(enabled);
@@ -124,23 +182,25 @@ export const usePagedLogs = ({
       return undefined;
     }
 
-    const request = requestPage({ tail: true });
+    const firstPageRequest = requestPage({});
+    const tailRequest = requestPage({ limit: TAIL_LOG_PAGE_SIZE, tail: true });
 
-    if (request === undefined) {
+    if (firstPageRequest === undefined || tailRequest === undefined) {
       setIsLoading(false);
 
       return undefined;
     }
 
-    void request
-      .then((response) => {
+    void Promise.all([firstPageRequest, tailRequest])
+      .then(([firstPageResponse, tailResponse]) => {
         if (requestId.current !== currentRequest) {
           return;
         }
-        setContent(response.content);
-        setContinuationToken(response.continuation_token);
-        setNextPageToken(response.next_page_token);
-        setPreviousPageToken(response.previous_page_token);
+        setFirstPageContent(firstPageResponse.content);
+        setTailContent(tailResponse.content);
+        setContinuationToken(tailResponse.continuation_token);
+        setNextPageToken(undefined);
+        setPreviousPageToken(tailResponse.previous_page_token);
       })
       .catch((requestError: unknown) => {
         if (requestId.current === currentRequest) {
@@ -153,7 +213,10 @@ export const usePagedLogs = ({
         }
       });
 
-    return () => request.cancel();
+    return () => {
+      firstPageRequest.cancel();
+      tailRequest.cancel();
+    };
   }, [enabled, requestPage]);
 
   useEffect(() => {
@@ -167,27 +230,11 @@ export const usePagedLogs = ({
     }
 
     const timer = globalThis.setTimeout(() => {
-      const currentRequest = requestId.current;
-      const request = requestPage({ token: continuationToken });
-
-      void request
-        ?.then((response) => {
-          if (requestId.current !== currentRequest) {
-            return;
-          }
-          appendContent(response.content);
-          setContinuationToken(response.continuation_token);
-          setNextPageToken(response.next_page_token);
-        })
-        .catch((requestError: unknown) => {
-          if (requestId.current === currentRequest) {
-            setError(requestError);
-          }
-        });
+      void pollLogs(continuationToken);
     }, refreshInterval);
 
     return () => globalThis.clearTimeout(timer);
-  }, [appendContent, continuationToken, refreshInterval, requestPage, taskInstance?.state]);
+  }, [continuationToken, pollLogs, refreshCycle, refreshInterval, taskInstance?.state]);
 
   const loadOlder = useCallback(() => {
     if (previousPageToken === undefined || previousPageToken === null) {
@@ -195,7 +242,7 @@ export const usePagedLogs = ({
     }
     setIsLoadingOlder(true);
     const currentRequest = requestId.current;
-    const request = requestPage({ pageToken: previousPageToken });
+    const request = requestPage({ limit: TAIL_LOG_PAGE_SIZE, pageToken: previousPageToken });
 
     if (request === undefined) {
       setIsLoadingOlder(false);
@@ -208,14 +255,14 @@ export const usePagedLogs = ({
         if (requestId.current !== currentRequest) {
           return;
         }
-        setContent((current) => {
+        setTailContent((current) => {
           const combined = [...response.content, ...current];
 
-          if (combined.length > MAX_RETAINED_LOG_ENTRIES) {
+          if (firstPageContent.length + combined.length > MAX_RETAINED_LOG_ENTRIES) {
             setNextPageToken(response.next_page_token);
             setWasDiscarded(true);
 
-            return combined.slice(0, MAX_RETAINED_LOG_ENTRIES);
+            return combined.slice(0, MAX_RETAINED_LOG_ENTRIES - firstPageContent.length);
           }
 
           return combined;
@@ -232,7 +279,7 @@ export const usePagedLogs = ({
           setIsLoadingOlder(false);
         }
       });
-  }, [previousPageToken, requestPage]);
+  }, [firstPageContent.length, previousPageToken, requestPage]);
 
   const loadNewer = useCallback(() => {
     if (nextPageToken === undefined || nextPageToken === null) {
@@ -253,7 +300,7 @@ export const usePagedLogs = ({
         if (requestId.current !== currentRequest) {
           return;
         }
-        setContent((current) => {
+        setTailContent((current) => {
           const combined = [...current, ...response.content];
 
           if (combined.length > MAX_RETAINED_LOG_ENTRIES) {

@@ -66,18 +66,25 @@ describe("usePagedLogs", () => {
     mockUseAutoRefresh.mockReturnValue(false);
   });
 
-  it("loads only the latest bounded page initially", async () => {
-    vi.mocked(TaskInstanceService.getLog).mockReturnValue(cancelableResponse(response()) as never);
+  it("loads the first 1000 and last 500 log entries initially", async () => {
+    vi.mocked(TaskInstanceService.getLog)
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "first" }] })) as never)
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "last" }] })) as never);
 
     const { result } = renderHook(() => usePagedLogs({ dagId: "test-dag", taskInstance, tryNumber: 1 }), {
       wrapper,
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(TaskInstanceService.getLog).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 1000, tail: true }),
+    expect(TaskInstanceService.getLog).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ limit: 1000, tail: undefined }),
     );
-    expect(result.current.content).toHaveLength(1);
+    expect(TaskInstanceService.getLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ limit: 500, tail: true }),
+    );
+    expect(result.current.content).toEqual([{ event: "first" }, { event: "last" }]);
   });
 
   it("does not request logs while a preview is collapsed", () => {
@@ -91,7 +98,9 @@ describe("usePagedLogs", () => {
   it("resets the bounded page when the selected attempt changes", async () => {
     vi.mocked(TaskInstanceService.getLog)
       .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "attempt-1" }] })) as never)
-      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "attempt-2" }] })) as never);
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "attempt-1-tail" }] })) as never)
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "attempt-2" }] })) as never)
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "attempt-2-tail" }] })) as never);
 
     const { rerender, result } = renderHook(
       ({ tryNumber }) => usePagedLogs({ dagId: "test-dag", taskInstance, tryNumber }),
@@ -106,7 +115,12 @@ describe("usePagedLogs", () => {
 
   it("prepends an older page using its opaque token", async () => {
     vi.mocked(TaskInstanceService.getLog)
-      .mockReturnValueOnce(cancelableResponse(response({ previous_page_token: "older-token" })) as never)
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "first" }] })) as never)
+      .mockReturnValueOnce(
+        cancelableResponse(
+          response({ content: [{ event: "last" }], previous_page_token: "older-token" }),
+        ) as never,
+      )
       .mockReturnValueOnce(
         cancelableResponse(response({ content: [{ event: "older" }], previous_page_token: null })) as never,
       );
@@ -118,60 +132,24 @@ describe("usePagedLogs", () => {
     await waitFor(() => expect(result.current.hasMoreOlder).toBe(true));
     await act(() => result.current.loadOlder());
     expect(TaskInstanceService.getLog).toHaveBeenLastCalledWith(
-      expect.objectContaining({ pageToken: "older-token" }),
+      expect.objectContaining({ limit: 500, pageToken: "older-token" }),
     );
     expect(result.current.content.map((entry) => (typeof entry === "string" ? entry : entry.event))).toEqual([
+      "first",
       "older",
-      "latest",
+      "last",
     ]);
-  });
-
-  it("can return to a newer page using its opaque token", async () => {
-    const latestPage = Array.from({ length: MAX_RETAINED_LOG_ENTRIES }, (_, index) => ({
-      event: `latest-${index}`,
-    }));
-    const olderPage = Array.from({ length: 1000 }, (_, index) => ({
-      event: `older-${index}`,
-    }));
-
-    vi.mocked(TaskInstanceService.getLog)
-      .mockReturnValueOnce(
-        cancelableResponse(response({ content: latestPage, previous_page_token: "older-token" })) as never,
-      )
-      .mockReturnValueOnce(
-        cancelableResponse(
-          response({
-            content: olderPage,
-            next_page_token: "newer-token",
-            previous_page_token: null,
-          }),
-        ) as never,
-      )
-      .mockReturnValueOnce(
-        cancelableResponse(
-          response({ content: [{ event: "latest-again" }], next_page_token: null }),
-        ) as never,
-      );
-
-    const { result } = renderHook(() => usePagedLogs({ dagId: "test-dag", taskInstance, tryNumber: 1 }), {
-      wrapper,
-    });
-
-    await waitFor(() => expect(result.current.hasMoreOlder).toBe(true));
-    await act(() => result.current.loadOlder());
-    await waitFor(() => expect(result.current.hasMoreNewer).toBe(true));
-    await act(() => result.current.loadNewer());
-
-    expect(TaskInstanceService.getLog).toHaveBeenLastCalledWith(
-      expect.objectContaining({ pageToken: "newer-token" }),
-    );
-    expect(result.current.content.at(-1)).toEqual({ event: "latest-again" });
   });
 
   it("polls a running task from its continuation token", async () => {
     mockUseAutoRefresh.mockReturnValue(1);
     vi.mocked(TaskInstanceService.getLog)
-      .mockReturnValueOnce(cancelableResponse(response({ continuation_token: "continue" })) as never)
+      .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "first" }] })) as never)
+      .mockReturnValueOnce(
+        cancelableResponse(
+          response({ content: [{ event: "last" }], continuation_token: "continue" }),
+        ) as never,
+      )
       .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "new" }] })) as never);
     const runningTask = { ...taskInstance, state: "running" } as TaskInstanceResponse;
 
@@ -180,21 +158,57 @@ describe("usePagedLogs", () => {
       { wrapper },
     );
 
-    await waitFor(() => expect(result.current.content).toHaveLength(2), { timeout: 2000 });
+    await waitFor(() => expect(result.current.content).toHaveLength(3), { timeout: 2000 });
     expect(TaskInstanceService.getLog).toHaveBeenLastCalledWith(
       expect.objectContaining({ token: "continue" }),
     );
   });
 
+  it("continues polling when no new logs change the continuation token", async () => {
+    vi.useFakeTimers();
+    mockUseAutoRefresh.mockReturnValue(1);
+    vi.mocked(TaskInstanceService.getLog).mockImplementation(
+      () => cancelableResponse(response({ continuation_token: "continue" })) as never,
+    );
+    const runningTask = { ...taskInstance, state: "running" } as TaskInstanceResponse;
+
+    try {
+      renderHook(() => usePagedLogs({ dagId: "test-dag", taskInstance: runningTask, tryNumber: 1 }), {
+        wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+
+      expect(TaskInstanceService.getLog).toHaveBeenCalledTimes(4);
+      expect(TaskInstanceService.getLog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ token: "continue" }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("bounds retained live entries and reports discarded history", async () => {
     mockUseAutoRefresh.mockReturnValue(1);
-    const initialContent = Array.from({ length: MAX_RETAINED_LOG_ENTRIES }, (_, index) => ({
-      event: `initial-${index}`,
+    const initialContent = Array.from({ length: 1000 }, (_, index) => ({ event: `first-${index}` }));
+    const tailContent = Array.from({ length: MAX_RETAINED_LOG_ENTRIES - 1000 }, (_, index) => ({
+      event: `last-${index}`,
     }));
 
     vi.mocked(TaskInstanceService.getLog)
+      .mockReturnValueOnce(cancelableResponse(response({ content: initialContent })) as never)
       .mockReturnValueOnce(
-        cancelableResponse(response({ content: initialContent, continuation_token: "continue" })) as never,
+        cancelableResponse(response({ content: tailContent, continuation_token: "continue" })) as never,
       )
       .mockReturnValueOnce(cancelableResponse(response({ content: [{ event: "newest" }] })) as never);
     const runningTask = { ...taskInstance, state: "running" } as TaskInstanceResponse;
