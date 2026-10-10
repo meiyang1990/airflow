@@ -461,3 +461,36 @@ def test_snapshot_and_metric_pagination(session, task_instance):
     assert snapshots[0].payload == {"tasks": [{"id": "first"}]}
     assert len(metric_samples) == 1
     assert metric_samples[0].value == 2
+
+
+def test_progress_snapshot_is_upserted(session, task_instance):
+    dashboard = upsert_ray_dashboard_task_instance(
+        dag_id=task_instance.dag_id,
+        run_id=task_instance.run_id,
+        task_id=task_instance.task_id,
+        map_index=task_instance.map_index,
+        try_number=task_instance.try_number,
+        session=session,
+    )
+    session.flush()
+
+    add_ray_dashboard_snapshot(
+        dashboard=dashboard,
+        section=RayDashboardSection.PROGRESS,
+        payload={"processed_units": 3, "total_units": 10},
+        session=session,
+    )
+    session.flush()
+    add_ray_dashboard_snapshot(
+        dashboard=dashboard,
+        section=RayDashboardSection.PROGRESS,
+        payload={"processed_units": 7, "total_units": 10},
+        session=session,
+    )
+    session.flush()
+
+    snapshots = list_ray_dashboard_snapshots(
+        dashboard_id=dashboard.id, section=RayDashboardSection.PROGRESS, session=session
+    )
+    assert len(snapshots) == 1
+    assert snapshots[0].payload == {"processed_units": 7, "total_units": 10}

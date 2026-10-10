@@ -81,6 +81,7 @@ const defaultActorRecords = [
   },
 ];
 let currentActorRecords = defaultActorRecords;
+let currentProgressPayload: Record<string, unknown> | undefined;
 
 vi.mock("axios");
 vi.mock("openapi/queries");
@@ -101,6 +102,7 @@ describe("RayDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentActorRecords = defaultActorRecords;
+    currentProgressPayload = undefined;
     vi.mocked(useParams).mockReturnValue({
       dagId: "test-dag",
       mapIndex: "-1",
@@ -138,7 +140,7 @@ describe("RayDashboard", () => {
               updated_at: "2026-09-18T09:00:00Z",
             },
             metrics: [],
-            sections: ["overview"],
+            sections: ["overview", ...(currentProgressPayload === undefined ? [] : ["progress"])],
           },
         });
       }
@@ -147,6 +149,17 @@ describe("RayDashboard", () => {
         return Promise.resolve({
           data: {
             snapshots: [
+              ...(currentProgressPayload === undefined
+                ? []
+                : [
+                    {
+                      collected_at: "2026-09-18T09:00:00Z",
+                      id: "progress-snapshot-id",
+                      payload: currentProgressPayload,
+                      section: "progress",
+                      source_status: "ok",
+                    },
+                  ]),
               {
                 collected_at: "2026-09-18T09:00:00Z",
                 id: "snapshot-id",
@@ -401,6 +414,80 @@ describe("RayDashboard", () => {
     expect(screen.getByRole("button", { name: /Tasks/u })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Metrics/u })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Logs/u })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Progress/u })).toBeInTheDocument();
+  });
+
+  it("renders a safe initialization state when no progress snapshot exists", async () => {
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    const progressButton = await screen.findByRole("button", { name: /Progress/u });
+
+    fireEvent.click(progressButton);
+
+    expect(await screen.findByText("正在初始化，尚无可计量的处理进度")).toBeInTheDocument();
+    expect(screen.getByText(/Last heartbeat: 尚未收到工作进度心跳/u)).toBeInTheDocument();
+  });
+
+  it("renders populated and stalled Progress snapshots without changing task state", async () => {
+    currentProgressPayload = {
+      actor_summaries: [
+        { actor_index: 0, failed_units: 1, phase: "processing", processed_units: 40, total_units: 80 },
+      ],
+      eta_confidence: "measured",
+      eta_seconds: 120,
+      failed_units: 1,
+      is_stalled: true,
+      last_progress_at: 1_789_000_000,
+      percent: 50,
+      phase: "stalled",
+      processed_units: 40,
+      throughput_per_minute: 20,
+      total_units: 80,
+      unit_type: "files",
+    };
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    const progressButton = await screen.findByRole("button", { name: /Progress/u });
+
+    fireEvent.click(progressButton);
+
+    expect(await screen.findByText("Execution progress")).toBeInTheDocument();
+    expect(screen.getByText("进度心跳已停滞；任务状态未被此提示改变")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByText(/40 \/ 80 files/u)).toBeInTheDocument();
+    expect(screen.getByText(/Actor 0/u)).toBeInTheDocument();
+  });
+
+  it("shows initialization as estimating rather than fabricating an ETA", async () => {
+    currentProgressPayload = {
+      eta_confidence: "estimating",
+      phase: "initializing",
+      phase_started_at: 1_789_000_000,
+      processed_units: 0,
+      total_units: 80,
+      unit_type: "files",
+    };
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    const progressButton = await screen.findByRole("button", { name: /Progress/u });
+
+    fireEvent.click(progressButton);
+
+    expect(await screen.findByText("正在建立 ETA 样本；不会在初始化阶段给出估算")).toBeInTheDocument();
+    expect(screen.getByText("正在建立预估")).toBeInTheDocument();
+    expect(screen.getByText(/Phase elapsed:/u)).toBeInTheDocument();
   });
 
   it("refetches Ray Dashboard data when refresh is clicked", async () => {

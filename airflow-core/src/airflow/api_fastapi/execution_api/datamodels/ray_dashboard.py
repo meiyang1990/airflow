@@ -27,8 +27,34 @@ from airflow.api_fastapi.core_api.base import StrictBaseModel
 from airflow.models.ray_dashboard import (
     RAY_DASHBOARD_MAX_METRIC_BATCH_SIZE,
     RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES,
+    RAY_DASHBOARD_PROGRESS_MAX_ACTOR_DETAILS,
     RAY_DASHBOARD_SECTIONS,
 )
+
+
+def validate_ray_dashboard_progress_payload(payload: JsonValue | None) -> None:
+    """Validate the small, task-oriented payload accepted by the Progress tab."""
+    if not isinstance(payload, dict):
+        raise ValueError("progress payload must be an object")
+
+    actor_summaries = payload.get("actor_summaries", [])
+    if not isinstance(actor_summaries, list):
+        raise ValueError("progress actor_summaries must be a list")
+    if len(actor_summaries) > RAY_DASHBOARD_PROGRESS_MAX_ACTOR_DETAILS:
+        raise ValueError(
+            f"progress actor_summaries cannot contain more than {RAY_DASHBOARD_PROGRESS_MAX_ACTOR_DETAILS} items"
+        )
+
+    for field in ("processed_units", "total_units", "failed_units", "active_actors", "total_actors"):
+        value = payload.get(field)
+        if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < 0):
+            raise ValueError(f"progress {field} must be a non-negative integer")
+
+    percent = payload.get("percent")
+    if percent is not None and (
+        not isinstance(percent, (int, float)) or isinstance(percent, bool) or not 0 <= percent <= 100
+    ):
+        raise ValueError("progress percent must be a number between 0 and 100")
 
 
 class RayDashboardMetadataPayload(StrictBaseModel):
@@ -66,6 +92,8 @@ class RayDashboardSnapshotPayload(StrictBaseModel):
     @model_validator(mode="after")
     def validate_payload_size(self):
         """Reject unbounded section payloads."""
+        if self.section == "progress":
+            validate_ray_dashboard_progress_payload(self.payload)
         payload_bytes = len(json.dumps(self.payload, default=str).encode("utf-8"))
         if payload_bytes > RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES:
             raise ValueError(f"payload is larger than {RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES} bytes")
@@ -92,6 +120,8 @@ class RayDashboardIngestionSectionPayload(StrictBaseModel):
     @model_validator(mode="after")
     def validate_payload_size(self):
         """Reject unbounded section payloads."""
+        if self.section == "progress":
+            validate_ray_dashboard_progress_payload(self.payload)
         payload_bytes = len(json.dumps(self.payload, default=str).encode("utf-8"))
         if payload_bytes > RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES:
             raise ValueError(f"payload is larger than {RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES} bytes")

@@ -48,6 +48,7 @@ if TYPE_CHECKING:
 
 
 RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES = 1024 * 1024
+RAY_DASHBOARD_PROGRESS_MAX_ACTOR_DETAILS = 20
 RAY_DASHBOARD_MAX_METRIC_BATCH_SIZE = 1000
 RAY_DASHBOARD_METRIC_POD_NAME_LABEL_KEYS = ("pod_name", "pod", "PodName", "podName")
 RAY_DASHBOARD_METRIC_POD_ID_LABEL_KEYS = ("pod_id", "pod_uid", "PodID", "podId")
@@ -98,7 +99,7 @@ class RayDashboardSection(StrEnum):
     METRICS = "metrics"
     LOGS = "logs"
     EVENTS = "events"
-    SERVE = "serve"
+    PROGRESS = "progress"
     RAY_DATA = "ray_data"
 
 
@@ -390,7 +391,30 @@ def add_ray_dashboard_snapshot(
     source_error: str | None = None,
     session: Session = NEW_SESSION,
 ) -> RayDashboardSnapshot:
-    """Add a collected Ray Dashboard section snapshot."""
+    """
+    Add a collected Ray Dashboard section snapshot.
+
+    Progress is sampled frequently, so retain only its latest payload per task
+    attempt.  Other Ray sections remain historical snapshots for debugging.
+    """
+    if str(section) == RayDashboardSection.PROGRESS:
+        snapshot = session.scalar(
+            select(RayDashboardSnapshot)
+            .where(
+                RayDashboardSnapshot.dashboard_id == dashboard.id,
+                RayDashboardSnapshot.section == RayDashboardSection.PROGRESS,
+            )
+            .order_by(RayDashboardSnapshot.collected_at.desc())
+            .limit(1)
+        )
+        if snapshot is not None:
+            snapshot.payload = payload
+            snapshot.collected_at = collected_at or timezone.utcnow()
+            snapshot.source_status = source_status
+            snapshot.source_error = source_error
+            dashboard.updated_at = timezone.utcnow()
+            return snapshot
+
     snapshot = RayDashboardSnapshot(
         dashboard=dashboard,
         section=str(section),

@@ -91,8 +91,8 @@ type RaySection =
   | "objects"
   | "overview"
   | "placement_groups"
+  | "progress"
   | "ray_data"
-  | "serve"
   | "tasks";
 
 type JsonRecord = Record<string, unknown>;
@@ -108,7 +108,7 @@ const SECTION_ORDER: Array<RaySection> = [
   "metrics",
   "logs",
   "events",
-  "serve",
+  "progress",
   "ray_data",
 ];
 
@@ -207,15 +207,15 @@ const SECTION_LABELS: Record<RaySection, string> = {
   objects: "Objects",
   overview: "Overview",
   placement_groups: "Placement Groups",
+  progress: "Progress",
   ray_data: "Ray Data",
-  serve: "Serve",
   tasks: "Tasks",
 };
 
 const PRIMARY_NAV_SECTIONS: Array<RaySection> = [
   "overview",
   "jobs",
-  "serve",
+  "progress",
   "cluster",
   "actors",
   "tasks",
@@ -335,6 +335,52 @@ const formatValue = (value: unknown): string => {
   }
 
   return renderJson(value);
+};
+
+const getProgressPayload = (payload: unknown): JsonRecord => (isRecord(payload) ? payload : {});
+
+const formatProgressEta = (seconds: unknown): string => {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) {
+    return "正在建立预估";
+  }
+  const minutes = Math.ceil(seconds / 60);
+
+  return minutes < 60 ? `约 ${minutes} 分钟` : `约 ${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`;
+};
+
+const formatProgressHeartbeat = (timestamp: unknown): string => {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) {
+    return "尚未收到工作进度心跳";
+  }
+
+  return new Date(timestamp * 1000).toLocaleString();
+};
+
+const formatProgressElapsed = (startedAt: unknown): string => {
+  if (typeof startedAt !== "number" || !Number.isFinite(startedAt) || startedAt <= 0) {
+    return "—";
+  }
+  const elapsedSeconds = Math.max(0, Math.floor(Date.now() / 1000 - startedAt));
+  const minutes = Math.floor(elapsedSeconds / 60);
+
+  return minutes === 0 ? `${elapsedSeconds} seconds` : `${minutes} minutes ${elapsedSeconds % 60} seconds`;
+};
+
+const getProgressState = (payload: JsonRecord): { color: string; label: string } => {
+  if (payload.is_stalled === true || payload.phase === "stalled") {
+    return { color: "red.600", label: "进度心跳已停滞；任务状态未被此提示改变" };
+  }
+  if (payload.phase === "completed") {
+    return { color: "green.600", label: "本波任务已完成，等待任务最终状态同步" };
+  }
+  if (Object.keys(payload).length === 0) {
+    return { color: "gray.600", label: "正在初始化，尚无可计量的处理进度" };
+  }
+  if (payload.eta_seconds === null || payload.eta_seconds === undefined) {
+    return { color: "orange.600", label: "正在建立 ETA 样本；不会在初始化阶段给出估算" };
+  }
+
+  return { color: "blue.600", label: "处理进度与 ETA 来自最近观测窗口" };
 };
 
 const normalizeUnit = (unit?: string | null) => unit?.trim().toLowerCase();
@@ -1931,7 +1977,11 @@ export const RayDashboard = () => {
   const taskRows = getRowsFromPayload(snapshotBySection.tasks?.payload);
   const peakTaskRows = getPeakRowsFromSnapshots(allSnapshots, "tasks");
   const jobRows = getJobRows(dashboard, snapshotBySection.jobs?.payload);
-  const serveRows = getRowsFromPayload(snapshotBySection.serve?.payload);
+  const progressPayload = getProgressPayload(snapshotBySection.progress?.payload);
+  const progressActors = Array.isArray(progressPayload.actor_summaries)
+    ? progressPayload.actor_summaries.filter(isRecord)
+    : [];
+  const progressState = getProgressState(progressPayload);
   const overviewTaskRows = peakTaskRows.length > 0 ? peakTaskRows : taskRows;
   const finishedTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/finish/u, /success/u, /done/u]);
   const runningTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/run/u]);
@@ -1978,7 +2028,7 @@ export const RayDashboard = () => {
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
   const isRefreshing =
     isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples || isFetchingActorAliveTimeline;
-  const hasDedicatedSection = ["actors", "cluster", "jobs", "metrics", "overview", "tasks"].includes(
+  const hasDedicatedSection = ["actors", "cluster", "jobs", "metrics", "overview", "progress", "tasks"].includes(
     activeSection,
   );
   const refreshDashboard = async () => {
@@ -2239,56 +2289,18 @@ export const RayDashboard = () => {
                   <OverviewLink onClick={() => setSelectedSection("jobs")}>View all jobs</OverviewLink>
                 </OverviewCard>
 
-                <OverviewCard title="Serve Applications">
-                  {serveRows.length === 0 ? (
-                    <Text color="#20252c" fontSize="14px" lineHeight="1.35">
-                      No Serve applications attached to this task.
-                    </Text>
-                  ) : (
-                    <Flex direction="column" gap={4} mt={2.5}>
-                      {serveRows.slice(0, 5).map((row) => (
-                        <Box
-                          display="grid"
-                          gap="2px 12px"
-                          gridTemplateColumns="16px minmax(0, 1fr)"
-                          key={`${formatValue(row.name ?? row.application_name ?? row.deployment_name)}-${formatValue(
-                            row.route_prefix ?? row.import_path ?? row.status,
-                          )}`}
-                        >
-                          <Box
-                            _after={{
-                              bg: "#ffffff",
-                              borderRadius: "999px",
-                              content: '""',
-                              height: "4px",
-                              left: "5px",
-                              position: "absolute",
-                              top: "5px",
-                              width: "4px",
-                            }}
-                            alignSelf="start"
-                            bg="#4aa564"
-                            borderRadius="999px"
-                            h="14px"
-                            mt={1}
-                            position="relative"
-                            w="14px"
-                          />
-                          <Box minW={0}>
-                            <Text color="#1a73e8" fontSize="14px" fontWeight="700" lineHeight="1.2">
-                              {formatValue(row.name ?? row.application_name ?? row.deployment_name)}
-                            </Text>
-                            <Text color="#5f6b78" fontSize="12px" lineHeight="1.35">
-                              {formatValue(row.route_prefix ?? row.import_path ?? row.status)}
-                            </Text>
-                          </Box>
-                        </Box>
-                      ))}
-                    </Flex>
-                  )}
-                  <OverviewLink onClick={() => setSelectedSection("serve")}>
-                    View all applications
-                  </OverviewLink>
+                <OverviewCard title="Task progress">
+                  <Text color="#20252c" fontSize="28px" fontWeight="750" lineHeight="1.2">
+                    {typeof progressPayload.pipeline_percent === "number"
+                      ? `${progressPayload.pipeline_percent}%`
+                      : typeof progressPayload.percent === "number"
+                        ? `${progressPayload.percent}%`
+                        : "Preparing"}
+                  </Text>
+                  <Text color="#5f6b78" fontSize="12px" mt={2}>
+                    {formatValue(progressPayload.processed_units)} / {formatValue(progressPayload.total_units)} {formatValue(progressPayload.unit_type)}
+                  </Text>
+                  <OverviewLink onClick={() => setSelectedSection("progress")}>View execution progress</OverviewLink>
                 </OverviewCard>
               </SimpleGrid>
 
@@ -2497,6 +2509,54 @@ export const RayDashboard = () => {
                   />
                 </SectionFrame>
               </Flex>
+            </Box>
+          ) : undefined}
+
+          {activeSection === "progress" ? (
+            <Box display="grid" gap={3} gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.3fr) minmax(280px, 0.7fr)" }}>
+              <SectionFrame meta="Ray driver business progress" title="Execution progress">
+                <Text color={progressState.color} fontSize="14px" fontWeight="650">
+                  {progressState.label}
+                </Text>
+                <Text color={RAY_COLORS.text} fontSize="36px" fontWeight="750">
+                  {typeof progressPayload.pipeline_percent === "number"
+                    ? `${progressPayload.pipeline_percent}%`
+                    : typeof progressPayload.percent === "number"
+                      ? `${progressPayload.percent}%`
+                      : "—"}
+                </Text>
+                <Box bg="gray.200" borderRadius="full" h="10px" mt={3} overflow="hidden">
+                  <Box
+                    bg={RAY_COLORS.blue}
+                    h="100%"
+                    w={`${Math.max(0, Math.min(100, Number(progressPayload.pipeline_percent ?? progressPayload.percent) || 0))}%`}
+                  />
+                </Box>
+                <SimpleGrid columns={{ base: 1, md: 3 }} gap={2.5} mt={5}>
+                  <SummaryCard label="Completed" value={`${formatValue(progressPayload.processed_units)} / ${formatValue(progressPayload.total_units)} ${formatValue(progressPayload.unit_type)}`} />
+                  <SummaryCard label="Throughput" value={`${formatValue(progressPayload.throughput_per_minute)} / min`} />
+                  <SummaryCard label="Estimated remaining" value={formatProgressEta(progressPayload.eta_seconds)} />
+                </SimpleGrid>
+                <Text color={RAY_COLORS.muted} fontSize="13px" mt={4}>
+                  Phase: {formatValue(progressPayload.phase)} · Stage: {formatValue(progressPayload.stage_position)} {formatValue(progressPayload.stage_name)} · ETA confidence: {formatValue(progressPayload.eta_confidence)}
+                </Text>
+                <SimpleGrid columns={{ base: 1, md: 3 }} gap={2.5} mt={3}>
+                  <SummaryCard label="Initialization" value={Object.keys(progressPayload).length === 0 ? "In progress" : "Complete"} />
+                  <SummaryCard label="Processing" value={formatValue(progressPayload.reported_phase ?? progressPayload.phase)} />
+                  <SummaryCard label="Finalization" value={progressPayload.phase === "completed" ? "Complete" : "Pending"} />
+                </SimpleGrid>
+                <Text color={RAY_COLORS.muted} fontSize="13px" mt={3}>
+                  Last heartbeat: {formatProgressHeartbeat(progressPayload.last_progress_at)} · Phase elapsed: {formatProgressElapsed(progressPayload.phase_started_at)}
+                </Text>
+              </SectionFrame>
+              <SectionFrame meta="bounded actor summaries" title="Actor progress">
+                <KeyValueList
+                  rows={progressActors.length === 0 ? [["Status", "No actor progress reported"]] : progressActors.slice(0, 12).map((actor) => [
+                    `Actor ${formatValue(actor.actor_index)}`,
+                    `${formatValue(actor.processed_units)} / ${formatValue(actor.total_units)} · ${formatValue(actor.phase)} · failed ${formatValue(actor.failed_units)}`,
+                  ])}
+                />
+              </SectionFrame>
             </Box>
           ) : undefined}
 

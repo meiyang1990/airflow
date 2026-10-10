@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import hmac
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -27,19 +26,6 @@ from airflow.api_fastapi.auth.tokens import JWTGenerator, get_signing_args
 from airflow.configuration import conf
 
 RAY_DASHBOARD_INGESTION_CLAIM = "ray_dashboard_ingestion"
-RAY_DASHBOARD_STATIC_INGESTION_CLAIM = "ray_dashboard_static_ingestion"
-RAY_DASHBOARD_STATIC_INGESTION_TOKEN_OPTION = "ray_dashboard_ingestion_token"
-
-
-def get_static_ray_dashboard_ingestion_token() -> str:
-    """Return the configured static Ray Dashboard ingestion token, if any."""
-    return conf.get("api_auth", RAY_DASHBOARD_STATIC_INGESTION_TOKEN_OPTION, fallback="").strip()
-
-
-def is_static_ray_dashboard_ingestion_token(token: str) -> bool:
-    """Check whether a bearer token matches the configured static ingestion token."""
-    configured_token = get_static_ray_dashboard_ingestion_token()
-    return bool(configured_token and hmac.compare_digest(configured_token, token))
 
 
 def generate_ray_dashboard_ingestion_token(

@@ -252,35 +252,65 @@ class TestRayDashboardIngestion:
             is None
         )
 
-    @pytest.mark.usefixtures("_use_real_jwt_bearer")
-    def test_ingest_accepts_static_ingestion_token(self, client, session, create_task_instance):
-        ti = create_task_instance(task_id="ray_dashboard_static_token", state=State.RUNNING)
+    def test_ingest_progress_rejects_unbounded_actor_summaries(
+        self, client, exec_app, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_progress_bounds", state=State.RUNNING)
         session.commit()
+        _set_ray_dashboard_ingestion_token(exec_app, ti)
 
-        with conf_vars({("api_auth", "ray_dashboard_ingestion_token"): "static-token"}):
+        resp = client.post(
+            f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+            json={
+                "try_number": ti.try_number,
+                "sections": [
+                    {"section": "progress", "payload": {"actor_summaries": [{} for _ in range(21)]}}
+                ],
+            },
+        )
+
+        assert resp.status_code == 422, resp.json()
+
+    def test_ingest_progress_updates_the_latest_snapshot(
+        self, client, exec_app, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_progress_upsert", state=State.RUNNING)
+        session.commit()
+        _set_ray_dashboard_ingestion_token(exec_app, ti)
+        url = f"/execution/task-instances/{ti.id}/ray-dashboard/ingest"
+
+        for processed_units in (3, 7):
             resp = client.post(
-                f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
-                headers={"Authorization": "Bearer static-token"},
+                url,
                 json={
                     "try_number": ti.try_number,
-                    "collector_status": "ok",
-                    "sections": [{"section": "jobs", "payload": {"jobs": []}}],
+                    "sections": [
+                        {
+                            "section": "progress",
+                            "payload": {"processed_units": processed_units, "total_units": 10},
+                        }
+                    ],
                 },
             )
+            assert resp.status_code == 201, resp.json()
 
-        assert resp.status_code == 201, resp.json()
-        assert resp.json()["snapshots"] == 1
-        assert (
-            get_ray_dashboard_task_instance(
-                dag_id=ti.dag_id,
-                run_id=ti.run_id,
-                task_id=ti.task_id,
-                map_index=ti.map_index,
-                try_number=ti.try_number,
-                session=session,
-            )
-            is not None
+        dashboard = get_ray_dashboard_task_instance(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=ti.try_number,
+            session=session,
         )
+        assert dashboard is not None
+        snapshots = session.scalars(
+            select(RayDashboardSnapshot).where(
+                RayDashboardSnapshot.dashboard_id == dashboard.id,
+                RayDashboardSnapshot.section == "progress",
+            )
+        ).all()
+        assert len(snapshots) == 1
+        assert snapshots[0].payload["processed_units"] == 7
 
     @pytest.mark.parametrize(
         "payload",
