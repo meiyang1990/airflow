@@ -353,7 +353,21 @@ const formatProgressHeartbeat = (timestamp: unknown): string => {
     return "尚未收到工作进度心跳";
   }
 
-  return new Date(timestamp * 1000).toLocaleString();
+  return `${new Date(timestamp * 1000).toLocaleString("zh-CN", {
+    hour12: false,
+    timeZone: UTC_PLUS_8_TIME_ZONE,
+  })} 北京时间`;
+};
+
+const formatEstimatedCompletion = (timestamp: unknown): string => {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) {
+    return "暂不能预测";
+  }
+
+  return `${new Date(timestamp * 1000).toLocaleString("zh-CN", {
+    hour12: false,
+    timeZone: UTC_PLUS_8_TIME_ZONE,
+  })} 北京时间`;
 };
 
 const formatProgressElapsed = (startedAt: unknown): string => {
@@ -2536,6 +2550,7 @@ export const RayDashboard = () => {
                   <SummaryCard label="Completed" value={`${formatValue(progressPayload.processed_units)} / ${formatValue(progressPayload.total_units)} ${formatValue(progressPayload.unit_type)}`} />
                   <SummaryCard label="Throughput" value={`${formatValue(progressPayload.throughput_per_minute)} / min`} />
                   <SummaryCard label="Estimated remaining" value={formatProgressEta(progressPayload.eta_seconds)} />
+                  <SummaryCard label="Estimated completion" value={formatEstimatedCompletion(progressPayload.estimated_completion_at)} />
                 </SimpleGrid>
                 <Text color={RAY_COLORS.muted} fontSize="13px" mt={4}>
                   Phase: {formatValue(progressPayload.phase)} · Stage: {formatValue(progressPayload.stage_position)} {formatValue(progressPayload.stage_name)} · ETA confidence: {formatValue(progressPayload.eta_confidence)}

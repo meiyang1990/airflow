@@ -437,6 +437,7 @@ describe("RayDashboard", () => {
       actor_summaries: [
         { actor_index: 0, failed_units: 1, phase: "processing", processed_units: 40, total_units: 80 },
       ],
+      estimated_completion_at: 1_789_000_120,
       eta_confidence: "measured",
       eta_seconds: 120,
       failed_units: 1,
@@ -463,6 +464,7 @@ describe("RayDashboard", () => {
     expect(screen.getByText("进度心跳已停滞；任务状态未被此提示改变")).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.getByText(/40 \/ 80 files/u)).toBeInTheDocument();
+    expect(screen.getByText("Estimated completion")).toBeInTheDocument();
     expect(screen.getByText(/Actor 0/u)).toBeInTheDocument();
   });
 
@@ -487,6 +489,7 @@ describe("RayDashboard", () => {
 
     expect(await screen.findByText("正在建立 ETA 样本；不会在初始化阶段给出估算")).toBeInTheDocument();
     expect(screen.getByText("正在建立预估")).toBeInTheDocument();
+    expect(screen.getByText("暂不能预测")).toBeInTheDocument();
     expect(screen.getByText(/Phase elapsed:/u)).toBeInTheDocument();
   });
 
