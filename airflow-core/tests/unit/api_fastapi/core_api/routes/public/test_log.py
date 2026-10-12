@@ -114,6 +114,17 @@ class TestTaskInstancesLog:
         dagbag = create_dag_bag()
         test_client.app.dependency_overrides[dag_bag_from_app] = lambda: dagbag
 
+    def test_download_allows_browser_accept_header(self):
+        response = self.client.get(
+            f"/dags/{self.DAG_ID}/dagRuns/{self.RUN_ID}/taskInstances/{self.TASK_ID}/logs/1",
+            params={"download": "true"},
+            headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/plain; charset=utf-8"
+        assert response.headers["content-disposition"].startswith("attachment; filename=")
+
     @pytest.fixture
     def configure_loggers(self, tmp_path, create_log_template):
         self.log_dir = tmp_path

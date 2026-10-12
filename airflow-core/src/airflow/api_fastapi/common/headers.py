@@ -59,7 +59,12 @@ def header_accept_json_or_ndjson_depends(
             }
         ),
     ] = Mimetype.ANY,
+    download: bool = False,
 ) -> Mimetype:
+    # Browser navigations use an HTML-focused Accept header.  Downloads are returned
+    # as text attachments, so their response does not need JSON/NDJSON negotiation.
+    if download:
+        return Mimetype.ANY
     if accept.startswith(Mimetype.ANY):
         return Mimetype.ANY
     if accept.startswith(Mimetype.JSON):
