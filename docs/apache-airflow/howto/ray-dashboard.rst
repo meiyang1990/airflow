@@ -81,6 +81,19 @@ for the current task attempt are:
 The token scope ensures the collector can only write data for its own task instance. Workers and
 tasks must not write directly to the metadata database.
 
+Driver ingestion authentication
+-------------------------------
+
+Ray drivers use a fixed deployment token for
+``POST /execution/task-instances/{task_instance_id}/ray-dashboard/ingest``.
+Set ``AIRFLOW__API_AUTH__RAY_DASHBOARD_INGESTION_TOKEN`` consistently on the API
+server and submitting task pods using a Kubernetes Secret. The DAG also supports
+``AIRFLOW_RAY_DASHBOARD_INGEST_TOKEN`` as an explicit submitter override.
+Do not hardcode the credential or distribute the API JWT signing key to workers.
+An empty token disables fixed-token ingestion; the payload must still identify
+the current attempt. This shared credential permits ingestion for any current
+task attempt, so distribute it only to trusted collectors and use HTTPS.
+
 Recommended Ray sources
 -----------------------
 

@@ -1996,6 +1996,17 @@ workers:
 api_auth:
   description: Settings relating to authentication on the Airflow APIs
   options:
+    ray_dashboard_ingestion_token:
+      description: |
+        Fixed bearer credential accepted only by POST Ray Dashboard ingest requests.
+        Configure the same value for the API server and trusted Ray submitters.
+        Holders can publish snapshots for any task's current attempt. Use a dedicated
+        secret, HTTPS, and restrict access to trusted collectors. Empty disables this credential.
+      version_added: 3.2.0
+      type: string
+      sensitive: true
+      example: ~
+      default: ""
     jwt_audience:
       version_added: 3.0.0
       description: |

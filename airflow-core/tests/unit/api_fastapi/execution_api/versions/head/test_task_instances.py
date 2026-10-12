@@ -176,6 +176,65 @@ class TestRayDashboardIngestion:
     def teardown_method(self):
         clear_db_runs()
 
+    @pytest.mark.usefixtures("_use_real_jwt_bearer")
+    @pytest.mark.parametrize(("attempt_offset", "expected_status"), [(0, 201), (1, 403)])
+    def test_fixed_token_ingests_progress_for_current_attempt(
+        self, client, session, create_task_instance, attempt_offset, expected_status
+    ):
+        ti = create_task_instance(task_id="fixed_token_progress", state=State.RUNNING)
+        session.commit()
+        with conf_vars({("api_auth", "ray_dashboard_ingestion_token"): "fixed-test-token"}):
+            response = client.post(
+                f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+                headers={"Authorization": "Bearer fixed-test-token"},
+                json={
+                    "try_number": ti.try_number + attempt_offset,
+                    "sections": [
+                        {"section": "progress", "payload": {"processed_units": 3, "total_units": 10}}
+                    ],
+                },
+            )
+        assert response.status_code == expected_status, response.json()
+        dashboard = get_ray_dashboard_task_instance(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=ti.try_number,
+            session=session,
+        )
+        if expected_status == 201:
+            snapshot = session.scalar(
+                select(RayDashboardSnapshot).where(RayDashboardSnapshot.dashboard_id == dashboard.id)
+            )
+            assert snapshot.payload["processed_units"] == 3
+        else:
+            assert dashboard is None
+
+    @pytest.mark.usefixtures("_use_real_jwt_bearer")
+    @pytest.mark.parametrize(
+        ("configured", "supplied", "endpoint"),
+        [
+            ("fixed-test-token", "wrong-token", "ingest"),
+            ("", "fixed-test-token", "ingest"),
+            ("fixed-test-token", "fixed-test-token", "snapshots"),
+        ],
+    )
+    def test_fixed_token_rejects_invalid_credentials_and_other_endpoints(
+        self, client, session, create_task_instance, configured, supplied, endpoint
+    ):
+        ti = create_task_instance(task_id="fixed_token_rejected", state=State.RUNNING)
+        session.commit()
+        with conf_vars({("api_auth", "ray_dashboard_ingestion_token"): configured}):
+            response = client.post(
+                f"/execution/task-instances/{ti.id}/ray-dashboard/{endpoint}",
+                headers={"Authorization": f"Bearer {supplied}"},
+                json={"try_number": ti.try_number, "sections": []}
+                if endpoint == "ingest"
+                else {"section": "progress", "payload": {}},
+            )
+        assert response.status_code == 403, response.json()
+
     def test_ingest_ray_dashboard_snapshots(self, client, exec_app, session, create_task_instance):
         ti = create_task_instance(task_id="ray_dashboard_ingest", state=State.RUNNING)
         session.commit()

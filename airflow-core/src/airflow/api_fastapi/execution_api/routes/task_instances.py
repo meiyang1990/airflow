@@ -72,6 +72,7 @@ from airflow.api_fastapi.execution_api.datamodels.taskinstance import (
     TITerminalStatePayload,
 )
 from airflow.api_fastapi.execution_api.ray_dashboard_tokens import (
+    RAY_DASHBOARD_STATIC_INGESTION_CLAIM,
     validate_ray_dashboard_ingestion_claims,
 )
 from airflow.api_fastapi.execution_api.security import CurrentTIToken, ExecutionAPIRoute, require_auth
@@ -748,14 +749,15 @@ def ingest_ray_dashboard_snapshots(
     if task_instance is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Task Instance not found")
 
-    validate_ray_dashboard_ingestion_claims(
-        claims=token.claims,
-        dag_id=task_instance.dag_id,
-        run_id=task_instance.run_id,
-        task_id=task_instance.task_id,
-        map_index=task_instance.map_index,
-        try_number=payload.try_number,
-    )
+    if not token.claims.get(RAY_DASHBOARD_STATIC_INGESTION_CLAIM):
+        validate_ray_dashboard_ingestion_claims(
+            claims=token.claims,
+            dag_id=task_instance.dag_id,
+            run_id=task_instance.run_id,
+            task_id=task_instance.task_id,
+            map_index=task_instance.map_index,
+            try_number=payload.try_number,
+        )
 
     if payload.try_number != task_instance.try_number:
         raise HTTPException(

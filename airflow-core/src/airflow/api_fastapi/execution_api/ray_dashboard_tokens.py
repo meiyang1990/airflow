@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import hmac
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -26,6 +27,13 @@ from airflow.api_fastapi.auth.tokens import JWTGenerator, get_signing_args
 from airflow.configuration import conf
 
 RAY_DASHBOARD_INGESTION_CLAIM = "ray_dashboard_ingestion"
+RAY_DASHBOARD_STATIC_INGESTION_CLAIM = "ray_dashboard_static_ingestion"
+
+
+def is_static_ray_dashboard_ingestion_token(token: str) -> bool:
+    """Validate the deployment's fixed ingestion credential without requiring JWT signing keys."""
+    configured = conf.get("api_auth", "ray_dashboard_ingestion_token", fallback="").strip()
+    return bool(configured and hmac.compare_digest(configured.encode(), token.encode()))
 
 
 def generate_ray_dashboard_ingestion_token(

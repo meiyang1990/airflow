@@ -38,6 +38,7 @@ from airflow.api_fastapi.auth.tokens import (
     get_sig_validation_args,
     get_signing_args,
 )
+from airflow.api_fastapi.execution_api.ray_dashboard_tokens import RAY_DASHBOARD_STATIC_INGESTION_CLAIM
 
 if TYPE_CHECKING:
     import httpx
@@ -132,6 +133,11 @@ class JWTReissueMiddleware(BaseHTTPMiddleware):
         from airflow.configuration import conf
 
         response: Response = await call_next(request)
+
+        # Fixed ingestion credentials have no expiry and must never be exchanged for a JWT.
+        authenticated_token = request.scope.get("ti_token")
+        if authenticated_token and authenticated_token.claims.get(RAY_DASHBOARD_STATIC_INGESTION_CLAIM):
+            return response
 
         refreshed_token: str | None = None
         auth_header = request.headers.get("authorization")
