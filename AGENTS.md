@@ -122,6 +122,14 @@ reported as such are described in "What is NOT considered a security vulnerabili
 
 ## Ray Dashboard Metric Rules
 
+### Fixed-token ingestion contract
+
+- Ray Dashboard and Progress driver ingestion MUST use the deployment's fixed token, as established by `airflow_dags` commit `a64425f`. Task pods must not require `api_auth.jwt_secret` or JWT signing keys for this path.
+- Changing this authentication contract requires explicit user approval. Adding Progress, changing metrics, or refactoring collectors does not authorize changing authentication.
+- Preserve regression coverage for fixed-token injection without a JWT secret, successful Dashboard and Progress persistence, invalid/missing credentials, and current-attempt validation. Do not delete, skip, weaken, or replace these cases with JWT-only tests to make a change pass.
+- For ingestion changes, run `TestRayDashboardIngestion` in `airflow-core/tests/unit/api_fastapi/execution_api/versions/head/test_task_instances.py` through Breeze, and the fixed-token tests in `airflow_dags/tests/test_base_pipeline_dag.py`. Report any test environment blocker explicitly.
+- Read credentials from deployment configuration/environment; never hardcode production tokens. Fixed-token authentication is restricted to POST `/execution/task-instances/{task_instance_id}/ray-dashboard/ingest`.
+
 - Ray Dashboard metric calculations must strictly follow the metric definitions confirmed by the user. Do not infer alternative definitions, add fallback calculations, or read equivalent-looking labels/fields unless the user explicitly confirms that calculation scope.
 
 ## Testing Standards

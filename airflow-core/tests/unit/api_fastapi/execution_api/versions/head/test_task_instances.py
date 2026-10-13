@@ -46,7 +46,11 @@ from airflow.exceptions import AirflowSkipException
 from airflow.models import RenderedTaskInstanceFields, TaskReschedule, Trigger
 from airflow.models.asset import AssetActive, AssetAliasModel, AssetEvent, AssetModel
 from airflow.models.log import Log
-from airflow.models.ray_dashboard import RayDashboardSnapshot, get_ray_dashboard_task_instance
+from airflow.models.ray_dashboard import (
+    RAY_DASHBOARD_PROGRESS_MAX_STAGE_SUMMARIES,
+    RayDashboardSnapshot,
+    get_ray_dashboard_task_instance,
+)
 from airflow.models.taskinstance import TaskInstance
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.providers.standard.operators.empty import EmptyOperator
@@ -177,24 +181,45 @@ class TestRayDashboardIngestion:
         clear_db_runs()
 
     @pytest.mark.usefixtures("_use_real_jwt_bearer")
+    @pytest.mark.parametrize("section", ["jobs", "progress"])
     @pytest.mark.parametrize(("attempt_offset", "expected_status"), [(0, 201), (1, 403)])
-    def test_fixed_token_ingests_progress_for_current_attempt(
-        self, client, session, create_task_instance, attempt_offset, expected_status
+    def test_fixed_token_ingests_dashboard_and_progress_without_jwt_secret(
+        self, client, session, create_task_instance, attempt_offset, expected_status, section
     ):
         ti = create_task_instance(task_id="fixed_token_progress", state=State.RUNNING)
         session.commit()
-        with conf_vars({("api_auth", "ray_dashboard_ingestion_token"): "fixed-test-token"}):
+        payload = (
+            {
+                "stage_summaries": [
+                    {
+                        "phase": "processing",
+                        "processed_units": 3,
+                        "stage_name": "transform",
+                        "stage_position": 1,
+                        "total_units": 10,
+                    }
+                ]
+            }
+            if section == "progress"
+            else {"jobs": [{"status": "RUNNING"}]}
+        )
+        with conf_vars(
+            {
+                ("api_auth", "ray_dashboard_ingestion_token"): "fixed-test-token",
+                ("api_auth", "jwt_secret"): "",
+                ("api_auth", "jwt_private_key_path"): "",
+            }
+        ):
             response = client.post(
                 f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
                 headers={"Authorization": "Bearer fixed-test-token"},
                 json={
                     "try_number": ti.try_number + attempt_offset,
-                    "sections": [
-                        {"section": "progress", "payload": {"processed_units": 3, "total_units": 10}}
-                    ],
+                    "sections": [{"section": section, "payload": payload}],
                 },
             )
         assert response.status_code == expected_status, response.json()
+        assert "Refreshed-API-Token" not in response.headers
         dashboard = get_ray_dashboard_task_instance(
             dag_id=ti.dag_id,
             run_id=ti.run_id,
@@ -207,7 +232,8 @@ class TestRayDashboardIngestion:
             snapshot = session.scalar(
                 select(RayDashboardSnapshot).where(RayDashboardSnapshot.dashboard_id == dashboard.id)
             )
-            assert snapshot.payload["processed_units"] == 3
+            assert snapshot.section == section
+            assert snapshot.payload == payload
         else:
             assert dashboard is None
 
@@ -325,6 +351,72 @@ class TestRayDashboardIngestion:
                 "sections": [
                     {"section": "progress", "payload": {"actor_summaries": [{} for _ in range(21)]}}
                 ],
+            },
+        )
+
+        assert resp.status_code == 422, resp.json()
+
+    @pytest.mark.parametrize(
+        "stage_summaries",
+        [
+            [
+                {
+                    "phase": "completed",
+                    "processed_units": 10,
+                    "stage_name": "extract",
+                    "stage_position": 1,
+                    "total_units": 10,
+                },
+                {
+                    "phase": "processing",
+                    "processed_units": 2,
+                    "stage_name": "transform",
+                    "stage_position": 1,
+                    "total_units": 10,
+                },
+            ],
+            [
+                {
+                    "phase": "processing",
+                    "processed_units": 2,
+                    "stage_name": "transform",
+                    "stage_position": 0,
+                    "total_units": 10,
+                }
+            ],
+            [
+                {
+                    "phase": "processing",
+                    "processed_units": 2,
+                    "stage_name": "",
+                    "stage_position": 1,
+                    "total_units": 10,
+                }
+            ],
+            [
+                {
+                    "phase": "processing",
+                    "processed_units": 2,
+                    "stage_name": "transform",
+                    "stage_position": position,
+                    "total_units": 10,
+                }
+                for position in range(1, RAY_DASHBOARD_PROGRESS_MAX_STAGE_SUMMARIES + 2)
+            ],
+        ],
+    )
+    def test_ingest_progress_rejects_invalid_stage_summaries(
+        self, client, exec_app, session, create_task_instance, stage_summaries
+    ):
+        ti = create_task_instance(task_id="ray_dashboard_invalid_stage_summaries", state=State.RUNNING)
+        session.commit()
+        _set_ray_dashboard_ingestion_token(exec_app, ti)
+
+        resp = client.post(
+            f"/execution/task-instances/{ti.id}/ray-dashboard/ingest",
+            json={
+                "try_number": ti.try_number,
+                "sections": [{"section": "progress", "payload": {"stage_summaries": stage_summaries}}],
             },
         )
 

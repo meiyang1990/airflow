@@ -28,6 +28,7 @@ from airflow.models.ray_dashboard import (
     RAY_DASHBOARD_MAX_METRIC_BATCH_SIZE,
     RAY_DASHBOARD_MAX_SECTION_PAYLOAD_BYTES,
     RAY_DASHBOARD_PROGRESS_MAX_ACTOR_DETAILS,
+    RAY_DASHBOARD_PROGRESS_MAX_STAGE_SUMMARIES,
     RAY_DASHBOARD_SECTIONS,
 )
 
@@ -44,6 +45,37 @@ def validate_ray_dashboard_progress_payload(payload: JsonValue | None) -> None:
         raise ValueError(
             f"progress actor_summaries cannot contain more than {RAY_DASHBOARD_PROGRESS_MAX_ACTOR_DETAILS} items"
         )
+
+    stage_summaries = payload.get("stage_summaries", [])
+    if not isinstance(stage_summaries, list):
+        raise ValueError("progress stage_summaries must be a list")
+    if len(stage_summaries) > RAY_DASHBOARD_PROGRESS_MAX_STAGE_SUMMARIES:
+        raise ValueError(
+            "progress stage_summaries cannot contain more than "
+            f"{RAY_DASHBOARD_PROGRESS_MAX_STAGE_SUMMARIES} items"
+        )
+
+    stage_positions: set[int] = set()
+    for stage_summary in stage_summaries:
+        if not isinstance(stage_summary, dict):
+            raise ValueError("progress stage summaries must be objects")
+        stage_position = stage_summary.get("stage_position")
+        if not isinstance(stage_position, int) or isinstance(stage_position, bool) or stage_position < 1:
+            raise ValueError("progress stage_position must be a positive integer")
+        if stage_position in stage_positions:
+            raise ValueError("progress stage_position values must be unique")
+        stage_positions.add(stage_position)
+
+        stage_name = stage_summary.get("stage_name")
+        if not isinstance(stage_name, str) or not stage_name.strip():
+            raise ValueError("progress stage_name must be a non-empty string")
+        phase = stage_summary.get("phase")
+        if not isinstance(phase, str) or not phase.strip():
+            raise ValueError("progress stage phase must be a non-empty string")
+        for field in ("processed_units", "total_units"):
+            value = stage_summary.get(field)
+            if value is None or (not isinstance(value, int) or isinstance(value, bool) or value < 0):
+                raise ValueError(f"progress stage {field} must be a non-negative integer")
 
     for field in ("processed_units", "total_units", "failed_units", "active_actors", "total_actors"):
         value = payload.get(field)

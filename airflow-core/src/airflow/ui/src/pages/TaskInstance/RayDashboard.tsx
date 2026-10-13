@@ -380,6 +380,16 @@ const formatProgressElapsed = (startedAt: unknown): string => {
   return minutes === 0 ? `${elapsedSeconds} seconds` : `${minutes} minutes ${elapsedSeconds % 60} seconds`;
 };
 
+const isFailedStatus = (status?: string | null) => {
+  const normalizedStatus = status?.toLowerCase() ?? "";
+
+  return (
+    normalizedStatus.includes("fail") ||
+    normalizedStatus.includes("error") ||
+    normalizedStatus.includes("dead")
+  );
+};
+
 const getProgressState = (payload: JsonRecord): { color: string; label: string } => {
   if (payload.is_stalled === true || payload.phase === "stalled") {
     return { color: "red.600", label: "进度心跳已停滞；任务状态未被此提示改变" };
@@ -397,12 +407,52 @@ const getProgressState = (payload: JsonRecord): { color: string; label: string }
   return { color: "blue.600", label: "处理进度与 ETA 来自最近观测窗口" };
 };
 
-const normalizeUnit = (unit?: string | null) => unit?.trim().toLowerCase();
-
 const formatDecimal = (value: number) =>
   Number.isInteger(value)
     ? value.toLocaleString()
     : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+const getStageSummaries = (payload: JsonRecord): Array<JsonRecord> =>
+  (Array.isArray(payload.stage_summaries) ? payload.stage_summaries : [])
+    .filter(isRecord)
+    .filter(
+      (stage) =>
+        typeof stage.stage_position === "number" &&
+        Number.isInteger(stage.stage_position) &&
+        stage.stage_position > 0 &&
+        typeof stage.stage_name === "string" &&
+        stage.stage_name.trim().length > 0,
+    )
+    .sort((left, right) => Number(left.stage_position) - Number(right.stage_position));
+
+const getStageProgressPercent = (stage: JsonRecord): number | undefined => {
+  const processedUnits = stage.processed_units;
+  const totalUnits = stage.total_units;
+
+  if (
+    typeof processedUnits !== "number" ||
+    !Number.isFinite(processedUnits) ||
+    processedUnits < 0 ||
+    typeof totalUnits !== "number" ||
+    !Number.isFinite(totalUnits) ||
+    totalUnits <= 0
+  ) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.min(100, (processedUnits / totalUnits) * 100));
+};
+
+const formatStageProgressPercent = (stage: JsonRecord): string => {
+  const percent = getStageProgressPercent(stage);
+
+  return percent === undefined ? "—" : `${formatDecimal(percent)}%`;
+};
+
+const formatStageLabel = (stage: JsonRecord): string =>
+  `Stage ${formatValue(stage.stage_position)}: ${formatValue(stage.stage_name)}`;
+
+const normalizeUnit = (unit?: string | null) => unit?.trim().toLowerCase();
 
 const formatMetricValue = (value: number, unit?: string | null) =>
   `${formatValue(value)}${unit === undefined || unit === null ? "" : ` ${unit}`}`;
@@ -668,10 +718,9 @@ const getPeakRowsFromSnapshots = (snapshots: Array<Snapshot>, section: RaySectio
     .sort((left, right) => right.length - left.length)[0] ?? [];
 
 const getPeakActorAliveCount = (timeline?: ActorAliveTimeline) =>
-  Math.max(0, ...((timeline?.points ?? []).map((point) => point.value)));
+  Math.max(0, ...(timeline?.points ?? []).map((point) => point.value));
 
-const getLatestActorAliveCount = (timeline?: ActorAliveTimeline) =>
-  timeline?.points.at(-1)?.value ?? 0;
+const getLatestActorAliveCount = (timeline?: ActorAliveTimeline) => timeline?.points.at(-1)?.value ?? 0;
 
 const getMetricSampleBucket = (sample: MetricSample, bucketSeconds: number) => {
   const timestamp = Date.parse(sample.sampled_at);
@@ -1992,10 +2041,16 @@ export const RayDashboard = () => {
   const peakTaskRows = getPeakRowsFromSnapshots(allSnapshots, "tasks");
   const jobRows = getJobRows(dashboard, snapshotBySection.jobs?.payload);
   const progressPayload = getProgressPayload(snapshotBySection.progress?.payload);
+  const stageSummaries = getStageSummaries(progressPayload);
+  const singleStage = stageSummaries.length === 1 ? stageSummaries[0] : undefined;
+  const hasMultipleStages = stageSummaries.length > 1;
   const progressActors = Array.isArray(progressPayload.actor_summaries)
     ? progressPayload.actor_summaries.filter(isRecord)
     : [];
-  const progressState = getProgressState(progressPayload);
+  const terminalFailure = isFailedStatus(dashboard.status);
+  const progressState = terminalFailure
+    ? { color: "red.600", label: "Ray 任务已失败；进度已停止在最后一次上报值" }
+    : getProgressState(progressPayload);
   const overviewTaskRows = peakTaskRows.length > 0 ? peakTaskRows : taskRows;
   const finishedTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/finish/u, /success/u, /done/u]);
   const runningTasks = countRowsByState(overviewTaskRows, TASK_STATE_KEYS, [/run/u]);
@@ -2042,9 +2097,15 @@ export const RayDashboard = () => {
   const collectorStatusColor = getStatusColor(dashboard.collector_status);
   const isRefreshing =
     isFetchingAvailability || isFetchingSnapshots || isFetchingMetricSamples || isFetchingActorAliveTimeline;
-  const hasDedicatedSection = ["actors", "cluster", "jobs", "metrics", "overview", "progress", "tasks"].includes(
-    activeSection,
-  );
+  const hasDedicatedSection = [
+    "actors",
+    "cluster",
+    "jobs",
+    "metrics",
+    "overview",
+    "progress",
+    "tasks",
+  ].includes(activeSection);
   const refreshDashboard = async () => {
     await refetchAvailability();
     setPodTimelineRefreshToken((token) => token + 1);
@@ -2305,16 +2366,24 @@ export const RayDashboard = () => {
 
                 <OverviewCard title="Task progress">
                   <Text color="#20252c" fontSize="28px" fontWeight="750" lineHeight="1.2">
-                    {typeof progressPayload.pipeline_percent === "number"
-                      ? `${progressPayload.pipeline_percent}%`
-                      : typeof progressPayload.percent === "number"
-                        ? `${progressPayload.percent}%`
-                        : "Preparing"}
+                    {terminalFailure
+                      ? "Failed"
+                      : singleStage === undefined
+                        ? hasMultipleStages
+                          ? "Multiple stages"
+                          : "Preparing"
+                        : formatStageProgressPercent(singleStage)}
                   </Text>
                   <Text color="#5f6b78" fontSize="12px" mt={2}>
-                    {formatValue(progressPayload.processed_units)} / {formatValue(progressPayload.total_units)} {formatValue(progressPayload.unit_type)}
+                    {singleStage === undefined
+                      ? hasMultipleStages
+                        ? `${stageSummaries.length} stages`
+                        : "No stage progress reported"
+                      : `${formatStageLabel(singleStage)} · ${formatValue(singleStage.processed_units)} / ${formatValue(singleStage.total_units)} ${formatValue(singleStage.unit_type)}`}
                   </Text>
-                  <OverviewLink onClick={() => setSelectedSection("progress")}>View execution progress</OverviewLink>
+                  <OverviewLink onClick={() => setSelectedSection("progress")}>
+                    View execution progress
+                  </OverviewLink>
                 </OverviewCard>
               </SimpleGrid>
 
@@ -2527,49 +2596,131 @@ export const RayDashboard = () => {
           ) : undefined}
 
           {activeSection === "progress" ? (
-            <Box display="grid" gap={3} gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.3fr) minmax(280px, 0.7fr)" }}>
+            <Box
+              display="grid"
+              gap={3}
+              gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.3fr) minmax(280px, 0.7fr)" }}
+            >
               <SectionFrame meta="Ray driver business progress" title="Execution progress">
                 <Text color={progressState.color} fontSize="14px" fontWeight="650">
                   {progressState.label}
                 </Text>
-                <Text color={RAY_COLORS.text} fontSize="36px" fontWeight="750">
-                  {typeof progressPayload.pipeline_percent === "number"
-                    ? `${progressPayload.pipeline_percent}%`
-                    : typeof progressPayload.percent === "number"
-                      ? `${progressPayload.percent}%`
-                      : "—"}
-                </Text>
-                <Box bg="gray.200" borderRadius="full" h="10px" mt={3} overflow="hidden">
-                  <Box
-                    bg={RAY_COLORS.blue}
-                    h="100%"
-                    w={`${Math.max(0, Math.min(100, Number(progressPayload.pipeline_percent ?? progressPayload.percent) || 0))}%`}
-                  />
-                </Box>
+                {terminalFailure ? (
+                  <Text color={RAY_COLORS.text} fontSize="36px" fontWeight="750">
+                    Failed
+                  </Text>
+                ) : singleStage === undefined ? (
+                  <Text color={RAY_COLORS.text} fontSize="24px" fontWeight="750" mt={2}>
+                    {hasMultipleStages ? "Stage progress" : "—"}
+                  </Text>
+                ) : (
+                  <>
+                    <Text color={RAY_COLORS.muted} fontSize="14px" fontWeight="650" mt={2}>
+                      {formatStageLabel(singleStage)}
+                    </Text>
+                    <Text color={RAY_COLORS.text} fontSize="36px" fontWeight="750">
+                      {formatStageProgressPercent(singleStage)}
+                    </Text>
+                  </>
+                )}
+                {terminalFailure || singleStage === undefined ? undefined : (
+                  <Box bg="gray.200" borderRadius="full" h="10px" mt={3} overflow="hidden">
+                    <Box bg={RAY_COLORS.blue} h="100%" w={`${getStageProgressPercent(singleStage) ?? 0}%`} />
+                  </Box>
+                )}
+                {hasMultipleStages ? (
+                  <Flex direction="column" gap={3} mt={5}>
+                    {stageSummaries.map((stage) => {
+                      const stagePercent = getStageProgressPercent(stage);
+
+                      return (
+                        <Box
+                          borderColor="gray.200"
+                          borderRadius="md"
+                          borderWidth="1px"
+                          key={String(stage.stage_position)}
+                          p={3}
+                        >
+                          <Flex align="center" gap={3} justify="space-between">
+                            <Text color={RAY_COLORS.text} fontWeight="700">
+                              {formatStageLabel(stage)}
+                            </Text>
+                            <Text color={RAY_COLORS.text} fontWeight="700">
+                              {formatStageProgressPercent(stage)}
+                            </Text>
+                          </Flex>
+                          <Box bg="gray.200" borderRadius="full" h="8px" mt={2} overflow="hidden">
+                            <Box bg={RAY_COLORS.blue} h="100%" w={`${stagePercent ?? 0}%`} />
+                          </Box>
+                          <Text color={RAY_COLORS.muted} fontSize="13px" mt={2}>
+                            {formatValue(stage.processed_units)} / {formatValue(stage.total_units)}{" "}
+                            {formatValue(stage.unit_type)} · {formatValue(stage.phase)}
+                          </Text>
+                        </Box>
+                      );
+                    })}
+                  </Flex>
+                ) : undefined}
                 <SimpleGrid columns={{ base: 1, md: 3 }} gap={2.5} mt={5}>
-                  <SummaryCard label="Completed" value={`${formatValue(progressPayload.processed_units)} / ${formatValue(progressPayload.total_units)} ${formatValue(progressPayload.unit_type)}`} />
-                  <SummaryCard label="Throughput" value={`${formatValue(progressPayload.throughput_per_minute)} / min`} />
-                  <SummaryCard label="Estimated remaining" value={formatProgressEta(progressPayload.eta_seconds)} />
-                  <SummaryCard label="Estimated completion" value={formatEstimatedCompletion(progressPayload.estimated_completion_at)} />
+                  {terminalFailure ? (
+                    <SummaryCard
+                      label="Last reported progress"
+                      value={singleStage === undefined ? "—" : formatStageProgressPercent(singleStage)}
+                    />
+                  ) : undefined}
+                  <SummaryCard
+                    label="Completed"
+                    value={`${formatValue(progressPayload.processed_units)} / ${formatValue(progressPayload.total_units)} ${formatValue(progressPayload.unit_type)}`}
+                  />
+                  <SummaryCard
+                    label="Throughput"
+                    value={`${formatValue(progressPayload.throughput_per_minute)} / min`}
+                  />
+                  <SummaryCard
+                    label="Estimated remaining"
+                    value={formatProgressEta(progressPayload.eta_seconds)}
+                  />
+                  <SummaryCard
+                    label="Estimated completion"
+                    value={formatEstimatedCompletion(progressPayload.estimated_completion_at)}
+                  />
                 </SimpleGrid>
                 <Text color={RAY_COLORS.muted} fontSize="13px" mt={4}>
-                  Phase: {formatValue(progressPayload.phase)} · Stage: {formatValue(progressPayload.stage_position)} {formatValue(progressPayload.stage_name)} · ETA confidence: {formatValue(progressPayload.eta_confidence)}
+                  Phase: {formatValue(progressPayload.phase)} · Stage:{" "}
+                  {formatValue(progressPayload.stage_position)} {formatValue(progressPayload.stage_name)} ·
+                  ETA confidence: {formatValue(progressPayload.eta_confidence)}
                 </Text>
                 <SimpleGrid columns={{ base: 1, md: 3 }} gap={2.5} mt={3}>
-                  <SummaryCard label="Initialization" value={Object.keys(progressPayload).length === 0 ? "In progress" : "Complete"} />
-                  <SummaryCard label="Processing" value={formatValue(progressPayload.reported_phase ?? progressPayload.phase)} />
-                  <SummaryCard label="Finalization" value={progressPayload.phase === "completed" ? "Complete" : "Pending"} />
+                  <SummaryCard
+                    label="Initialization"
+                    value={Object.keys(progressPayload).length === 0 ? "In progress" : "Complete"}
+                  />
+                  <SummaryCard
+                    label="Processing"
+                    value={formatValue(progressPayload.reported_phase ?? progressPayload.phase)}
+                  />
+                  <SummaryCard
+                    label="Finalization"
+                    value={progressPayload.phase === "completed" ? "Complete" : "Pending"}
+                  />
                 </SimpleGrid>
                 <Text color={RAY_COLORS.muted} fontSize="13px" mt={3}>
-                  Last heartbeat: {formatProgressHeartbeat(progressPayload.last_progress_at)} · Phase elapsed: {formatProgressElapsed(progressPayload.phase_started_at)}
+                  Last heartbeat: {formatProgressHeartbeat(progressPayload.last_progress_at)} · Phase elapsed:{" "}
+                  {formatProgressElapsed(progressPayload.phase_started_at)}
                 </Text>
               </SectionFrame>
               <SectionFrame meta="bounded actor summaries" title="Actor progress">
                 <KeyValueList
-                  rows={progressActors.length === 0 ? [["Status", "No actor progress reported"]] : progressActors.slice(0, 12).map((actor) => [
-                    `Actor ${formatValue(actor.actor_index)}`,
-                    `${formatValue(actor.processed_units)} / ${formatValue(actor.total_units)} · ${formatValue(actor.phase)} · failed ${formatValue(actor.failed_units)}`,
-                  ])}
+                  rows={
+                    progressActors.length === 0
+                      ? [["Status", "No actor progress reported"]]
+                      : progressActors
+                          .slice(0, 12)
+                          .map((actor) => [
+                            `Actor ${formatValue(actor.actor_index)}`,
+                            `${formatValue(actor.processed_units)} / ${formatValue(actor.total_units)} · ${formatValue(actor.phase)} · failed ${formatValue(actor.failed_units)}`,
+                          ])
+                  }
                 />
               </SectionFrame>
             </Box>

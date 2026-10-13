@@ -82,6 +82,7 @@ const defaultActorRecords = [
 ];
 let currentActorRecords = defaultActorRecords;
 let currentProgressPayload: Record<string, unknown> | undefined;
+let currentDashboardStatus = "running";
 
 vi.mock("axios");
 vi.mock("openapi/queries");
@@ -102,6 +103,7 @@ describe("RayDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentActorRecords = defaultActorRecords;
+    currentDashboardStatus = "running";
     currentProgressPayload = undefined;
     vi.mocked(useParams).mockReturnValue({
       dagId: "test-dag",
@@ -134,7 +136,7 @@ describe("RayDashboard", () => {
               ray_namespace: "default",
               ray_submission_id: "raysubmit_84f2",
               run_id: "test-run",
-              status: "running",
+              status: currentDashboardStatus,
               task_id: "test-task",
               try_number: 1,
               updated_at: "2026-09-18T09:00:00Z",
@@ -446,6 +448,16 @@ describe("RayDashboard", () => {
       percent: 50,
       phase: "stalled",
       processed_units: 40,
+      stage_summaries: [
+        {
+          phase: "stalled",
+          processed_units: 40,
+          stage_name: "transform",
+          stage_position: 1,
+          total_units: 80,
+          unit_type: "files",
+        },
+      ],
       throughput_per_minute: 20,
       total_units: 80,
       unit_type: "files",
@@ -466,6 +478,132 @@ describe("RayDashboard", () => {
     expect(screen.getByText(/40 \/ 80 files/u)).toBeInTheDocument();
     expect(screen.getByText("Estimated completion")).toBeInTheDocument();
     expect(screen.getByText(/Actor 0/u)).toBeInTheDocument();
+  });
+
+  it("calculates single-stage progress from stage counts instead of pipeline_percent", async () => {
+    currentProgressPayload = {
+      pipeline_percent: 0,
+      stage_summaries: [
+        {
+          phase: "processing",
+          processed_units: 5517,
+          stage_name: "topic_drop_repair",
+          stage_position: 1,
+          total_units: 12_000,
+          unit_type: "files",
+        },
+      ],
+    };
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Progress/u }));
+
+    expect(await screen.findByText("Stage 1: topic_drop_repair")).toBeInTheDocument();
+    expect(screen.getAllByText("45.98%")).not.toHaveLength(0);
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("renders ordered local progress for multiple stages without an aggregate percentage", async () => {
+    currentProgressPayload = {
+      percent: 0,
+      pipeline_percent: 0,
+      stage_summaries: [
+        {
+          phase: "processing",
+          processed_units: 3,
+          stage_name: "transform",
+          stage_position: 2,
+          total_units: 6,
+          unit_type: "files",
+        },
+        {
+          phase: "completed",
+          processed_units: 4,
+          stage_name: "extract",
+          stage_position: 1,
+          total_units: 4,
+          unit_type: "files",
+        },
+      ],
+    };
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Progress/u }));
+
+    expect(await screen.findByText("Stage 1: extract")).toBeInTheDocument();
+    expect(screen.getByText("Stage 2: transform")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getAllByText("Stage progress")).not.toHaveLength(0);
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("renders a single stage with a zero total as indeterminate", async () => {
+    currentProgressPayload = {
+      stage_summaries: [
+        {
+          phase: "pending",
+          processed_units: 0,
+          stage_name: "extract",
+          stage_position: 1,
+          total_units: 0,
+          unit_type: "files",
+        },
+      ],
+    };
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Progress/u }));
+
+    expect(await screen.findByText("Stage 1: extract")).toBeInTheDocument();
+    expect(screen.getAllByText("—")).not.toHaveLength(0);
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed Ray job instead of its last reported percentage", async () => {
+    currentDashboardStatus = "FAILED";
+    currentProgressPayload = {
+      eta_confidence: "estimating",
+      phase: "initializing",
+      pipeline_percent: 50,
+      processed_units: 0,
+      stage_summaries: [
+        {
+          phase: "initializing",
+          processed_units: 6000,
+          stage_name: "transform",
+          stage_position: 1,
+          total_units: 12_000,
+          unit_type: "stage_inputs",
+        },
+      ],
+      total_units: 12_000,
+      unit_type: "stage_inputs",
+    };
+    render(
+      <Wrapper>
+        <RayDashboard />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Progress/u }));
+
+    expect(await screen.findByText("Ray 任务已失败；进度已停止在最后一次上报值")).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.getByText("Last reported progress")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
   it("shows initialization as estimating rather than fabricating an ETA", async () => {
