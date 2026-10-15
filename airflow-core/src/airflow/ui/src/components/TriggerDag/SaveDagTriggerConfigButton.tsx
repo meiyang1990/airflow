@@ -17,40 +17,24 @@
  * under the License.
  */
 import { Button } from "@chakra-ui/react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { FiSave } from "react-icons/fi";
 
-import {
-  UseDagTriggerConfigServiceGetDagTriggerConfigKeyFn,
-  useDagTriggerConfigServicePutDagTriggerConfig,
-} from "openapi/queries";
+import { useDagTriggerConfigServicePutDagTriggerConfig } from "openapi/queries";
 import { toaster } from "src/components/ui";
 import { createErrorToaster } from "src/utils";
 
+import { parseConfiguration } from "./triggerConfiguration";
+
 type Props = { readonly conf: string; readonly dagId: string; readonly disabled: boolean };
 
-const parseConfiguration = (conf: string): Record<string, unknown> | undefined => {
-  try {
-    const parsed = JSON.parse(conf) as unknown;
-
-    return parsed !== null && !Array.isArray(parsed) && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)
-      : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 export const SaveDagTriggerConfigButton = ({ conf, dagId, disabled }: Props) => {
-  const queryClient = useQueryClient();
   const { t: translate } = useTranslation("components");
   const parsedConf = parseConfiguration(conf);
   const { isPending, mutate } = useDagTriggerConfigServicePutDagTriggerConfig({
     onError: (error: unknown) =>
       createErrorToaster(error, { titleKey: "components:triggerDag.configurationSaveFailed" }, translate),
-    onSuccess: (savedConfig) => {
-      queryClient.setQueryData(UseDagTriggerConfigServiceGetDagTriggerConfigKeyFn({ dagId }), savedConfig);
+    onSuccess: () => {
       toaster.create({ title: translate("triggerDag.configurationSaved"), type: "success" });
     },
   });

@@ -48,7 +48,11 @@ When the user selects the existing "trigger again with config" action, the selec
 
 The form exposes a secondary `Save configuration` action. It serializes the current `conf` and calls `PUT`; it does not call `useTrigger`, toggle pause state, navigate, close the modal, or invalidate DagRun/Grid queries. On success it refreshes the saved-configuration query and displays a confirmation.
 
-Concurrent saves use last-successful-write-wins semantics. The response is used to update the query cache so a later reopen observes the latest persisted JSON.
+Concurrent saves use last-successful-write-wins semantics. The UI does not cache the saved JSON configuration; reopening the dialog fetches the current value from the API.
+
+### Persist configuration before triggering
+
+The primary Trigger action first upserts the form's current JSON configuration. Only after that write succeeds may it unpause the DAG when selected and create the DagRun. If persistence fails, the dialog remains open and neither the pause state nor a DagRun changes. The automatic write updates the cached saved configuration but does not show the separate Save configuration success notification; the normal trigger success notification remains the final user feedback.
 
 ## Risks / Trade-offs
 

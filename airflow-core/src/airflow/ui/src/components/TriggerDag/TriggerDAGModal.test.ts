@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { resolveDialogPrefillConfig } from "./TriggerDAGModal";
+import { resolveDialogPrefillConfig, triggerConfigQueryOptions } from "./TriggerDAGModal";
 
 describe("resolveDialogPrefillConfig", () => {
   it("uses saved configuration, including an explicit empty object", () => {
@@ -37,5 +37,13 @@ describe("resolveDialogPrefillConfig", () => {
     const historicalConfig = { conf: { source: "historical" }, logicalDate: undefined, runId: "old-run" };
 
     expect(resolveDialogPrefillConfig(historicalConfig, { source: "shared" })).toBe(historicalConfig);
+  });
+
+  it("refetches configuration when the dialog opens instead of retaining it in the query cache", () => {
+    expect(triggerConfigQueryOptions(true, false)).toEqual({
+      enabled: true,
+      gcTime: 0,
+      refetchOnMount: "always",
+    });
   });
 });

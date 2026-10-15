@@ -53,6 +53,12 @@ export const resolveDialogPrefillConfig = (
   savedConfig: Record<string, unknown> | undefined,
 ) => prefillConfig ?? (savedConfig ? { conf: savedConfig, logicalDate: undefined, runId: "" } : undefined);
 
+export const triggerConfigQueryOptions = (open: boolean, hasHistoricalPrefill: boolean) => ({
+  enabled: open && !hasHistoricalPrefill,
+  gcTime: 0,
+  refetchOnMount: "always" as const,
+});
+
 const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
   dagDisplayName,
   dagId,
@@ -81,7 +87,9 @@ const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
   const isPartitioned = dag ? dag.timetable_partitioned : false;
   const { error, isPending, triggerDagRun } = useTrigger({ dagId, onSuccessConfirm: onClose });
   const { data: savedConfig, isLoading: isSavedConfigLoading } =
-    useDagTriggerConfigServiceGetDagTriggerConfig({ dagId }, undefined, { enabled: open && !prefillConfig });
+    useDagTriggerConfigServiceGetDagTriggerConfig({ dagId }, undefined, {
+      ...triggerConfigQueryOptions(open, Boolean(prefillConfig)),
+    });
   const dialogPrefillConfig = useMemo(
     () => resolveDialogPrefillConfig(prefillConfig, savedConfig?.conf),
     [prefillConfig, savedConfig?.conf],

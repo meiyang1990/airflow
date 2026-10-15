@@ -20,10 +20,7 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  UseDagTriggerConfigServiceGetDagTriggerConfigKeyFn,
-  useDagTriggerConfigServicePutDagTriggerConfig,
-} from "openapi/queries";
+import { useDagTriggerConfigServicePutDagTriggerConfig } from "openapi/queries";
 import { Wrapper } from "src/utils/Wrapper";
 
 import { SaveDagTriggerConfigButton } from "./SaveDagTriggerConfigButton";
@@ -35,7 +32,6 @@ const mutate = vi.fn();
 describe("SaveDagTriggerConfigButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(UseDagTriggerConfigServiceGetDagTriggerConfigKeyFn).mockReturnValue(["trigger-config"]);
     vi.mocked(useDagTriggerConfigServicePutDagTriggerConfig).mockReturnValue({
       isPending: false,
       mutate,

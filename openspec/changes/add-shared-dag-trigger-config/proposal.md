@@ -6,6 +6,7 @@ The Trigger DAG dialog only supports immediately creating a DagRun. Users cannot
 
 - Add one shared, persistent trigger JSON configuration for each DAG.
 - Add a Save configuration action to the Trigger DAG dialog that validates and persists the configuration without creating a DagRun or changing DAG pause state.
+- Persist the current configuration when a user selects Trigger, before changing pause state or creating the DagRun.
 - Load the saved DAG configuration when opening the dialog; use DAG `params` defaults only before any shared configuration has been saved.
 - Preserve the existing "trigger again with config" behavior, which takes precedence when explicitly selected.
 - Do not add user-specific ownership, named presets, configuration history, or a restore-default action.

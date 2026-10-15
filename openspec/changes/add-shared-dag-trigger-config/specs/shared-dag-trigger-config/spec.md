@@ -45,6 +45,10 @@ When a user opens the Trigger DAG dialog normally, the UI SHALL prefill the conf
 - **WHEN** a user opens the Trigger DAG dialog for a DAG whose saved shared configuration is `{}`
 - **THEN** the UI SHALL prefill `{}` and SHALL not replace it with DAG Params defaults
 
+#### Scenario: Reopen fetches the current configuration
+- **WHEN** a user reopens the Trigger DAG dialog normally
+- **THEN** the UI SHALL retrieve the shared configuration from the API and SHALL not reuse a cached JSON configuration
+
 ### Requirement: Saving from the Trigger DAG dialog does not trigger a run
 The Trigger DAG dialog SHALL offer a Save configuration action distinct from Trigger. The action SHALL be available only when the current configuration has valid JSON and valid form state, and SHALL persist only the current JSON configuration.
 
@@ -59,6 +63,17 @@ The Trigger DAG dialog SHALL offer a Save configuration action distinct from Tri
 #### Scenario: Save does not affect DAG execution state
 - **WHEN** a user saves a valid configuration for a paused or unpaused DAG
 - **THEN** the system SHALL not create a DagRun, change the DAG's paused state, navigate to a run, or alter per-run fields
+
+### Requirement: Triggering persists the current configuration first
+The primary Trigger action SHALL persist the current valid JSON configuration before changing DAG pause state or creating a DagRun.
+
+#### Scenario: Trigger with a valid configuration
+- **WHEN** a user selects Trigger with a valid configuration
+- **THEN** the system SHALL save that configuration and, after the save succeeds, perform the requested trigger operation
+
+#### Scenario: Configuration persistence fails during trigger
+- **WHEN** saving the current configuration fails after a user selects Trigger
+- **THEN** the system SHALL report the save error and SHALL not change the DAG pause state or create a DagRun
 
 ### Requirement: Explicit historical-run reuse takes precedence
 The existing Trigger again with config action SHALL continue to initialize the dialog with the selected historical DagRun's `conf`. That explicit selection SHALL take precedence over the DAG's saved shared configuration and DAG Params defaults for the current dialog session.

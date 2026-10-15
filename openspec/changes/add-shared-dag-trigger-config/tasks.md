@@ -13,6 +13,8 @@
 - [x] 2.3 Preserve historical DagRun `conf` as the highest-priority explicit prefill source for Trigger again with config.
 - [x] 2.4 Add a secondary Save configuration button that respects existing JSON/form validation and does not trigger, unpause, navigate, or close the dialog.
 - [x] 2.5 Add translations and UI state handling for loading, saving, saved, and failed configuration operations.
+- [x] 2.6 Persist the current configuration before the primary Trigger action unpauses the DAG or creates a DagRun; prevent either operation when persistence fails.
+- [x] 2.7 Do not cache shared trigger JSON in the UI; fetch it from the API whenever the Trigger DAG dialog opens.
 
 ## 3. Verification
 
