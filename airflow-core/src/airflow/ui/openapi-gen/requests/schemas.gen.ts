@@ -3105,6 +3105,44 @@ export const $DAGTagCollectionResponse = {
     description: 'DAG Tags Collection serializer for responses.'
 } as const;
 
+export const $DAGTriggerConfigBody = {
+    properties: {
+        conf: {
+            additionalProperties: true,
+            type: 'object',
+            title: 'Conf'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: ['conf'],
+    title: 'DAGTriggerConfigBody',
+    description: 'Shared configuration persisted for manual DAG triggers.'
+} as const;
+
+export const $DAGTriggerConfigResponse = {
+    properties: {
+        dag_id: {
+            type: 'string',
+            title: 'Dag Id'
+        },
+        conf: {
+            additionalProperties: true,
+            type: 'object',
+            title: 'Conf'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['dag_id', 'conf', 'updated_at'],
+    title: 'DAGTriggerConfigResponse',
+    description: 'A persisted shared manual-trigger configuration.'
+} as const;
+
 export const $DAGVersionCollectionResponse = {
     properties: {
         dag_versions: {

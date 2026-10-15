@@ -751,6 +751,26 @@ export type DAGTagCollectionResponse = {
 };
 
 /**
+ * Shared configuration persisted for manual DAG triggers.
+ */
+export type DAGTriggerConfigBody = {
+    conf: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * A persisted shared manual-trigger configuration.
+ */
+export type DAGTriggerConfigResponse = {
+    dag_id: string;
+    conf: {
+        [key: string]: unknown;
+    };
+    updated_at: string;
+};
+
+/**
  * DAG Version Collection serializer for responses.
  */
 export type DAGVersionCollectionResponse = {
@@ -2808,6 +2828,19 @@ export type GetListDagRunsBatchData = {
 };
 
 export type GetListDagRunsBatchResponse = DAGRunCollectionResponse;
+
+export type GetDagTriggerConfigData = {
+    dagId: string;
+};
+
+export type GetDagTriggerConfigResponse = DAGTriggerConfigResponse;
+
+export type PutDagTriggerConfigData = {
+    dagId: string;
+    requestBody: DAGTriggerConfigBody;
+};
+
+export type PutDagTriggerConfigResponse = DAGTriggerConfigResponse;
 
 export type GetDagSourceData = {
     accept?: 'application/json' | 'text/plain' | '*/*';
@@ -5015,6 +5048,58 @@ export type $OpenApiTs = {
                  * Successful Response
                  */
                 200: DAGRunCollectionResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+    };
+    '/api/v2/dags/{dag_id}/trigger-config': {
+        get: {
+            req: GetDagTriggerConfigData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: DAGTriggerConfigResponse;
+                /**
+                 * Unauthorized
+                 */
+                401: HTTPExceptionResponse;
+                /**
+                 * Forbidden
+                 */
+                403: HTTPExceptionResponse;
+                /**
+                 * Not Found
+                 */
+                404: HTTPExceptionResponse;
+                /**
+                 * Validation Error
+                 */
+                422: HTTPValidationError;
+            };
+        };
+        put: {
+            req: PutDagTriggerConfigData;
+            res: {
+                /**
+                 * Successful Response
+                 */
+                200: DAGTriggerConfigResponse;
                 /**
                  * Unauthorized
                  */

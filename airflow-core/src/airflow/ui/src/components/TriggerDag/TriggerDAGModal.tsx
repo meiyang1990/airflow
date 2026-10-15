@@ -17,10 +17,10 @@
  * under the License.
  */
 import { Heading, VStack, HStack, Spinner, Center, Text } from "@chakra-ui/react";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useDagServiceGetDag } from "openapi/queries";
+import { useDagServiceGetDag, useDagTriggerConfigServiceGetDagTriggerConfig } from "openapi/queries";
 import { Dialog, Tooltip } from "src/components/ui";
 import { RadioCardItem, RadioCardRoot } from "src/components/ui/RadioCard";
 import { useTrigger } from "src/queries/useTrigger";
@@ -47,6 +47,11 @@ type TriggerDAGModalProps = {
       }
     | undefined;
 };
+
+export const resolveDialogPrefillConfig = (
+  prefillConfig: TriggerDAGModalProps["prefillConfig"],
+  savedConfig: Record<string, unknown> | undefined,
+) => prefillConfig ?? (savedConfig ? { conf: savedConfig, logicalDate: undefined, runId: "" } : undefined);
 
 const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
   dagDisplayName,
@@ -75,6 +80,12 @@ const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
   const hasSchedule = dag?.timetable_summary !== null;
   const isPartitioned = dag ? dag.timetable_partitioned : false;
   const { error, isPending, triggerDagRun } = useTrigger({ dagId, onSuccessConfirm: onClose });
+  const { data: savedConfig, isLoading: isSavedConfigLoading } =
+    useDagTriggerConfigServiceGetDagTriggerConfig({ dagId }, undefined, { enabled: open && !prefillConfig });
+  const dialogPrefillConfig = useMemo(
+    () => resolveDialogPrefillConfig(prefillConfig, savedConfig?.conf),
+    [prefillConfig, savedConfig?.conf],
+  );
   const maxDisplayLength = 59; // hard-coded length to prevent dag name overflowing the modal
   const nameOverflowing = dagDisplayName.length > maxDisplayLength;
 
@@ -93,7 +104,7 @@ const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
         <Dialog.CloseTrigger />
 
         <Dialog.Body>
-          {isLoading ? (
+          {isLoading || isSavedConfigLoading ? (
             <Center py={6}>
               <VStack>
                 <Spinner size="lg" />
@@ -143,7 +154,7 @@ const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
                   isPending={isPending}
                   onSubmitTrigger={triggerDagRun}
                   open={open}
-                  prefillConfig={prefillConfig}
+                  prefillConfig={dialogPrefillConfig}
                 />
               ) : (
                 hasSchedule && dag && <RunBackfillForm dag={dag} onClose={onClose} />

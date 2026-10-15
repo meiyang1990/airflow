@@ -127,6 +127,10 @@ def action_logging(event: str | None = None):
             extra_fields = _mask_connection_fields(
                 {k: v for k, v in request_body.items()} if has_json_body else extra_fields
             )
+        elif event_name == "put_dag_trigger_config":
+            # A shared trigger configuration can contain credentials. Preserve an
+            # audit event for the write without placing the configuration in logs.
+            pass
         elif has_json_body:
             extra_fields = {**extra_fields, **masked_body_json}
 

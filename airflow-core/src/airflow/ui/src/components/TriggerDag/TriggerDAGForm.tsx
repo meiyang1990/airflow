@@ -33,6 +33,7 @@ import { DateTimeInput } from "../DateTimeInput";
 import { ErrorAlert, type ExpandedApiError } from "../ErrorAlert";
 import { Checkbox } from "../ui/Checkbox";
 import { RadioCardItem, RadioCardRoot } from "../ui/RadioCard";
+import { SaveDagTriggerConfigButton } from "./SaveDagTriggerConfigButton";
 import TriggerDAGAdvancedOptions from "./TriggerDAGAdvancedOptions";
 import { dataIntervalModeOptions, type DagRunTriggerParams } from "./types";
 
@@ -252,6 +253,11 @@ const TriggerDAGForm = ({
       <Box as="footer" display="flex" justifyContent="flex-end" mt={4}>
         <HStack w="full">
           <Spacer />
+          <SaveDagTriggerConfigButton
+            conf={watch("conf")}
+            dagId={dagId}
+            disabled={Boolean(errors.conf) || formError}
+          />
           <Button
             colorPalette="brand"
             data-testid="trigger-dag-submit"

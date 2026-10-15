@@ -81,6 +81,10 @@ import type {
   WaitDagRunUntilFinishedResponse,
   GetListDagRunsBatchData,
   GetListDagRunsBatchResponse,
+  GetDagTriggerConfigData,
+  GetDagTriggerConfigResponse,
+  PutDagTriggerConfigData,
+  PutDagTriggerConfigResponse,
   GetDagSourceData,
   GetDagSourceResponse,
   GetDagStatsData,
@@ -1470,6 +1474,63 @@ export class ExperimentalService {
         interval: data.interval,
         result: data.result,
       },
+      errors: {
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "Not Found",
+        422: "Validation Error",
+      },
+    });
+  }
+}
+
+export class DagTriggerConfigService {
+  /**
+   * Get Dag Trigger Config
+   * Get a DAG's shared manual-trigger configuration.
+   * @param data The data for the request.
+   * @param data.dagId
+   * @returns DAGTriggerConfigResponse Successful Response
+   * @throws ApiError
+   */
+  public static getDagTriggerConfig(
+    data: GetDagTriggerConfigData,
+  ): CancelablePromise<GetDagTriggerConfigResponse> {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/api/v2/dags/{dag_id}/trigger-config",
+      path: {
+        dag_id: data.dagId,
+      },
+      errors: {
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "Not Found",
+        422: "Validation Error",
+      },
+    });
+  }
+
+  /**
+   * Put Dag Trigger Config
+   * Create or replace a DAG's shared manual-trigger configuration.
+   * @param data The data for the request.
+   * @param data.dagId
+   * @param data.requestBody
+   * @returns DAGTriggerConfigResponse Successful Response
+   * @throws ApiError
+   */
+  public static putDagTriggerConfig(
+    data: PutDagTriggerConfigData,
+  ): CancelablePromise<PutDagTriggerConfigResponse> {
+    return __request(OpenAPI, {
+      method: "PUT",
+      url: "/api/v2/dags/{dag_id}/trigger-config",
+      path: {
+        dag_id: data.dagId,
+      },
+      body: data.requestBody,
+      mediaType: "application/json",
       errors: {
         401: "Unauthorized",
         403: "Forbidden",

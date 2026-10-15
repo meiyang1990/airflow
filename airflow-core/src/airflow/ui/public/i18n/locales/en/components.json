@@ -123,6 +123,8 @@
   "toggleTableView": "Show table view",
   "triggerDag": {
     "button": "Trigger",
+    "configurationSaveFailed": "Failed to save configuration",
+    "configurationSaved": "Configuration saved",
     "dataInterval": "Data Interval",
     "dataIntervalAuto": "Inferred from Logical Date and Timetable",
     "dataIntervalManual": "Specify Manually",
@@ -132,6 +134,7 @@
     "loadingFailed": "Failed to load Dag information. Please try again.",
     "manualRunDenied": "Manual runs are not allowed for this Dag",
     "runIdHelp": "Optional - will be generated if not provided",
+    "saveConfiguration": "Save configuration",
     "selectDescription": "Trigger a single run of this Dag",
     "selectLabel": "Single Run",
     "title": "Trigger Dag",

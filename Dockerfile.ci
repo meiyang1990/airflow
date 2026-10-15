@@ -193,17 +193,34 @@ wget\
 }
 
 function install_docker_cli() {
+    local attempt
+    local max_attempts=5
+
     apt-get update
     apt-get install ca-certificates curl
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    curl --connect-timeout 30 --fail --location --retry "${max_attempts}" --retry-all-errors --silent --show-error \
+        https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
     chmod a+r /etc/apt/keyrings/docker.asc
     # shellcheck disable=SC1091
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt-get update
+
+    # apt-get update can exit successfully even when a repository index failed to download.
+    # Verify that docker-ce-cli is available before continuing, and retry transient TLS failures.
+    for attempt in $(seq 1 "${max_attempts}"); do
+        if apt-get update -o Acquire::Retries=3 && apt-cache show docker-ce-cli >/dev/null 2>&1; then
+            break
+        fi
+        if [[ "${attempt}" == "${max_attempts}" ]]; then
+            echo "Unable to retrieve the Docker APT repository after ${max_attempts} attempts." >&2
+            return 1
+        fi
+        echo "Retrying Docker APT repository download (${attempt}/${max_attempts})..." >&2
+        sleep $((attempt * 5))
+    done
     apt-get install -y --no-install-recommends docker-ce-cli
 }
 
