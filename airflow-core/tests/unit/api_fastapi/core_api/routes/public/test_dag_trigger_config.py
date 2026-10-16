@@ -16,6 +16,8 @@
 # under the License.
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from sqlalchemy import delete, select
 
@@ -79,6 +81,17 @@ class TestDagTriggerConfig:
             len(session.scalars(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)).all()) == 1
         )
         assert test_client.get(URL).json()["conf"] == {}
+
+    def test_save_logs_json_conf_received_from_the_client(self, test_client):
+        json_conf = {"dag": {"tags": ["staged_pipeline"]}}
+
+        with patch("airflow.api_fastapi.core_api.routes.public.dag_trigger_config.log.info") as log_info:
+            response = test_client.put(URL, json={"conf": {"json_conf": json_conf}})
+
+        assert response.status_code == 200
+        log_info.assert_called_once_with(
+            "Received DAG trigger configuration", dag_id=DAG_ID, json_conf=json_conf
+        )
 
     def test_get_unsaved_configuration_returns_not_found(self, test_client):
         response = test_client.get(URL)

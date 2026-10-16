@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import structlog
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 
@@ -33,6 +34,8 @@ from airflow.api_fastapi.core_api.security import requires_access_dag
 from airflow.api_fastapi.logging.decorators import action_logging
 from airflow.models.dag import DagModel
 from airflow.models.dag_trigger_config import DagTriggerConfig
+
+log = structlog.get_logger(__name__)
 
 dag_trigger_config_router = AirflowRouter(tags=["DagTriggerConfig"], prefix="/dags/{dag_id}/trigger-config")
 
@@ -69,6 +72,7 @@ def put_dag_trigger_config(
     dag_id: str, body: DAGTriggerConfigBody, session: SessionDep
 ) -> DAGTriggerConfigResponse:
     """Create or replace a DAG's shared manual-trigger configuration."""
+    log.info("Received DAG trigger configuration", dag_id=dag_id, json_conf=body.conf.get("json_conf"))
     config = _get_dag_trigger_config(dag_id, session)
     if config:
         config.conf = body.conf
