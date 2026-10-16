@@ -26,9 +26,14 @@ import { createErrorToaster } from "src/utils";
 
 import { parseConfiguration } from "./triggerConfiguration";
 
-type Props = { readonly conf: string; readonly dagId: string; readonly disabled: boolean };
+type Props = {
+  readonly conf: string;
+  readonly dagId: string;
+  readonly disabled: boolean;
+  readonly onSaveSuccess: () => void;
+};
 
-export const SaveDagTriggerConfigButton = ({ conf, dagId, disabled }: Props) => {
+export const SaveDagTriggerConfigButton = ({ conf, dagId, disabled, onSaveSuccess }: Props) => {
   const { t: translate } = useTranslation("components");
   const parsedConf = parseConfiguration(conf);
   const { isPending, mutate } = useDagTriggerConfigServicePutDagTriggerConfig({
@@ -36,6 +41,7 @@ export const SaveDagTriggerConfigButton = ({ conf, dagId, disabled }: Props) => 
       createErrorToaster(error, { titleKey: "components:triggerDag.configurationSaveFailed" }, translate),
     onSuccess: () => {
       toaster.create({ title: translate("triggerDag.configurationSaved"), type: "success" });
+      onSaveSuccess();
     },
   });
 

@@ -240,6 +240,7 @@ export const CreateAssetEventModal = ({ asset, onClose, open }: Props) => {
               isPartitioned={dag.timetable_partitioned}
               isPaused={dag.is_paused}
               isPending={isMaterializePending}
+              onClose={onClose}
               onSubmitTrigger={handleMaterializeSubmit}
               open={open}
             />

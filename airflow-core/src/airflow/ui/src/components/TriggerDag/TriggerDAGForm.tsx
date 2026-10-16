@@ -43,6 +43,7 @@ type TriggerDAGFormProps = {
   readonly isPartitioned: boolean;
   readonly isPaused: boolean;
   readonly isPending?: boolean;
+  readonly onClose: () => void;
   readonly onSubmitTrigger?: (params: DagRunTriggerParams) => void;
   readonly open: boolean;
   readonly prefillConfig?:
@@ -62,6 +63,7 @@ const TriggerDAGForm = ({
   isPartitioned,
   isPaused,
   isPending = false,
+  onClose,
   onSubmitTrigger,
   open,
   prefillConfig,
@@ -183,6 +185,7 @@ const TriggerDAGForm = ({
       <TriggerDAGFooter
         conf={watch("conf")}
         dagId={dagId}
+        onSaveSuccess={onClose}
         onTrigger={() => void handleSubmit(onSubmit)()}
         saveDisabled={Boolean(errors.conf) || formError || isSavingConfig}
         triggerDisabled={

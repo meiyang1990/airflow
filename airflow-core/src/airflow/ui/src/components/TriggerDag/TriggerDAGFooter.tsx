@@ -25,19 +25,32 @@ import { SaveDagTriggerConfigButton } from "./SaveDagTriggerConfigButton";
 type Props = {
   readonly conf: string;
   readonly dagId: string;
+  readonly onSaveSuccess: () => void;
   readonly onTrigger: () => void;
   readonly saveDisabled: boolean;
   readonly triggerDisabled: boolean;
 };
 
-export const TriggerDAGFooter = ({ conf, dagId, onTrigger, saveDisabled, triggerDisabled }: Props) => {
+export const TriggerDAGFooter = ({
+  conf,
+  dagId,
+  onSaveSuccess,
+  onTrigger,
+  saveDisabled,
+  triggerDisabled,
+}: Props) => {
   const { t: translate } = useTranslation("components");
 
   return (
     <Box as="footer" display="flex" justifyContent="flex-end" mt={4}>
       <HStack w="full">
         <Spacer />
-        <SaveDagTriggerConfigButton conf={conf} dagId={dagId} disabled={saveDisabled} />
+        <SaveDagTriggerConfigButton
+          conf={conf}
+          dagId={dagId}
+          disabled={saveDisabled}
+          onSaveSuccess={onSaveSuccess}
+        />
         <Button
           colorPalette="brand"
           data-testid="trigger-dag-submit"
