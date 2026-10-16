@@ -39,11 +39,12 @@ describe("resolveDialogPrefillConfig", () => {
     expect(resolveDialogPrefillConfig(historicalConfig, { source: "shared" })).toBe(historicalConfig);
   });
 
-  it("refetches configuration when the dialog opens instead of retaining it in the query cache", () => {
+  it("marks configuration stale so it refetches whenever the dialog opens", () => {
     expect(triggerConfigQueryOptions(true, false)).toEqual({
       enabled: true,
       gcTime: 0,
       refetchOnMount: "always",
+      staleTime: 0,
     });
   });
 });

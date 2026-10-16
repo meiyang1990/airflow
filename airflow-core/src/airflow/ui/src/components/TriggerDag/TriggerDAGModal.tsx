@@ -57,6 +57,7 @@ export const triggerConfigQueryOptions = (open: boolean, hasHistoricalPrefill: b
   enabled: open && !hasHistoricalPrefill,
   gcTime: 0,
   refetchOnMount: "always" as const,
+  staleTime: 0,
 });
 
 const TriggerDAGModal: React.FC<TriggerDAGModalProps> = ({
