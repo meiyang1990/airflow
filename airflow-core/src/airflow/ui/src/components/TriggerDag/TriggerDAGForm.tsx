@@ -127,12 +127,12 @@ const TriggerDAGForm = ({
     isPartitioned,
   ]);
 
-  // Automatically reset form when conf is fetched (only if no prefillConfig)
+  // Keep the form state in sync with changes made through the flexible parameter form.
   useEffect(() => {
-    if (conf && !prefillConfig && open) {
+    if (conf && open) {
       reset((prevValues) => ({ ...prevValues, conf }));
     }
-  }, [conf, prefillConfig, open, reset]);
+  }, [conf, open, reset]);
 
   const resetDateError = () => setErrors((prev) => ({ ...prev, date: undefined }));
 
