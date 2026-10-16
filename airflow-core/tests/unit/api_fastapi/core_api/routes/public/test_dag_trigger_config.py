@@ -80,7 +80,10 @@ class TestDagTriggerConfig:
         assert (
             len(session.scalars(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)).all()) == 1
         )
-        assert test_client.get(URL).json()["conf"] == {}
+        get_response = test_client.get(URL)
+
+        assert get_response.json()["conf"] == {}
+        assert get_response.headers["cache-control"] == "no-store"
 
     def test_save_logs_json_conf_received_from_the_client(self, test_client):
         json_conf = {"dag": {"tags": ["staged_pipeline"]}}

@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import structlog
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Response, status
 from sqlalchemy import select
 
 from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity
@@ -52,11 +52,14 @@ def _get_dag_trigger_config(dag_id: str, session: SessionDep) -> DagTriggerConfi
     responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
     dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.RUN))],
 )
-def get_dag_trigger_config(dag_id: str, session: SessionDep) -> DAGTriggerConfigResponse:
+def get_dag_trigger_config(dag_id: str, response: Response, session: SessionDep) -> DAGTriggerConfigResponse:
     """Get a DAG's shared manual-trigger configuration."""
     config = _get_dag_trigger_config(dag_id, session)
     if not config:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No saved trigger configuration found")
+    # The trigger dialog refetches its configuration whenever it opens. Prevent a browser or
+    # intermediary cache from returning a configuration that has since been replaced.
+    response.headers["Cache-Control"] = "no-store"
     return config
 
 
