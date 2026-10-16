@@ -26,7 +26,7 @@ type JsonEditorProps = {
   readonly height?: string;
   readonly id?: string;
   readonly name?: string;
-  readonly onBlur?: () => void;
+  readonly onBlur?: (value: string) => void;
   readonly onChange?: (value: string) => void;
   readonly value?: string;
 };
@@ -41,8 +41,15 @@ export const JsonEditor = ({
 }: JsonEditorProps) => {
   const { colorMode } = useColorMode();
   const onBlurRef = useRef(onBlur);
+  const initialValue = value ?? "";
+  const previousValueRef = useRef(initialValue);
+  const valueRef = useRef(initialValue);
 
   onBlurRef.current = onBlur;
+  if (previousValueRef.current !== initialValue) {
+    valueRef.current = initialValue;
+    previousValueRef.current = initialValue;
+  }
 
   const options: EditorProps["options"] = {
     automaticLayout: true,
@@ -57,8 +64,9 @@ export const JsonEditor = ({
 
   const theme = colorMode === "dark" ? "vs-dark" : "vs-light";
 
-  const handleChange = (val: string | undefined) => {
-    onChange?.(val ?? "");
+  const handleChange = (nextValue = "") => {
+    valueRef.current = nextValue;
+    onChange?.(nextValue);
   };
 
   return (
@@ -77,7 +85,7 @@ export const JsonEditor = ({
         onChange={handleChange}
         onMount={(editor) => {
           editor.onDidBlurEditorText(() => {
-            onBlurRef.current?.();
+            onBlurRef.current?.(valueRef.current);
           });
         }}
         options={options}

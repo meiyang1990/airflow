@@ -109,8 +109,8 @@ const ConfigForm = <T extends FieldValues = FieldValues>({
                 <Field.Root invalid={Boolean(errors.conf)} mt={6}>
                   <Field.Label fontSize="md">{translate("configForm.configJson")}</Field.Label>
                   <JsonEditor
-                    onBlur={() => {
-                      field.onChange(validateAndPrettifyJson(field.value as string));
+                    onBlur={(value) => {
+                      field.onChange(validateAndPrettifyJson(value));
                     }}
                     onChange={field.onChange}
                     value={field.value as string}
