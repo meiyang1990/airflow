@@ -1420,12 +1420,16 @@ def _handle_trigger_dag_run(
 ) -> tuple[ToSupervisor, TaskInstanceState]:
     """Handle exception from TriggerDagRunOperator."""
     log.info("Triggering Dag Run.", trigger_dag_id=drte.trigger_dag_id)
+    dag_run_conf = drte.conf
+    if drte.use_saved_trigger_config:
+        dag_run_conf = {**(dag_run_conf or {}), "__airflow_use_saved_trigger_config": True}
+
     comms_msg = SUPERVISOR_COMMS.send(
         TriggerDagRun(
             dag_id=drte.trigger_dag_id,
             run_id=drte.dag_run_id,
             logical_date=drte.logical_date,
-            conf=drte.conf,
+            conf=dag_run_conf,
             reset_dag_run=drte.reset_dag_run,
             note=drte.note,
         ),

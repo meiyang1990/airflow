@@ -34,6 +34,7 @@ from airflow.api_fastapi.execution_api.datamodels.dagrun import DagRunStateRespo
 from airflow.api_fastapi.execution_api.datamodels.taskinstance import DagRun
 from airflow.exceptions import DagRunAlreadyExists
 from airflow.models.dag import DagModel
+from airflow.models.dag_trigger_config import DagTriggerConfig
 from airflow.models.dagrun import DagRun as DagRunModel
 from airflow.utils.state import DagRunState
 from airflow.utils.types import DagRunTriggeredByType, DagRunType
@@ -41,6 +42,7 @@ from airflow.utils.types import DagRunTriggeredByType, DagRunType
 router = VersionedAPIRouter()
 
 log = logging.getLogger(__name__)
+_USE_SAVED_TRIGGER_CONFIG_KEY = "__airflow_use_saved_trigger_config"
 
 
 @router.only_exists_in_older_versions
@@ -123,11 +125,20 @@ def trigger_dag_run(
             },
         )
 
+    dag_run_conf = payload.conf.copy()
+    if dag_run_conf.pop(_USE_SAVED_TRIGGER_CONFIG_KEY, False):
+        saved_trigger_config = session.get(DagTriggerConfig, dag_id)
+        if saved_trigger_config:
+            # The caller-provided values carry execution-specific control-plane context.
+            # In particular, a persisted configuration must not replace workflow_context.
+            dag_run_conf = {**saved_trigger_config.conf, **dag_run_conf}
+            dag_run_conf.pop(_USE_SAVED_TRIGGER_CONFIG_KEY, None)
+
     try:
         trigger_dag(
             dag_id=dag_id,
             run_id=run_id,
-            conf=payload.conf,
+            conf=dag_run_conf,
             logical_date=payload.logical_date,
             triggered_by=DagRunTriggeredByType.OPERATOR,
             replace_microseconds=False,

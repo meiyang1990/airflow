@@ -4405,6 +4405,37 @@ class TestTriggerDagRunOperator:
         ]
         mock_supervisor_comms.assert_has_calls(expected_calls)
 
+    @time_machine.travel("2025-01-01 00:00:00", tick=False)
+    def test_handle_trigger_dag_run_marks_saved_trigger_config(
+        self, create_runtime_ti, mock_supervisor_comms
+    ):
+        """The private marker requests server-side config resolution without exposing it to the child run."""
+        from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+
+        task = TriggerDagRunOperator(
+            task_id="test_task",
+            trigger_dag_id="test_dag",
+            trigger_run_id="test_run_id",
+            conf={"workflow_context": {"workflow_run_id": "parent_run"}},
+            use_saved_trigger_config=True,
+        )
+        ti = create_runtime_ti(dag_id="test_handle_trigger_dag_run", run_id="test_run", task=task)
+
+        run(ti, ti.get_template_context(), mock.MagicMock())
+
+        trigger_message = next(
+            message
+            for call in mock_supervisor_comms.send.call_args_list
+            for message in [
+                call.kwargs.get("msg") if "msg" in call.kwargs else (call.args[0] if call.args else None)
+            ]
+            if isinstance(message, TriggerDagRun)
+        )
+        assert trigger_message.conf == {
+            "workflow_context": {"workflow_run_id": "parent_run"},
+            "__airflow_use_saved_trigger_config": True,
+        }
+
     @pytest.mark.parametrize(
         ("skip_when_already_exists", "expected_state"),
         [

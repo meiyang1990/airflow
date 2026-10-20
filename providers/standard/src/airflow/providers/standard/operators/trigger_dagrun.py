@@ -126,6 +126,8 @@ class TriggerDagRunOperator(BaseOperator):
     :param trigger_run_id: The run ID to use for the triggered DAG run (templated).
         If not provided, a run ID will be automatically generated.
     :param conf: Configuration for the DAG run (templated).
+    :param use_saved_trigger_config: Merge the target DAG's saved trigger configuration before ``conf``.
+        Caller-provided values take precedence. This is intended for control-plane workflow triggers.
     :param logical_date: Logical date for the triggered DAG (templated).
     :param reset_dag_run: Whether clear existing DAG run if already exists.
         This is useful when backfill or rerun an existing DAG run.
@@ -172,6 +174,7 @@ class TriggerDagRunOperator(BaseOperator):
         trigger_dag_id: str,
         trigger_run_id: str | None = None,
         conf: dict | None = None,
+        use_saved_trigger_config: bool = False,
         logical_date: str | datetime.datetime | None | ArgNotSet = NOTSET,
         reset_dag_run: bool = False,
         wait_for_completion: bool = False,
@@ -189,6 +192,7 @@ class TriggerDagRunOperator(BaseOperator):
         self.trigger_dag_id = trigger_dag_id
         self.trigger_run_id = trigger_run_id
         self.conf = conf
+        self.use_saved_trigger_config = use_saved_trigger_config
         self.reset_dag_run = reset_dag_run
         self.wait_for_completion = wait_for_completion
         self.poke_interval = poke_interval
@@ -289,6 +293,7 @@ class TriggerDagRunOperator(BaseOperator):
             failed_states=self.failed_states,
             poke_interval=self.poke_interval,
             deferrable=self.deferrable,
+            use_saved_trigger_config=self.use_saved_trigger_config,
         )
 
         if self.note and "note" in inspect.signature(DagRunTriggerException.__init__).parameters:

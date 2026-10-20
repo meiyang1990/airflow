@@ -127,6 +127,7 @@ class TestDagRunOperator:
             assert exc_info.value.reset_dag_run is False
             assert exc_info.value.skip_when_already_exists is False
             assert exc_info.value.wait_for_completion is False
+            assert exc_info.value.use_saved_trigger_config is False
             assert exc_info.value.allowed_states == [DagRunState.SUCCESS]
             assert exc_info.value.failed_states == [DagRunState.FAILED]
             if getattr(exc_info, "note", None) is not None:
@@ -138,6 +139,19 @@ class TestDagRunOperator:
             # rsplit because last few characters are random.
             assert exc_info.value.dag_run_id == expected_run_id
             assert task.trigger_run_id == expected_run_id  # run_id is saved as attribute
+
+    @pytest.mark.skipif(not AIRFLOW_V_3_0_PLUS, reason="Implementation is different for Airflow 2 & 3")
+    def test_trigger_dagrun_can_use_saved_trigger_config(self):
+        task = TriggerDagRunOperator(
+            task_id="test_task",
+            trigger_dag_id=TRIGGERED_DAG_ID,
+            use_saved_trigger_config=True,
+        )
+
+        with pytest.raises(DagRunTriggerException) as exc_info:
+            task.execute(context={})
+
+        assert exc_info.value.use_saved_trigger_config is True
 
     @pytest.mark.skipif(not AIRFLOW_V_3_0_PLUS, reason="Implementation is different for Airflow 2 & 3")
     @mock.patch(f"{TRIGGER_OP_PATH}.XCom.get_one")

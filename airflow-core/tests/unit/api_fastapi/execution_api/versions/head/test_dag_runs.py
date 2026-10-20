@@ -23,6 +23,7 @@ from sqlalchemy import select, update
 
 from airflow._shared.timezones import timezone
 from airflow.models import DagModel
+from airflow.models.dag_trigger_config import DagTriggerConfig
 from airflow.models.dagrun import DagRun
 from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.utils.state import DagRunState, State
@@ -87,6 +88,61 @@ class TestDagRunTrigger:
         assert dag_run.conf == {"key1": "value1"}
         assert dag_run.logical_date == logical_date
         assert dag_run.partition_key == partition_key
+
+    def test_trigger_dag_run_uses_saved_trigger_config(self, client, session, dag_maker):
+        dag_id = "test_trigger_dag_run_uses_saved_trigger_config"
+        run_id = "test_run_id"
+
+        with dag_maker(dag_id=dag_id, session=session, serialized=True):
+            EmptyOperator(task_id="test_task")
+        session.add(
+            DagTriggerConfig(
+                dag_id=dag_id,
+                conf={"json_conf": {"cluster": "new"}, "workflow_context": {"untrusted": True}},
+            )
+        )
+        session.commit()
+
+        response = client.post(
+            f"/execution/dag-runs/{dag_id}/{run_id}",
+            json={
+                "conf": {
+                    "workflow_context": {"workflow_run_id": "workflow_run"},
+                    "__airflow_use_saved_trigger_config": True,
+                }
+            },
+        )
+
+        assert response.status_code == 204
+        dag_run = session.scalars(select(DagRun).where(DagRun.run_id == run_id)).one()
+        assert dag_run.conf == {
+            "json_conf": {"cluster": "new"},
+            "workflow_context": {"workflow_run_id": "workflow_run"},
+        }
+
+    def test_trigger_dag_run_without_saved_trigger_config_keeps_request_conf(
+        self, client, session, dag_maker
+    ):
+        dag_id = "test_trigger_dag_run_without_saved_trigger_config"
+        run_id = "test_run_id"
+
+        with dag_maker(dag_id=dag_id, session=session, serialized=True):
+            EmptyOperator(task_id="test_task")
+        session.commit()
+
+        response = client.post(
+            f"/execution/dag-runs/{dag_id}/{run_id}",
+            json={
+                "conf": {
+                    "workflow_context": {"workflow_run_id": "workflow_run"},
+                    "__airflow_use_saved_trigger_config": True,
+                }
+            },
+        )
+
+        assert response.status_code == 204
+        dag_run = session.scalars(select(DagRun).where(DagRun.run_id == run_id)).one()
+        assert dag_run.conf == {"workflow_context": {"workflow_run_id": "workflow_run"}}
 
     def test_trigger_dag_run_dag_not_found(self, client):
         """Test that a DAG that does not exist cannot be triggered."""
