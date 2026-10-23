@@ -26,7 +26,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.selectable import Select
 
-from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity
+from airflow.api_fastapi.app import get_auth_manager
+from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity, DagDetails
 from airflow.api_fastapi.common.dagbag import (
     DagBagDep,
     get_dag_for_run,
@@ -78,6 +79,8 @@ from airflow.api_fastapi.core_api.datamodels.ray_dashboard import (
 from airflow.api_fastapi.core_api.datamodels.task_instance_ai_diagnosis import (
     TaskInstanceAIDiagnosisItem,
     TaskInstanceAIDiagnosisResponse,
+    TaskInstanceAIResourceAnalysisItem,
+    TaskInstanceAIResourceAnalysisResponse,
 )
 from airflow.api_fastapi.core_api.datamodels.task_instance_history import (
     TaskInstanceHistoryCollectionResponse,
@@ -102,6 +105,13 @@ from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis imp
     AIDiagnosisTaskNotFoundError,
     diagnose_task_instance,
 )
+from airflow.api_fastapi.core_api.services.public.task_instance_ai_resource_analysis import (
+    AIResourceAnalysisInvalidTaskStateError,
+    AIResourceAnalysisResponseError,
+    AIResourceAnalysisTaskNotFoundError,
+    AIResourceAnalysisUnavailableError,
+    analyze_task_instance_resources,
+)
 from airflow.api_fastapi.core_api.services.public.task_instances import (
     BulkTaskInstanceService,
     _patch_task_instance_note,
@@ -110,7 +120,7 @@ from airflow.api_fastapi.core_api.services.public.task_instances import (
 )
 from airflow.api_fastapi.logging.decorators import action_logging
 from airflow.exceptions import AirflowClearRunningTaskException, TaskNotFound
-from airflow.models import Base, DagRun
+from airflow.models import Base, DagModel, DagRun
 from airflow.models.ray_dashboard import (
     RayDashboardMetricSample,
     RayDashboardSnapshot,
@@ -120,6 +130,7 @@ from airflow.models.task_instance_ai_diagnosis import (
     TaskInstanceAIDiagnosis,
     get_latest_task_instance_ai_diagnosis,
 )
+from airflow.models.task_instance_ai_resource_analysis import TaskInstanceAIResourceAnalysis
 from airflow.models.taskinstance import TaskInstance as TI, clear_task_instances
 from airflow.models.taskinstancehistory import TaskInstanceHistory as TIH
 from airflow.ti_deps.dep_context import DepContext
@@ -818,9 +829,84 @@ def get_ray_dashboard_metric_samples(
     return RayDashboardMetricSampleCollectionResponse(samples=samples, total_entries=total_entries)
 
 
+def _ai_resource_analysis_response(
+    analysis: TaskInstanceAIResourceAnalysis, *, cached: bool
+) -> TaskInstanceAIResourceAnalysisResponse:
+    return TaskInstanceAIResourceAnalysisResponse(
+        cached=cached,
+        analysis_schema_version=analysis.analysis_schema_version,
+        ray_payload_sha256=analysis.ray_payload_sha256,
+        summary=analysis.summary,
+        items=[TaskInstanceAIResourceAnalysisItem.model_validate(item) for item in analysis.analysis_items],
+        request_id=analysis.llm_request_id,
+        provider=analysis.provider,
+        model=analysis.model,
+        created_at=analysis.created_at,
+        updated_at=analysis.updated_at,
+    )
+
+
+def _get_task_attempt_state(
+    *, dag_id: str, run_id: str, task_id: str, map_index: int, try_number: int, session
+) -> TaskInstanceState | None:
+    state = session.scalar(
+        select(TI.state).where(
+            TI.dag_id == dag_id,
+            TI.run_id == run_id,
+            TI.task_id == task_id,
+            TI.map_index == map_index,
+            TI.try_number == try_number,
+        )
+    )
+    if state is not None:
+        return TaskInstanceState(state)
+    state = session.scalar(
+        select(TIH.state).where(
+            TIH.dag_id == dag_id,
+            TIH.run_id == run_id,
+            TIH.task_id == task_id,
+            TIH.map_index == map_index,
+            TIH.try_number == try_number,
+        )
+    )
+    return TaskInstanceState(state) if state is not None else None
+
+
+def _require_task_log_access(*, dag_id: str, user: GetUserDep) -> None:
+    if not get_auth_manager().is_authorized_dag(
+        method="GET",
+        access_entity=DagAccessEntity.TASK_LOGS,
+        details=DagDetails(id=dag_id, team_name=DagModel.get_team_name(dag_id)),
+        user=user,
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "User is not authorized to read task logs for this DAG"
+        )
+
+
 def _ai_diagnosis_response(
-    diagnosis: TaskInstanceAIDiagnosis, *, cached: bool
+    diagnosis: TaskInstanceAIDiagnosis | None,
+    *,
+    cached: bool,
+    resource_analysis: TaskInstanceAIResourceAnalysis | None = None,
+    resource_analysis_cached: bool = False,
+    resource_analysis_error: str | None = None,
 ) -> TaskInstanceAIDiagnosisResponse:
+    if diagnosis is None:
+        if resource_analysis is None:
+            raise ValueError("A diagnosis or resource analysis result is required")
+        return TaskInstanceAIDiagnosisResponse(
+            cached=resource_analysis_cached,
+            dag_id=resource_analysis.dag_id,
+            run_id=resource_analysis.run_id,
+            task_id=resource_analysis.task_id,
+            map_index=resource_analysis.map_index,
+            try_number=resource_analysis.try_number,
+            state=resource_analysis.state,
+            resource_analysis=_ai_resource_analysis_response(
+                resource_analysis, cached=resource_analysis_cached
+            ),
+        )
     return TaskInstanceAIDiagnosisResponse(
         cached=cached,
         dag_id=diagnosis.dag_id,
@@ -838,6 +924,12 @@ def _ai_diagnosis_response(
         items=[TaskInstanceAIDiagnosisItem.model_validate(item) for item in diagnosis.diagnosis_items],
         created_at=diagnosis.created_at,
         updated_at=diagnosis.updated_at,
+        resource_analysis=(
+            _ai_resource_analysis_response(resource_analysis, cached=resource_analysis_cached)
+            if resource_analysis is not None
+            else None
+        ),
+        resource_analysis_error=resource_analysis_error,
     )
 
 
@@ -851,7 +943,7 @@ def _ai_diagnosis_response(
             status.HTTP_502_BAD_GATEWAY,
         ]
     ),
-    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_LOGS))],
+    dependencies=[Depends(requires_access_dag(method="GET", access_entity=DagAccessEntity.TASK_INSTANCE))],
 )
 def get_task_instance_ai_diagnosis(
     dag_id: str,
@@ -861,8 +953,66 @@ def get_task_instance_ai_diagnosis(
     try_number: Annotated[int, Query(ge=1)],
     dag_bag: DagBagDep,
     session: SessionDep,
+    user: GetUserDep,
 ) -> TaskInstanceAIDiagnosisResponse:
-    """Get or generate AI diagnosis for a failed task instance attempt."""
+    """Get AI diagnosis and/or Ray resource analysis for a completed task attempt."""
+    task_state = _get_task_attempt_state(
+        dag_id=dag_id,
+        run_id=dag_run_id,
+        task_id=task_id,
+        map_index=map_index,
+        try_number=try_number,
+        session=session,
+    )
+    if task_state is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task instance attempt not found")
+    if task_state not in {TaskInstanceState.FAILED, TaskInstanceState.SUCCESS}:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "AI Ray resource analysis is only available for successful or failed task instances",
+        )
+    if task_state == TaskInstanceState.FAILED:
+        _require_task_log_access(dag_id=dag_id, user=user)
+    resource_analysis_error: str | None = None
+    try:
+        resource_analysis, resource_analysis_cached = analyze_task_instance_resources(
+            dag_id=dag_id,
+            run_id=dag_run_id,
+            task_id=task_id,
+            map_index=map_index,
+            try_number=try_number,
+            dag_bag=dag_bag,
+            session=session,
+        )
+    except AIDiagnosisDisabledError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+    except AIResourceAnalysisTaskNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+    except AIResourceAnalysisUnavailableError as error:
+        # A Ray dashboard is optional for failure-cause diagnosis.  Preserve the
+        # established failure-diagnosis path and surface the Ray-data condition
+        # separately; a successful task will be rejected below because it has no
+        # failure diagnosis to return.
+        resource_analysis = None
+        resource_analysis_cached = False
+        resource_analysis_error = str(error)
+    except AIResourceAnalysisInvalidTaskStateError as error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
+    except (AIDiagnosisLLMProxyError, AIResourceAnalysisResponseError) as error:
+        # A failed task can still have a useful failure diagnosis when the
+        # independent Ray resource-analysis call cannot be completed.
+        resource_analysis = None
+        resource_analysis_cached = False
+        resource_analysis_error = str(error)
+
+    if resource_analysis is not None and resource_analysis.state != TaskInstanceState.FAILED:
+        return _ai_diagnosis_response(
+            None,
+            cached=False,
+            resource_analysis=resource_analysis,
+            resource_analysis_cached=resource_analysis_cached,
+        )
+
     try:
         diagnosis, cached = diagnose_task_instance(
             dag_id=dag_id,
@@ -878,11 +1028,18 @@ def get_task_instance_ai_diagnosis(
     except AIDiagnosisTaskNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
     except AIDiagnosisInvalidTaskStateError as error:
+        if resource_analysis_error is not None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, resource_analysis_error) from error
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
     except (AIDiagnosisLogReadError, AIDiagnosisLLMProxyError) as error:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(error)) from error
-
-    return _ai_diagnosis_response(diagnosis, cached=cached)
+    return _ai_diagnosis_response(
+        diagnosis,
+        cached=cached,
+        resource_analysis=resource_analysis,
+        resource_analysis_cached=resource_analysis_cached,
+        resource_analysis_error=resource_analysis_error,
+    )
 
 
 @task_instances_router.get(

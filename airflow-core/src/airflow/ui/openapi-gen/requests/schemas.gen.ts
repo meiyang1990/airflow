@@ -5981,11 +5981,25 @@ export const $TaskInstanceAIDiagnosisResponse = {
             title: 'State'
         },
         log_line_count: {
-            type: 'integer',
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Log Line Count'
         },
         log_excerpt_sha256: {
-            type: 'string',
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Log Excerpt Sha256'
         },
         request_id: {
@@ -6022,7 +6036,14 @@ export const $TaskInstanceAIDiagnosisResponse = {
             title: 'Model'
         },
         summary: {
-            type: 'string',
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Summary'
         },
         items: {
@@ -6031,6 +6052,166 @@ export const $TaskInstanceAIDiagnosisResponse = {
             },
             type: 'array',
             title: 'Items'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        updated_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Updated At'
+        },
+        resource_analysis: {
+            anyOf: [
+                {
+                    '$ref': '#/components/schemas/TaskInstanceAIResourceAnalysisResponse'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        resource_analysis_error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Resource Analysis Error'
+        }
+    },
+    type: 'object',
+    required: ['cached', 'dag_id', 'run_id', 'task_id', 'map_index', 'try_number', 'state'],
+    title: 'TaskInstanceAIDiagnosisResponse',
+    description: 'AI diagnosis response for a task instance attempt.'
+} as const;
+
+export const $TaskInstanceAIResourceAnalysisItem = {
+    properties: {
+        scope: {
+            type: 'string',
+            title: 'Scope',
+            default: ''
+        },
+        resource: {
+            type: 'string',
+            title: 'Resource',
+            default: ''
+        },
+        observation: {
+            type: 'string',
+            title: 'Observation',
+            default: ''
+        },
+        allocation_concern: {
+            type: 'string',
+            title: 'Allocation Concern',
+            default: ''
+        },
+        evidence_ids: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Evidence Ids'
+        },
+        recommendation: {
+            type: 'string',
+            title: 'Recommendation',
+            default: ''
+        },
+        confidence: {
+            type: 'string',
+            title: 'Confidence',
+            default: ''
+        },
+        data_quality: {
+            type: 'string',
+            title: 'Data Quality',
+            default: ''
+        }
+    },
+    type: 'object',
+    title: 'TaskInstanceAIResourceAnalysisItem',
+    description: 'One evidence-based Ray resource analysis finding.'
+} as const;
+
+export const $TaskInstanceAIResourceAnalysisResponse = {
+    properties: {
+        cached: {
+            type: 'boolean',
+            title: 'Cached'
+        },
+        analysis_schema_version: {
+            type: 'string',
+            title: 'Analysis Schema Version'
+        },
+        ray_payload_sha256: {
+            type: 'string',
+            title: 'Ray Payload Sha256'
+        },
+        summary: {
+            type: 'string',
+            title: 'Summary'
+        },
+        items: {
+            items: {
+                '$ref': '#/components/schemas/TaskInstanceAIResourceAnalysisItem'
+            },
+            type: 'array',
+            title: 'Items'
+        },
+        request_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Request Id'
+        },
+        provider: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Provider'
+        },
+        model: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Model'
         },
         created_at: {
             type: 'string',
@@ -6044,9 +6225,9 @@ export const $TaskInstanceAIDiagnosisResponse = {
         }
     },
     type: 'object',
-    required: ['cached', 'dag_id', 'run_id', 'task_id', 'map_index', 'try_number', 'state', 'log_line_count', 'log_excerpt_sha256', 'summary', 'created_at', 'updated_at'],
-    title: 'TaskInstanceAIDiagnosisResponse',
-    description: 'AI diagnosis response for a task instance attempt.'
+    required: ['cached', 'analysis_schema_version', 'ray_payload_sha256', 'summary', 'created_at', 'updated_at'],
+    title: 'TaskInstanceAIResourceAnalysisResponse',
+    description: 'AI Ray resource-analysis result for a task instance attempt.'
 } as const;
 
 export const $TaskInstanceCollectionResponse = {
@@ -8865,7 +9046,8 @@ export const $ExtraMenuItem = {
     },
     type: 'object',
     required: ['text', 'href'],
-    title: 'ExtraMenuItem'
+    title: 'ExtraMenuItem',
+    description: 'Define a menu item that can be added to the menu by auth managers or plugins.'
 } as const;
 
 export const $GanttResponse = {

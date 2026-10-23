@@ -21,6 +21,7 @@ import datetime as dt
 import itertools
 import os
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from unittest import mock
 
@@ -6450,14 +6451,27 @@ class TestTaskInstanceAIDiagnosis:
             updated_at=now,
         )
 
-    def test_ai_diagnosis_returns_cached_result(self, test_client, create_task_instance):
+    def test_ai_diagnosis_returns_cached_result(self, test_client, session, create_task_instance):
+        from airflow.api_fastapi.core_api.services.public.task_instance_ai_resource_analysis import (
+            AIResourceAnalysisUnavailableError,
+        )
+
         ti = create_task_instance(task_id="ai_diagnosis_route", state=State.FAILED)
+        ti.try_number = self.TRY_NUMBER
+        session.merge(ti)
+        session.commit()
         diagnosis = self._diagnosis_for_ti(ti)
 
-        with mock.patch(
-            "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance",
-            return_value=(diagnosis, True),
-        ) as diagnose_mock:
+        with (
+            mock.patch(
+                "airflow.api_fastapi.core_api.routes.public.task_instances.analyze_task_instance_resources",
+                side_effect=AIResourceAnalysisUnavailableError("Ray Dashboard data is not available"),
+            ),
+            mock.patch(
+                "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance",
+                return_value=(diagnosis, True),
+            ) as diagnose_mock,
+        ):
             response = test_client.get(self._diagnosis_url(ti))
 
         assert response.status_code == 200
@@ -6500,21 +6514,57 @@ class TestTaskInstanceAIDiagnosis:
         assert response.status_code == 404
         assert response.json()["detail"] == "AI diagnosis history not found"
 
-    def test_ai_diagnosis_rejects_non_failed_task(self, test_client, create_task_instance):
-        from airflow.api_fastapi.core_api.services.public.task_instance_ai_diagnosis import (
-            AIDiagnosisInvalidTaskStateError,
+    def test_ai_diagnosis_rejects_non_failed_task(self, test_client, session, create_task_instance):
+        ti = create_task_instance(task_id="ai_diagnosis_success", state=State.SUCCESS)
+        ti.try_number = self.TRY_NUMBER
+        session.merge(ti)
+        session.commit()
+        now = dt.datetime.now(tz=dt.UTC)
+        resource_analysis = SimpleNamespace(
+            dag_id=ti.dag_id,
+            run_id=ti.run_id,
+            task_id=ti.task_id,
+            map_index=ti.map_index,
+            try_number=self.TRY_NUMBER,
+            state=State.SUCCESS,
+            analysis_schema_version="1",
+            ray_payload_sha256="a" * 64,
+            summary="Worker CPU capacity is sufficient.",
+            analysis_items=[
+                {
+                    "scope": "worker-1",
+                    "resource": "cpu",
+                    "observation": "25% utilization",
+                    "allocation_concern": "none",
+                    "evidence_ids": ["e-1"],
+                    "recommendation": "Keep the current configuration.",
+                    "confidence": "high",
+                    "data_quality": "complete",
+                }
+            ],
+            llm_request_id="request-1",
+            provider="test-provider",
+            model="test-model",
+            created_at=now,
+            updated_at=now,
         )
 
-        ti = create_task_instance(task_id="ai_diagnosis_success", state=State.SUCCESS)
-
-        with mock.patch(
-            "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance",
-            side_effect=AIDiagnosisInvalidTaskStateError("AI diagnosis is only available for failed tasks"),
+        with (
+            mock.patch(
+                "airflow.api_fastapi.core_api.routes.public.task_instances.analyze_task_instance_resources",
+                return_value=(resource_analysis, False),
+            ) as resource_analysis_mock,
+            mock.patch(
+                "airflow.api_fastapi.core_api.routes.public.task_instances.diagnose_task_instance"
+            ) as diagnose_mock,
         ):
             response = test_client.get(self._diagnosis_url(ti))
 
-        assert response.status_code == 400
-        assert response.json()["detail"] == "AI diagnosis is only available for failed tasks"
+        assert response.status_code == 200
+        assert response.json()["summary"] is None
+        assert response.json()["resource_analysis"]["summary"] == "Worker CPU capacity is sufficient."
+        resource_analysis_mock.assert_called_once()
+        diagnose_mock.assert_not_called()
 
     def test_ai_diagnosis_requires_authentication(self, unauthenticated_test_client, create_task_instance):
         ti = create_task_instance(task_id="ai_diagnosis_auth", state=State.FAILED)
@@ -6522,3 +6572,22 @@ class TestTaskInstanceAIDiagnosis:
         response = unauthenticated_test_client.get(self._diagnosis_url(ti))
 
         assert response.status_code == 401
+
+    def test_ai_diagnosis_denies_failed_task_without_log_access(
+        self, test_client, session, create_task_instance
+    ):
+        ti = create_task_instance(task_id="ai_diagnosis_log_access", state=State.FAILED)
+        ti.try_number = self.TRY_NUMBER
+        session.merge(ti)
+        session.commit()
+        is_authorized_dag = mock.Mock(return_value=False)
+
+        with mock.patch(
+            "airflow.api_fastapi.core_api.routes.public.task_instances.get_auth_manager",
+            return_value=SimpleNamespace(is_authorized_dag=is_authorized_dag),
+        ) as auth_manager:
+            response = test_client.get(self._diagnosis_url(ti))
+
+        assert response.status_code == 403
+        auth_manager.assert_called_once()
+        is_authorized_dag.assert_called_once()

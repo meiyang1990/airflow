@@ -34,6 +34,34 @@ class TaskInstanceAIDiagnosisItem(BaseModel):
     confidence: str = ""
 
 
+class TaskInstanceAIResourceAnalysisItem(BaseModel):
+    """One evidence-based Ray resource analysis finding."""
+
+    scope: str = ""
+    resource: str = ""
+    observation: str = ""
+    allocation_concern: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    recommendation: str = ""
+    confidence: str = ""
+    data_quality: str = ""
+
+
+class TaskInstanceAIResourceAnalysisResponse(BaseModel):
+    """AI Ray resource-analysis result for a task instance attempt."""
+
+    cached: bool
+    analysis_schema_version: str
+    ray_payload_sha256: str
+    summary: str
+    items: list[TaskInstanceAIResourceAnalysisItem] = Field(default_factory=list)
+    request_id: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class TaskInstanceAIDiagnosisResponse(BaseModel):
     """AI diagnosis response for a task instance attempt."""
 
@@ -44,12 +72,14 @@ class TaskInstanceAIDiagnosisResponse(BaseModel):
     map_index: int
     try_number: int
     state: str | None
-    log_line_count: int
-    log_excerpt_sha256: str
+    log_line_count: int | None = None
+    log_excerpt_sha256: str | None = None
     request_id: str | None = None
     provider: str | None = None
     model: str | None = None
-    summary: str
+    summary: str | None = None
     items: list[TaskInstanceAIDiagnosisItem] = Field(default_factory=list)
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    resource_analysis: TaskInstanceAIResourceAnalysisResponse | None = None
+    resource_analysis_error: str | None = None

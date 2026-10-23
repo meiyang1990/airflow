@@ -16,7 +16,23 @@
     "noItems": "The model did not return structured diagnosis items.",
     "run": "AI Diagnostics",
     "summary": "Summary",
-    "title": "AI Diagnostics"
+    "title": "AI Diagnostics",
+    "completedRayOnly": "AI analysis is available for completed task instances with Ray data.",
+    "resourceAnalysis": {
+      "advisory": "Recommendations are advisory only.",
+      "columns": {
+        "allocationConcern": "Allocation Concern",
+        "dataQuality": "Data Quality",
+        "evidence": "Evidence",
+        "observation": "Observation",
+        "recommendation": "Recommendation",
+        "resource": "Resource",
+        "worker": "Worker"
+      },
+      "insufficientData": "Insufficient Ray resource evidence for a sizing recommendation.",
+      "summary": "Ray Resource Analysis",
+      "unavailable": "Ray Dashboard data is unavailable for this task attempt."
+    }
   },
   "allRuns": "All Runs",
   "blockingDeps": {

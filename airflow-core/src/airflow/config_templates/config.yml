@@ -1509,7 +1509,7 @@ ai_diagnosis:
   options:
     enabled:
       description: |
-        Enables AI-assisted diagnosis for failed task instances.
+        Enables AI-assisted failure diagnosis and Ray resource analysis for completed task instances.
       version_added: ~
       type: boolean
       example: ~
@@ -1565,6 +1565,13 @@ ai_diagnosis:
       type: integer
       example: ~
       default: "300"
+    ray_resource_analysis_max_samples:
+      description: |
+        Maximum number of persisted Ray worker CPU and memory samples included in one AI resource analysis.
+      version_added: ~
+      type: integer
+      example: ~
+      default: "500"
 api:
   description: ~
   options:

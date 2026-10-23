@@ -1019,7 +1019,7 @@ export const prefetchUseTaskInstanceServiceGetRayDashboardMetricSamples = (query
 }) => queryClient.prefetchQuery({ queryKey: Common.UseTaskInstanceServiceGetRayDashboardMetricSamplesKeyFn({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }), queryFn: () => TaskInstanceService.getRayDashboardMetricSamples({ actorName, dagId, dagRunId, endDate, limit, mapIndex, metricName, nodeType, offset, podIp, startDate, state, taskId, tryNumber }) });
 /**
 * Get Task Instance Ai Diagnosis
-* Get or generate AI diagnosis for a failed task instance attempt.
+* Get AI diagnosis and/or Ray resource analysis for a completed task attempt.
 * @param data The data for the request.
 * @param data.dagId
 * @param data.dagRunId

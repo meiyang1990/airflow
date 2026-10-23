@@ -16,7 +16,23 @@
     "noItems": "模型未返回结构化诊断项。",
     "run": "AI诊断",
     "summary": "诊断摘要",
-    "title": "AI诊断"
+    "title": "AI诊断",
+    "completedRayOnly": "仅已完成且具有 Ray 数据的任务实例支持 AI 分析。",
+    "resourceAnalysis": {
+      "advisory": "配置建议仅供参考，不会自动执行。",
+      "columns": {
+        "allocationConcern": "分配问题",
+        "dataQuality": "数据质量",
+        "evidence": "证据",
+        "observation": "使用情况",
+        "recommendation": "配置建议",
+        "resource": "资源",
+        "worker": "Worker"
+      },
+      "insufficientData": "Ray 资源证据不足，无法给出容量建议。",
+      "summary": "Ray 集群资源使用情况分析",
+      "unavailable": "此任务尝试没有可用的 Ray Dashboard 数据。"
+    }
   },
   "allRuns": "所有执行",
   "blockingDeps": {

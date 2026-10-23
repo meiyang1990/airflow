@@ -1546,13 +1546,45 @@ export type TaskInstanceAIDiagnosisResponse = {
     map_index: number;
     try_number: number;
     state: string | null;
-    log_line_count: number;
-    log_excerpt_sha256: string;
+    log_line_count?: number | null;
+    log_excerpt_sha256?: string | null;
     request_id?: string | null;
     provider?: string | null;
     model?: string | null;
-    summary: string;
+    summary?: string | null;
     items?: Array<TaskInstanceAIDiagnosisItem>;
+    created_at?: string | null;
+    updated_at?: string | null;
+    resource_analysis?: TaskInstanceAIResourceAnalysisResponse | null;
+    resource_analysis_error?: string | null;
+};
+
+/**
+ * One evidence-based Ray resource analysis finding.
+ */
+export type TaskInstanceAIResourceAnalysisItem = {
+    scope?: string;
+    resource?: string;
+    observation?: string;
+    allocation_concern?: string;
+    evidence_ids?: Array<(string)>;
+    recommendation?: string;
+    confidence?: string;
+    data_quality?: string;
+};
+
+/**
+ * AI Ray resource-analysis result for a task instance attempt.
+ */
+export type TaskInstanceAIResourceAnalysisResponse = {
+    cached: boolean;
+    analysis_schema_version: string;
+    ray_payload_sha256: string;
+    summary: string;
+    items?: Array<TaskInstanceAIResourceAnalysisItem>;
+    request_id?: string | null;
+    provider?: string | null;
+    model?: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -2153,6 +2185,9 @@ export type EdgeResponse = {
     is_source_asset?: boolean | null;
 };
 
+/**
+ * Define a menu item that can be added to the menu by auth managers or plugins.
+ */
 export type ExtraMenuItem = {
     text: string;
     href: string;
