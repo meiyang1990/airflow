@@ -284,7 +284,7 @@ function install_cosign() {
         echo "Unsupported architecture for cosign: ${arch}"
         exit 1
     fi
-    curl --connect-timeout 30 --fail --location --retry 5 --retry-all-errors --silent --show-error \
+    curl --http1.1 --connect-timeout 30 --fail --location --retry 5 --retry-all-errors --silent --show-error \
         "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-${arch}" \
         -o /tmp/cosign
     echo "${cosign_sha256}  /tmp/cosign" | sha256sum --check
