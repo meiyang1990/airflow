@@ -222,6 +222,7 @@ class DagFileProcessorManager(LoggingMixin):
     """An overridable heartbeat called once every time around the loop"""
 
     _file_queue: deque[DagFileInfo] = attrs.field(factory=deque, init=False)
+    _deferred_files: list[DagFileInfo] = attrs.field(factory=list, init=False)
     _file_stats: dict[DagFileInfo, DagFileStat] = attrs.field(
         factory=lambda: defaultdict(DagFileStat), init=False
     )
@@ -433,6 +434,8 @@ class DagFileProcessorManager(LoggingMixin):
                 # clear down, we must have cleared all files found from scanning the dags dir _and_ have
                 # cleared all files added as a result of callbacks
                 self.prepare_file_queue(known_files=known_files)
+            else:
+                self._queue_deferred_files(known_files=known_files)
 
             self._start_new_processes()
 
@@ -1134,8 +1137,7 @@ class DagFileProcessorManager(LoggingMixin):
             )
             self._parsing_start_time = None
 
-        # If the file path is already being processed, or if a file was
-        # processed recently, wait until the next batch
+        # Temporarily ineligible files must not miss the entire next batch.
         in_progress = set(self._processors)
         now = timezone.utcnow()
 
@@ -1168,6 +1170,7 @@ class DagFileProcessorManager(LoggingMixin):
         # Do not convert the following list to set as set does not preserve the order
         # and we need to maintain the order of files for `[dag_processor] file_parsing_sort_mode`
         to_queue = [x for x in files if x not in to_exclude]
+        self._deferred_files = [x for x in files if x in to_exclude and x not in at_run_limit]
 
         if self.log.isEnabledFor(logging.DEBUG):
             for path, processor in self._processors.items():
@@ -1181,6 +1184,30 @@ class DagFileProcessorManager(LoggingMixin):
             )
         self._add_files_to_queue(to_queue, mode="back")
         Stats.incr("dag_processing.file_path_queue_update_count")
+
+    def _queue_deferred_files(self, known_files: dict[str, set[DagFileInfo]]):
+        """Revisit temporarily excluded files without waiting for the current queue to drain."""
+        if not self._deferred_files:
+            return
+
+        known = {file for files in known_files.values() for file in files}
+        queued = set(self._file_queue)
+        now = timezone.utcnow()
+        pending = []
+        ready = []
+        for file in self._deferred_files:
+            if file not in known or file in queued:
+                continue
+            if self.max_runs != -1 and self._file_stats[file].run_count >= self.max_runs:
+                continue
+            if file in self._processors or self.processed_recently(now, file):
+                pending.append(file)
+            else:
+                ready.append(file)
+
+        self._deferred_files = pending
+        if ready:
+            self._add_files_to_queue(ready, mode="back")
 
     def _kill_timed_out_processors(self):
         """Kill any file processors that timeout to defend against process hangs."""

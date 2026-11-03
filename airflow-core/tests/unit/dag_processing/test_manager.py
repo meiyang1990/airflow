@@ -661,6 +661,104 @@ class TestDagFileProcessorManager:
                 > (freezed_base_time - manager._file_stats[dag_file].last_finish_time).total_seconds()
             )
 
+    @conf_vars({("dag_processor", "file_parsing_sort_mode"): "modified_time"})
+    def test_empty_queue_checks_modified_files_before_requeuing_deferred_files(self):
+        deferred, modified = _get_file_infos(["deferred.py", "modified.py"])
+        manager = DagFileProcessorManager(max_runs=-1)
+        manager._file_process_interval = 30
+        known_files = {"testing": {deferred, modified}}
+        mtimes = {
+            file.absolute_path: (DEFAULT_DATE - timedelta(seconds=1)).timestamp()
+            for file in known_files["testing"]
+        }
+
+        with (
+            time_machine.travel(DEFAULT_DATE, tick=False) as clock,
+            mock.patch("airflow.dag_processing.manager.os.path.getmtime", side_effect=mtimes.__getitem__),
+        ):
+            manager._file_stats[deferred] = DagFileStat(last_finish_time=DEFAULT_DATE)
+            manager._file_stats[modified] = DagFileStat(last_finish_time=DEFAULT_DATE)
+            manager.prepare_file_queue(known_files)
+            assert not manager._file_queue
+            assert set(manager._deferred_files) == {deferred, modified}
+
+            clock.shift(timedelta(seconds=30))
+            manager._file_stats[modified].last_finish_time = DEFAULT_DATE + timedelta(seconds=20)
+            mtimes[modified.absolute_path] = (DEFAULT_DATE + timedelta(seconds=29)).timestamp()
+
+            with (
+                mock.patch.object(manager, "_kill_timed_out_processors", autospec=True),
+                mock.patch.object(manager, "_queue_requested_files_for_parsing", autospec=True),
+                mock.patch.object(
+                    manager,
+                    "_refresh_dag_bundles",
+                    autospec=True,
+                    side_effect=lambda known_files: known_files.update({"testing": {deferred, modified}}),
+                ),
+                mock.patch.object(manager, "_start_new_processes", autospec=True, side_effect=StopIteration),
+                pytest.raises(StopIteration),
+            ):
+                manager._run_parsing_loop()
+
+            assert manager._file_queue == deque([modified, deferred])
+            assert manager._deferred_files == []
+
+    @conf_vars({("dag_processor", "file_parsing_sort_mode"): "alphabetical"})
+    @pytest.mark.parametrize("in_progress", [False, True])
+    def test_deferred_file_rejoins_nonempty_queue_after_interval(self, in_progress):
+        backlog, deferred, priority = _get_file_infos(["a.py", "z.py", "priority.py"])
+        manager = DagFileProcessorManager(max_runs=-1)
+        manager._file_process_interval = 30
+        known_files = {"testing": {backlog, deferred}}
+        with time_machine.travel(DEFAULT_DATE, tick=False) as clock:
+            manager._file_stats[deferred] = DagFileStat(last_finish_time=DEFAULT_DATE)
+            if in_progress:
+                manager._processors[deferred] = mock.Mock(spec=DagFileProcessorProcess)
+            manager.prepare_file_queue(known_files)
+            assert manager._file_queue == deque([backlog])
+            assert manager._deferred_files == [deferred]
+
+            if in_progress:
+                clock.shift(timedelta(seconds=30))
+                manager._queue_deferred_files(known_files)
+                assert manager._file_queue == deque([backlog])
+                manager._processors.pop(deferred)
+                manager._file_stats[deferred].last_finish_time = timezone.utcnow()
+            clock.shift(timedelta(seconds=29))
+            manager._queue_deferred_files(known_files)
+            assert manager._file_queue == deque([backlog])
+
+            manager._add_files_to_queue([priority], mode="frontprio")
+            clock.shift(timedelta(seconds=1))
+            manager._queue_deferred_files(known_files)
+            assert manager._file_queue == deque([priority, backlog, deferred])
+            assert manager._deferred_files == []
+            manager._queue_deferred_files(known_files)
+            assert manager._file_queue == deque([priority, backlog, deferred])
+
+    @conf_vars({("dag_processor", "file_parsing_sort_mode"): "alphabetical"})
+    @pytest.mark.parametrize("reason", ["removed", "run_limit", "already_queued"])
+    def test_deferred_file_is_discarded_when_no_longer_needed(self, reason):
+        backlog, deferred = _get_file_infos(["a.py", "z.py"])
+        manager = DagFileProcessorManager(max_runs=2)
+        manager._file_process_interval = 30
+        known_files = {"testing": {backlog, deferred}}
+        with time_machine.travel(DEFAULT_DATE, tick=False) as clock:
+            manager._file_stats[deferred] = DagFileStat(last_finish_time=DEFAULT_DATE)
+            manager.prepare_file_queue(known_files)
+            assert manager._deferred_files == [deferred]
+            if reason == "removed":
+                known_files["testing"].remove(deferred)
+            elif reason == "run_limit":
+                manager._file_stats[deferred].run_count = 2
+            else:
+                manager._add_files_to_queue([deferred], mode="frontprio")
+            clock.shift(timedelta(seconds=30))
+            expected = list(manager._file_queue)
+            manager._queue_deferred_files(known_files)
+            assert list(manager._file_queue) == expected
+            assert manager._deferred_files == []
+
     def test_file_paths_in_queue_sorted_by_priority(self):
         from airflow.models.dagbag import DagPriorityParsingRequest
 
