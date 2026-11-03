@@ -3254,7 +3254,9 @@ dagProcessor:
   labels: {}
 
   # Environment variables to add to dag processor container
-  env: []
+  env:
+    - name: AIRFLOW__DAG_PROCESSOR__PARSING_PROCESSES
+      value: "6"
 
 # Flower settings
 flower:
