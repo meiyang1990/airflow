@@ -29,6 +29,8 @@ AIRFLOW_PYTHON_VERSION="${AIRFLOW_PYTHON_VERSION:-3.13.13}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 PUSH_IMAGE="${PUSH_IMAGE:-true}"
 USE_CHINA_APT_MIRROR="${USE_CHINA_APT_MIRROR:-true}"
+# Build using the host's Docker context (for example Colima). The deployment
+# image does not need a Docker CLI or the Docker CE APT repository.
 PYPI_INDEX_URL="${PYPI_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}"
 PYPI_TRUSTED_HOST="${PYPI_TRUSTED_HOST:-mirrors.aliyun.com}"
 UV_INDEX_URL="${UV_INDEX_URL:-${PYPI_INDEX_URL}}"
@@ -87,6 +89,7 @@ AIRFLOW_IMAGE_TAG=${AIRFLOW_IMAGE_TAG}
 AIRFLOW_IMAGE=${AIRFLOW_IMAGE}
 PYPI_INDEX_URL=${PYPI_INDEX_URL}
 UV_INDEX_URL=${UV_INDEX_URL}
+INSTALL_DOCKER_CLI=false
 DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR=${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}
 EOF
 
@@ -99,6 +102,7 @@ echo "  push:      ${PUSH_IMAGE}"
 echo "  pypi:      ${PYPI_INDEX_URL}"
 echo "  uv index:  ${UV_INDEX_URL}"
 echo "  uv cutoff: relax exclude-newer for mirror metadata = ${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}"
+echo "  image Docker CLI: disabled"
 echo "  tag file:  ${IMAGE_TAG_FILE}"
 echo
 
@@ -116,6 +120,7 @@ build_args=(
     --build-arg "ADDITIONAL_PIP_INSTALL_FLAGS=--index-url ${PYPI_INDEX_URL} --trusted-host ${PYPI_TRUSTED_HOST}"
     --build-arg "DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR=${DISABLE_UV_EXCLUDE_NEWER_FOR_MIRROR}"
     --build-arg PYTHON_LTO=false
+    --build-arg INSTALL_DOCKER_CLI=false
     --build-arg "DEV_APT_COMMAND=${APT_MIRROR_CMD}"
     --build-arg "RUNTIME_APT_COMMAND=${APT_MIRROR_CMD}"
     -t "${AIRFLOW_IMAGE}"

@@ -68,6 +68,14 @@ ARG AIRFLOW_PYTHON_VERSION="3.13.13"
 # Related: https://github.com/apache/airflow/issues/58337
 ARG PYTHON_LTO="true"
 
+# DOCKER_APT_REPOSITORY: Base URL of the Docker APT repository used to install docker-ce-cli.
+# Override it with a mirror (for example https://mirrors.aliyun.com/docker-ce/linux/debian)
+# when https://download.docker.com is not reachable from the build network.
+ARG DOCKER_APT_REPOSITORY="https://download.docker.com/linux/debian"
+
+# Disable when Docker commands are not needed inside the image.
+ARG INSTALL_DOCKER_CLI="true"
+
 # You can swap comments between those two args to test pip from the main version
 # When you attempt to test if the version of `pip` from specified branch works for our builds
 # Also use `force pip` label on your PR to swap all places we use `uv` to `pip`
@@ -119,6 +127,7 @@ if [[ "$#" != 1 ]]; then
     exit 1
 fi
 
+DOCKER_APT_REPOSITORY=${DOCKER_APT_REPOSITORY:-https://download.docker.com/linux/debian}
 AIRFLOW_PYTHON_VERSION=${AIRFLOW_PYTHON_VERSION:-3.10.18}
 PYTHON_LTO=${PYTHON_LTO:-true}
 GOLANG_MAJOR_MINOR_VERSION=${GOLANG_MAJOR_MINOR_VERSION:-1.24.4}
@@ -253,6 +262,11 @@ wget\
 }
 
 function install_docker_cli() {
+    if [[ "${INSTALL_DOCKER_CLI:-true}" != "true" ]]; then
+        echo "Skipping Docker CLI installation (INSTALL_DOCKER_CLI=false)."
+        return
+    fi
+
     local attempt
     local max_attempts=5
 
@@ -260,18 +274,20 @@ function install_docker_cli() {
     apt-get install ca-certificates curl
     install -m 0755 -d /etc/apt/keyrings
     curl --connect-timeout 30 --fail --location --retry "${max_attempts}" --retry-all-errors --silent --show-error \
-        https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+        "${DOCKER_APT_REPOSITORY}/gpg" -o /etc/apt/keyrings/docker.asc
     chmod a+r /etc/apt/keyrings/docker.asc
     # shellcheck disable=SC1091
     echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] ${DOCKER_APT_REPOSITORY} \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    # apt-get update can exit successfully even when a repository index failed to download.
-    # Verify that docker-ce-cli is available before continuing, and retry transient TLS failures.
+    # apt-get update can exit successfully even when a repository index failed to download,
+    # and `apt-cache show` exits with 0 for an unknown package. Verify that docker-ce-cli
+    # actually has an installation candidate before continuing, and retry transient TLS failures.
     for attempt in $(seq 1 "${max_attempts}"); do
-        if apt-get update -o Acquire::Retries=3 && apt-cache show docker-ce-cli >/dev/null 2>&1; then
+        if apt-get update -o Acquire::Retries=3 >/dev/null 2>&1 &&
+            apt-cache policy docker-ce-cli 2>/dev/null | grep -q "Candidate:.*[0-9]"; then
             break
         fi
         if [[ "${attempt}" == "${max_attempts}" ]]; then
@@ -1896,6 +1912,10 @@ ENV DEV_APT_DEPS=${DEV_APT_DEPS} \
 
 ARG PYTHON_LTO
 
+ARG DOCKER_APT_REPOSITORY
+ARG INSTALL_DOCKER_CLI
+ENV INSTALL_DOCKER_CLI=${INSTALL_DOCKER_CLI}
+ENV DOCKER_APT_REPOSITORY=${DOCKER_APT_REPOSITORY}
 ENV RUSTUP_HOME="/usr/local/rustup"
 ENV CARGO_HOME="/home/airflow/.cargo"
 ENV PATH="${CARGO_HOME}/bin:${PATH}"
@@ -2160,6 +2180,11 @@ ENV RUNTIME_APT_DEPS=${RUNTIME_APT_DEPS} \
     AIRFLOW_INSTALLATION_METHOD=${AIRFLOW_INSTALLATION_METHOD}
 
 ARG PYTHON_LTO
+ARG DOCKER_APT_REPOSITORY
+ARG INSTALL_DOCKER_CLI
+
+ENV INSTALL_DOCKER_CLI=${INSTALL_DOCKER_CLI}
+ENV DOCKER_APT_REPOSITORY=${DOCKER_APT_REPOSITORY}
 
 COPY --from=airflow-build-image "/usr/python/" "/usr/python/"
 COPY --from=scripts install_os_dependencies.sh /scripts/docker/
