@@ -51,15 +51,9 @@ if [[ ! -x "${SOURCE_IMAGE_SCRIPT}" ]]; then
     exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-    echo "docker is required but was not found in PATH" >&2
-    exit 1
-fi
-
-if ! docker buildx version >/dev/null 2>&1; then
-    echo "docker buildx is required but is not available" >&2
-    exit 1
-fi
+# shellcheck source=deploy/helm/docker-preflight.sh
+source "${REPO_ROOT}/deploy/helm/docker-preflight.sh"
+ensure_docker_environment
 
 if [[ "${ALLOW_CONCURRENT_BUILD:-false}" != "true" ]]; then
     current_pid="$$"

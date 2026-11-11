@@ -44,10 +44,9 @@ PIP_CONF_PATH="${DOCKER_CONTEXT_FILES_DIR}/pip.conf"
 PIP_CONF_BACKUP=""
 PIP_CONF_CREATED="false"
 
-if ! command -v docker >/dev/null 2>&1; then
-    echo "docker is required but was not found in PATH" >&2
-    exit 1
-fi
+# shellcheck source=deploy/helm/docker-preflight.sh
+source "${SCRIPT_DIR}/docker-preflight.sh"
+ensure_docker_environment
 
 if [[ "${USE_CHINA_APT_MIRROR}" == "true" ]]; then
     APT_MIRROR_CMD="sed -i 's|http://deb.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g; s|http://deb.debian.org/debian|https://mirrors.aliyun.com/debian|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true"
