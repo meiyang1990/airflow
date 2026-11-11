@@ -101,7 +101,10 @@ ensure_ui_dist() {
     echo "Building ${label} frontend assets in ${ui_dir}"
     (
         cd "${ui_dir}"
-        pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+        # Build tools are dev dependencies. Check the actual installation even if
+        # pnpm's cached workspace state says a previous install is up to date.
+        pnpm install --frozen-lockfile --prod=false --optimistic-repeat-install=false \
+            --config.confirmModulesPurge=false
         pnpm run build
     )
 }

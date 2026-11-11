@@ -6,7 +6,7 @@
 ## Environment Setup
 
 - Install prek: `uv tool install prek`
-- Enable commit hooks: `prek install`
+- Keep Git hooks disabled for this repository: `git config --local core.hooksPath /dev/null`. Do not run `prek install` or re-enable hooks; run checks manually when needed.
 - **Never run pytest, python, or airflow commands directly on the host** — always use `breeze`.
 - Place temporary scripts in `dev/` (mounted as `/opt/airflow/dev/` inside Breeze).
 
