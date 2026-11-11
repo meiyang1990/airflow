@@ -37,6 +37,7 @@ from airflow.cli.commands import dag_command
 from airflow.dag_processing.dagbag import DagBag, sync_bag_to_db
 from airflow.exceptions import AirflowException
 from airflow.models import DagModel, DagRun
+from airflow.models.dag_lifecycle import DagLifecycle
 from airflow.models.dagbag import DBDagBag
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.providers.standard.triggers.temporal import DateTimeTrigger, TimeDeltaTrigger
@@ -641,12 +642,13 @@ class TestCliDags:
 
     def test_delete_dag(self):
         DM = DagModel
-        key = "my_dag_id"
+        key = "cli_delete_dag"
         session = settings.Session()
         session.add(DM(dag_id=key, bundle_name="dags-folder"))
         session.commit()
         dag_command.dag_delete(self.parser.parse_args(["dags", "delete", key, "--yes"]))
         assert session.scalar(select(func.count()).select_from(DM).where(DM.dag_id == key)) == 0
+        assert session.get(DagLifecycle, key).deleted_at is not None
         with pytest.raises(AirflowException):
             dag_command.dag_delete(
                 self.parser.parse_args(["dags", "delete", "does_not_exist_dag", "--yes"]),
@@ -658,7 +660,7 @@ class TestCliDags:
         from airflow.models.backfill import Backfill
 
         DM = DagModel
-        key = "my_dag_id"
+        key = "cli_delete_dag_with_backfill"
         session = settings.Session()
         session.add(DM(dag_id=key, bundle_name="dags-folder"))
         _backfill = Backfill(dag_id=key, from_date=DEFAULT_DATE, to_date=DEFAULT_DATE + timedelta(days=1))
@@ -677,6 +679,7 @@ class TestCliDags:
         session.commit()
         dag_command.dag_delete(self.parser.parse_args(["dags", "delete", key, "--yes"]))
         assert session.scalar(select(func.count()).select_from(DM).where(DM.dag_id == key)) == 0
+        assert session.get(DagLifecycle, key).deleted_at is not None
         with pytest.raises(AirflowException):
             dag_command.dag_delete(
                 self.parser.parse_args(["dags", "delete", "does_not_exist_dag", "--yes"]),
@@ -687,12 +690,13 @@ class TestCliDags:
         # the file containing it is not deleted
         path = tmp_path / "testfile"
         DM = DagModel
-        key = "my_dag_id"
+        key = "cli_delete_dag_with_source"
         session = settings.Session()
         session.add(DM(dag_id=key, bundle_name="dags-folder", fileloc=os.fspath(path)))
         session.commit()
         dag_command.dag_delete(self.parser.parse_args(["dags", "delete", key, "--yes"]))
         assert session.scalar(select(func.count()).select_from(DM).where(DM.dag_id == key)) == 0
+        assert session.get(DagLifecycle, key).deleted_at is not None
 
     def test_cli_list_jobs(self):
         args = self.parser.parse_args(["dags", "list-jobs"])

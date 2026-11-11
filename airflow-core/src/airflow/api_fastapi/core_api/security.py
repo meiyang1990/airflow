@@ -165,7 +165,11 @@ def requires_access_dag(
             dag_id = request.path_params.get("dag_id") or request.query_params.get("dag_id")
             dag_id = dag_id if dag_id != "~" else None
 
-        team_name = DagModel.get_team_name(dag_id) if dag_id else None
+        team_name = None
+        if dag_id:
+            team_name = DagModel.get_team_name(
+                dag_id, include_deleted=method == "DELETE" and access_entity is None
+            )
 
         _requires_access(
             is_authorized_callback=lambda: get_auth_manager().is_authorized_dag(

@@ -783,7 +783,7 @@ Dag pausing, deactivation and deletion
 --------------------------------------
 
 The Dags have several states when it comes to being "not running". Dags can be paused, deactivated
-and finally all metadata for the Dag can be deleted.
+and finally the Dag and its metadata can be permanently deleted.
 
 Dag can be paused via UI when it is present in the ``DAGS_FOLDER``, and scheduler stored it in
 the database, but the user chose to disable it via the UI. The "pause" and "unpause" actions are available
@@ -807,17 +807,23 @@ little confusing.
 You can't see the deactivated Dags in the UI - you can sometimes see the historical runs, but when you try to
 see the information about those you will see the error that the Dag is missing.
 
-You can also delete the Dag metadata from the metadata database using UI or API, but it does not
-always result in disappearing of the Dag from the UI - which might be also initially a bit confusing.
-If the Dag is still in ``DAGS_FOLDER`` when you delete the metadata, the Dag will re-appear as
-Scheduler will parse the folder, only historical runs information for the Dag will be removed.
+Deleting a Dag through the UI, API, or ``airflow dags delete`` permanently removes its metadata,
+including runs and tasks, and prevents the same Dag ID from being registered again. There is no restore
+or undo operation. This changes the previous metadata-only deletion behavior: leaving the source file
+in place no longer causes the Dag to reappear after parsing.
 
-This all means that if you want to actually delete a Dag and its all historical metadata, you need to do
-it in three steps:
+Airflow retains a permanent deletion marker independently of the Dag metadata. Repeated parsing,
+Git bundle updates, moving the source to another bundle, and restarting the Dag processor cannot
+recreate that Dag ID. Other Dag IDs in the same file or bundle are unaffected. Source files, Git history,
+external task logs, and external task outputs are not deleted by this operation.
 
-* pause the Dag
-* delete the historical metadata from the database, via UI or API
-* delete the Dag file from the ``DAGS_FOLDER`` and wait until it becomes inactive
+Pause the Dag and allow active runs to finish before deleting it. Deletion is rejected while runs are
+queued or running, or tasks are running. Successful deletion is irreversible; use pausing when you
+need to temporarily stop scheduling a Dag. Repeating a successful deletion is safe and retains the marker.
+
+Upgrade all API servers, schedulers, and Dag processors before using permanent deletion. Older processors do not
+enforce deletion markers. A database downgrade that would discard existing permanent deletion markers
+is rejected. Do not roll back to an older processor while deleted Dag sources remain discoverable.
 
 Dag Auto-pausing (Experimental)
 -------------------------------

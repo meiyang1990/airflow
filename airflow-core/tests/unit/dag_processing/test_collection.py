@@ -50,6 +50,7 @@ from airflow.models.asset import (
     DagScheduleAssetUriReference,
 )
 from airflow.models.dag import DagTag
+from airflow.models.dag_lifecycle import DagLifecycle
 from airflow.models.dagbundle import DagBundleModel
 from airflow.models.errors import ParseImportError
 from airflow.models.serialized_dag import SerializedDagModel
@@ -487,15 +488,18 @@ class TestUpdateDagParsingResults:
 
         serialized_dags_count = session.scalar(select(func.count(SerializedDagModel.dag_id)))
 
-    @patch.object(SerializedDagModel, "write_dag")
-    @patch("airflow.serialization.definitions.dag.SerializedDAG.bulk_write_to_db")
+    @patch.object(DagLifecycle, "lock", autospec=True)
+    @patch.object(SerializedDagModel, "write_dag", autospec=True)
+    @patch("airflow.serialization.definitions.dag.SerializedDAG.bulk_write_to_db", autospec=True)
     def test_sync_to_db_is_retried(
-        self, mock_bulk_write_to_db, mock_s10n_write_dag, testing_dag_bundle, session
+        self, mock_bulk_write_to_db, mock_s10n_write_dag, mock_lifecycle_lock, testing_dag_bundle, session
     ):
         """Test that important DB operations in db sync are retried on OperationalError"""
         serialized_dags_count = session.scalar(select(func.count(SerializedDagModel.dag_id)))
         assert serialized_dags_count == 0
         mock_dag = mock.MagicMock()
+        mock_dag.dag_id = "retry_dag"
+        mock_lifecycle_lock.return_value = {"retry_dag": DagLifecycle(dag_id="retry_dag")}
         dags = [mock_dag]
 
         op_error = OperationalError(statement=mock.ANY, params=mock.ANY, orig=mock.ANY)
@@ -526,6 +530,7 @@ class TestUpdateDagParsingResults:
         )
         # Assert that rollback is called twice (i.e. whenever OperationalError occurs)
         mock_session.rollback.assert_has_calls([mock.call(), mock.call()])
+        assert mock_lifecycle_lock.call_count == 3
         # Check that 'SerializedDagModel.write_dag' is also called
         # Only called once since the other two times the 'DAG.bulk_write_to_db' error'd
         # and the session was roll-backed before even reaching 'SerializedDagModel.write_dag'

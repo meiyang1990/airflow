@@ -99,11 +99,13 @@ def dag_trigger(args) -> None:
 @cli_utils.action_cli
 @providers_configuration_loaded
 def dag_delete(args) -> None:
-    """Delete all DB records related to the specified dag."""
+    """Permanently delete a DAG and prevent reuse of its ID."""
     api_client = get_current_api_client()
     if (
         args.yes
-        or input("This will drop all existing records related to the specified DAG. Proceed? (y/n)").upper()
+        or input(
+            "This permanently deletes the DAG and its records. It cannot be restored and its ID cannot be reused. Proceed? (y/n)"
+        ).upper()
         == "Y"
     ):
         try:

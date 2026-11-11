@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 import structlog
 from sqlalchemy import delete, func, insert, select, tuple_, update
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from airflow._shared.timezones.timezone import utcnow
 from airflow.assets.manager import asset_manager
@@ -50,6 +50,7 @@ from airflow.models.asset import (
     TaskOutletAssetReference,
 )
 from airflow.models.dag import DagModel, DagOwnerAttributes, DagTag
+from airflow.models.dag_lifecycle import DagLifecycle
 from airflow.models.dagrun import DagRun
 from airflow.models.dagwarning import DagWarningType
 from airflow.models.errors import ParseImportError
@@ -72,7 +73,6 @@ from airflow.utils.types import DagRunType
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Iterator
 
-    from sqlalchemy.orm import Session
     from sqlalchemy.sql import Select
 
     from airflow.models.dagwarning import DagWarning
@@ -306,15 +306,19 @@ def _serialize_dag_capturing_errors(
         ]
 
 
-def _sync_dag_perms(dag: LazyDeserializedDAG, session: Session):
+def _sync_dag_perms(dag: LazyDeserializedDAG, *, session: Session):
     """Sync DAG specific permissions."""
     dag_id = dag.dag_id
 
     log.debug("Syncing DAG permissions: %s to the DB", dag_id)
     from airflow.providers.fab.www.security_appless import ApplessAirflowSecurityManager
 
-    security_manager = ApplessAirflowSecurityManager(session=session)
-    security_manager.sync_perm_for_dag(dag_id, dag.access_control)
+    # FAB's permission helpers commit/rollback internally. Join the existing
+    # connection through savepoints so those calls cannot end the parsing
+    # transaction or release its DAG lifecycle locks.
+    with Session(bind=session.connection(), join_transaction_mode="create_savepoint") as permission_session:
+        security_manager = ApplessAirflowSecurityManager(session=permission_session)
+        security_manager.sync_perm_for_dag(dag_id, dag.access_control)
 
 
 def _update_dag_warnings(
@@ -476,18 +480,20 @@ def update_dag_parsing_results_in_db(
             )
             log.debug("Calling the DAG.bulk_sync_to_db method")
             try:
+                lifecycle = DagLifecycle.lock((dag.dag_id for dag in dags), session=session)
+                active_dags = [dag for dag in dags if lifecycle[dag.dag_id].deleted_at is None]
                 SerializedDAG.bulk_write_to_db(
-                    bundle_name, bundle_version, dags, parse_duration, session=session
+                    bundle_name, bundle_version, active_dags, parse_duration, session=session
                 )
                 # Bulk prefetch metadata for all DAGs to avoid the standard per-DAG
                 # metadata lookups in write_dag. This replaces the update-interval,
                 # hash, and version queries with 2 bulk queries total; DAGs with
                 # deadlines may still do an additional lookup for deadline UUID reuse.
                 prefetched_metadata = SerializedDagModel._prefetch_dag_write_metadata(
-                    [dag.dag_id for dag in dags], session=session
+                    [dag.dag_id for dag in active_dags], session=session
                 )
                 # Write Serialized DAGs to DB, capturing errors
-                for dag in dags:
+                for dag in active_dags:
                     serialize_errors.extend(
                         _serialize_dag_capturing_errors(
                             dag=dag,
@@ -516,7 +522,13 @@ def update_dag_parsing_results_in_db(
 
     # Record DAG warnings in the metadatabase.
     try:
-        _update_dag_warnings([dag.dag_id for dag in dags], warnings, warning_types, session)
+        active_ids = {dag.dag_id for dag in active_dags}
+        _update_dag_warnings(
+            list(active_ids),
+            {warning for warning in warnings if warning.dag_id in active_ids},
+            warning_types,
+            session,
+        )
     except Exception:
         log.exception("Error logging DAG warnings.")
 

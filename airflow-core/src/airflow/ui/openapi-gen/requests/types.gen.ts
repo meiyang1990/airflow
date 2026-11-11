@@ -5454,6 +5454,10 @@ export type $OpenApiTs = {
                  */
                 404: HTTPExceptionResponse;
                 /**
+                 * Conflict
+                 */
+                409: HTTPExceptionResponse;
+                /**
                  * Unprocessable Entity
                  */
                 422: HTTPExceptionResponse;

@@ -60,6 +60,7 @@ from airflow.configuration import conf as airflow_conf
 from airflow.exceptions import AirflowException
 from airflow.models.asset import AssetDagRunQueue, AssetModel
 from airflow.models.base import Base, StringID
+from airflow.models.dag_lifecycle import DagLifecycle
 from airflow.models.dagbundle import DagBundleModel
 from airflow.models.dagrun import DagRun
 from airflow.models.team import Team
@@ -812,7 +813,9 @@ class DagModel(Base):
 
     @staticmethod
     @provide_session
-    def get_team_name(dag_id: str, session: Session = NEW_SESSION) -> str | None:
+    def get_team_name(
+        dag_id: str, *, include_deleted: bool = False, session: Session = NEW_SESSION
+    ) -> str | None:
         """Return the team name associated to a Dag or None if it is not owned by a specific team."""
         stmt = (
             select(Team.name)
@@ -820,7 +823,14 @@ class DagModel(Base):
             .join(DagModel, DagModel.bundle_name == DagBundleModel.name)
             .where(DagModel.dag_id == dag_id)
         )
-        return session.scalar(stmt)
+        team_name = session.scalar(stmt)
+        if team_name is not None or not include_deleted:
+            return team_name
+        return session.scalar(
+            select(DagLifecycle.team_name).where(
+                DagLifecycle.dag_id == dag_id, DagLifecycle.deleted_at.is_not(None)
+            )
+        )
 
     @staticmethod
     @provide_session

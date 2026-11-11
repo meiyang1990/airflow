@@ -3,7 +3,7 @@
   "dagActions": {
     "delete": {
       "button": "Delete Dag",
-      "warning": "This will remove all metadata related to the Dag, including Runs and Tasks."
+      "warning": "This permanently deletes the Dag and its metadata, including Runs and Tasks. It cannot be restored, and the same Dag ID cannot be registered again. Source files are not deleted."
     }
   },
   "favoriteDag": "Favorite Dag",

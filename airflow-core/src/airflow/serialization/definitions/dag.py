@@ -28,12 +28,13 @@ from typing import TYPE_CHECKING, TypedDict, cast, overload
 
 import attrs
 import structlog
-from sqlalchemy import func, or_, select, tuple_
+from sqlalchemy import func, or_, select, tuple_, update
 
 from airflow._shared.timezones.timezone import coerce_datetime
 from airflow.configuration import conf as airflow_conf
-from airflow.exceptions import AirflowException, TaskNotFound
+from airflow.exceptions import AirflowException, DagNotFound, TaskNotFound
 from airflow.models.dag import DagModel
+from airflow.models.dag_lifecycle import DagLifecycle
 from airflow.models.dag_version import DagVersion
 from airflow.models.dagrun import DagRun
 from airflow.models.deadline import Deadline
@@ -188,6 +189,8 @@ class SerializedDAG:
         :param dags: the DAG objects to save to the DB
         :return: None
         """
+        lifecycle = DagLifecycle.lock((dag.dag_id for dag in dags), session=session)
+        dags = [dag for dag in dags if lifecycle[dag.dag_id].deleted_at is None]
         if not dags:
             return
 
@@ -522,6 +525,20 @@ class SerializedDAG:
         :meta private:
         """
         from airflow.models.dagrun import RUN_ID_REGEX
+
+        # Scheduling already locks DagModel before creating runs. Reuse that lock
+        # instead of acquiring a lifecycle lock in the opposite order to parsing.
+        # SQLite needs a write to serialize against deletion (FOR UPDATE is ignored).
+        if session.get_bind().dialect.name == "sqlite":
+            session.execute(
+                update(DagModel).where(DagModel.dag_id == self.dag_id).values(dag_id=self.dag_id),
+                execution_options={"synchronize_session": False},
+            )
+        registered_id = session.scalar(
+            select(DagModel.dag_id).where(DagModel.dag_id == self.dag_id).with_for_update()
+        )
+        if registered_id is None:
+            raise DagNotFound(f"DAG {self.dag_id!r} is no longer registered")
 
         log.info(
             "creating dag run",

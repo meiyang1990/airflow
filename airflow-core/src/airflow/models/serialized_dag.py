@@ -40,6 +40,7 @@ from airflow.models.asset import (
 )
 from airflow.models.base import ID_LEN, Base
 from airflow.models.dag import DagModel
+from airflow.models.dag_lifecycle import DagLifecycle
 from airflow.models.dag_version import DagVersion
 from airflow.models.dagcode import DagCode
 from airflow.models.dagrun import DagRun
@@ -606,6 +607,8 @@ class SerializedDagModel(Base):
 
         :returns: Boolean indicating if the DAG was written to the DB
         """
+        if DagLifecycle.lock([dag.dag_id], session=session)[dag.dag_id].deleted_at is not None:
+            return False
         if _prefetched is None:
             _prefetched = cls._prefetch_dag_write_metadata([dag.dag_id], session=session).get(
                 dag.dag_id, DagWriteMetadata(last_updated=None, dag_hash=None, dag_version=None)

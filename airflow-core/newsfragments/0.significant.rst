@@ -1,0 +1,1 @@
+DAG deletion through the UI, API, and CLI is now permanent and irreversible. Deleted DAG IDs cannot be registered again by parsing, including after Git bundle updates or processor restarts. Deletion is rejected while DAG runs are queued or running. Upgrade all API servers and DAG processors together before using this behavior.

@@ -3110,6 +3110,7 @@ export const $DAGTriggerConfigBody = {
         conf: {
             additionalProperties: true,
             type: 'object',
+            required: ['json_conf'],
             title: 'Conf'
         }
     },

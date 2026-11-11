@@ -284,6 +284,10 @@ def clear_db_triggers():
 @_retry_db
 def clear_db_dags():
     with create_session() as session:
+        if AIRFLOW_V_3_2_PLUS:
+            from airflow.models.dag_lifecycle import DagLifecycle
+
+            session.execute(delete(DagLifecycle))
         if AIRFLOW_V_3_1_PLUS:
             session.execute(delete(DagFavorite))
         session.execute(delete(DagTag))

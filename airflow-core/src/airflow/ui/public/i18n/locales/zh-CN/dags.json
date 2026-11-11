@@ -3,7 +3,7 @@
   "dagActions": {
     "delete": {
       "button": "删除 Dag",
-      "warning": "这将会删除所有与此 Dag 相关的系统数据，包括 Dag 执行与任务。"
+      "warning": "这将永久删除此 Dag 及其所有系统数据，包括执行记录与任务。删除后不可恢复，同一 Dag ID 不可再次注册。源文件不会被删除。"
     }
   },
   "favoriteDag": "将 Dag 加入收藏",

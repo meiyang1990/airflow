@@ -1358,8 +1358,18 @@ class TestDeleteDAG(TestDagEndpoint):
         details_response = test_client.get(f"{API_PREFIX}/{dag_id}/details")
         assert details_response.status_code == status_code_details
 
-        if details_response.status_code == 204:
+        if delete_response.status_code == 204:
+            assert test_client.delete(f"{API_PREFIX}/{dag_id}").status_code == 204
+            dag_maker.sync_dagbag_to_db()
+            assert test_client.get(f"{API_PREFIX}/{dag_id}/details").status_code == 404
             check_last_log(session, dag_id=dag_id, event="delete_dag", logical_date=None)
+            session.rollback()  # The audit helper deletes logs; release its SQLite write lock.
+
+    def test_deleted_dag_has_no_restore_endpoint(self, dag_maker, test_client):
+        self._create_dag_for_deletion(dag_maker, dag_id="cannot_restore", dag_display_name="Cannot restore")
+        assert test_client.delete(f"{API_PREFIX}/cannot_restore").status_code == 204
+        assert test_client.post(f"{API_PREFIX}/cannot_restore/restore").status_code in {404, 405}
+        assert test_client.get(f"{API_PREFIX}/cannot_restore/details").status_code == 404
 
     def test_delete_dag_should_response_401(self, unauthenticated_test_client):
         response = unauthenticated_test_client.delete(f"{API_PREFIX}/{DAG1_ID}")

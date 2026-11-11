@@ -2700,7 +2700,7 @@ export const useDagRunServiceDeleteDagRun = <TData = Common.DagRunServiceDeleteD
 }, TContext>({ mutationFn: ({ dagId, dagRunId }) => DagRunService.deleteDagRun({ dagId, dagRunId }) as unknown as Promise<TData>, ...options });
 /**
 * Delete Dag
-* Delete the specific DAG.
+* Permanently delete a DAG and its metadata. The DAG ID cannot be registered again.
 * @param data The data for the request.
 * @param data.dagId
 * @returns unknown Successful Response

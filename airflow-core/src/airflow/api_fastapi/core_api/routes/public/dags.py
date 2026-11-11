@@ -73,7 +73,7 @@ from airflow.api_fastapi.core_api.security import (
     requires_access_dag,
 )
 from airflow.api_fastapi.logging.decorators import action_logging
-from airflow.exceptions import AirflowException, DagNotFound
+from airflow.exceptions import DagNotFound
 from airflow.models import DagModel
 from airflow.models.dag_favorite import DagFavorite
 from airflow.models.dagrun import DagRun
@@ -424,6 +424,7 @@ def unfavorite_dag(dag_id: str, session: SessionDep, user: GetUserDep):
         [
             status.HTTP_400_BAD_REQUEST,
             status.HTTP_404_NOT_FOUND,
+            status.HTTP_409_CONFLICT,
             HTTP_422_UNPROCESSABLE_CONTENT,
         ]
     ),
@@ -433,13 +434,14 @@ def delete_dag(
     dag_id: str,
     session: SessionDep,
 ) -> Response:
-    """Delete the specific DAG."""
+    """Permanently delete a DAG and its metadata. The DAG ID cannot be registered again."""
     try:
         delete_dag_module.delete_dag(dag_id, session=session)
     except DagNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Dag with id: {dag_id} was not found")
-    except AirflowException:
+    except delete_dag_module.DagDeletionConflict:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, f"Task instances of dag with id: '{dag_id}' are still running"
+            status.HTTP_409_CONFLICT,
+            f"Dag runs or task instances of dag with id: '{dag_id}' are still active",
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1604,7 +1604,7 @@ export class DagService {
     
     /**
      * Delete Dag
-     * Delete the specific DAG.
+     * Permanently delete a DAG and its metadata. The DAG ID cannot be registered again.
      * @param data The data for the request.
      * @param data.dagId
      * @returns unknown Successful Response
@@ -1622,6 +1622,7 @@ export class DagService {
                 401: 'Unauthorized',
                 403: 'Forbidden',
                 404: 'Not Found',
+                409: 'Conflict',
                 422: 'Unprocessable Entity'
             }
         });
