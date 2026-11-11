@@ -21,13 +21,22 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from pydantic import Field, field_validator
+
 from airflow.api_fastapi.core_api.base import BaseModel, StrictBaseModel
 
 
 class DAGTriggerConfigBody(StrictBaseModel):
     """Shared configuration persisted for manual DAG triggers."""
 
-    conf: dict[str, Any]
+    conf: dict[str, Any] = Field(json_schema_extra={"required": ["json_conf"]})
+
+    @field_validator("conf")
+    @classmethod
+    def require_json_conf(cls, conf: dict[str, Any]) -> dict[str, Any]:
+        if "json_conf" not in conf:
+            raise ValueError("conf must contain json_conf")
+        return conf
 
 
 class DAGTriggerConfigResponse(BaseModel):

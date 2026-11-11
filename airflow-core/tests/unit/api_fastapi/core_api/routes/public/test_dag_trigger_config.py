@@ -54,16 +54,15 @@ class TestDagTriggerConfig:
         dag_maker.sync_dagbag_to_db()
 
     def test_save_get_and_replace_configuration_without_dag_run(self, test_client, session):
-        initial_response = test_client.put(URL, json={"conf": {"environment": "staging"}})
+        conf = {"json_conf": {"environment": "staging"}, "batch_size": 100}
+        initial_response = test_client.put(URL, json={"conf": conf})
 
         assert initial_response.status_code == 200
         assert initial_response.json()["dag_id"] == DAG_ID
-        assert initial_response.json()["conf"] == {"environment": "staging"}
+        assert initial_response.json()["conf"] == conf
         assert initial_response.json()["updated_at"]
         assert session.scalars(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)).all()
-        assert session.scalar(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)).conf == {
-            "environment": "staging"
-        }
+        assert session.scalar(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)).conf == conf
         assert not session.scalars(select(DagRun).where(DagRun.dag_id == DAG_ID)).all()
         _check_last_log(
             session,
@@ -73,16 +72,18 @@ class TestDagTriggerConfig:
             expected_extra={"method": "PUT"},
         )
 
-        replacement_response = test_client.put(URL, json={"conf": {}})
+    def test_replace_configuration(self, test_client, session):
+        test_client.put(URL, json={"conf": {"json_conf": {"old": True}}})
+        replacement_response = test_client.put(URL, json={"conf": {"json_conf": {}}})
 
         assert replacement_response.status_code == 200
-        assert replacement_response.json()["conf"] == {}
+        assert replacement_response.json()["conf"] == {"json_conf": {}}
         assert (
             len(session.scalars(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)).all()) == 1
         )
         get_response = test_client.get(URL)
 
-        assert get_response.json()["conf"] == {}
+        assert get_response.json()["conf"] == {"json_conf": {}}
         assert get_response.headers["cache-control"] == "no-store"
 
     def test_save_logs_json_conf_received_from_the_client(self, test_client):
@@ -103,7 +104,7 @@ class TestDagTriggerConfig:
         assert response.json()["detail"] == "No saved trigger configuration found"
 
     def test_missing_dag_returns_not_found(self, test_client):
-        response = test_client.put("/dags/missing/trigger-config", json={"conf": {}})
+        response = test_client.put("/dags/missing/trigger-config", json={"conf": {"json_conf": {}}})
 
         assert response.status_code == 404
         assert response.json()["detail"] == "DAG with dag_id: 'missing' not found"
@@ -112,7 +113,7 @@ class TestDagTriggerConfig:
     def test_save_requires_dag_run_access(self, request, client_fixture, session):
         client = request.getfixturevalue(client_fixture)
 
-        response = client.put(URL, json={"conf": {"environment": "production"}})
+        response = client.put(URL, json={"conf": {"json_conf": {"environment": "production"}}})
 
         assert response.status_code in {401, 403}
         assert session.scalar(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)) is None
@@ -123,3 +124,28 @@ class TestDagTriggerConfig:
 
         assert response.status_code == 422
         assert session.scalar(select(DagTriggerConfig).where(DagTriggerConfig.dag_id == DAG_ID)) is None
+
+    @pytest.mark.parametrize("body", [{}, {"conf": {}}, {"conf": {"workflow": {}}}])
+    @pytest.mark.parametrize("existing", [False, True])
+    def test_missing_required_fields_do_not_change_configuration(self, test_client, session, body, existing):
+        original = {"json_conf": {"keep": True}, "batch_size": 100}
+        if existing:
+            assert test_client.put(URL, json={"conf": original}).status_code == 200
+
+        response = test_client.put(URL, json=body)
+
+        assert response.status_code == 422
+        error = response.json()["detail"][0]
+        assert error["loc"] == ["body", "conf"]
+        assert error["type"] == ("missing" if "conf" not in body else "value_error")
+        session.expire_all()
+        saved = session.get(DagTriggerConfig, DAG_ID)
+        assert (saved.conf if saved else None) == (original if existing else None)
+
+    @pytest.mark.parametrize("value", [{}, None, False, 0, "", []])
+    def test_json_conf_presence_is_not_a_truthiness_check(self, test_client, value):
+        conf = {"json_conf": value, "batch_size": 100}
+        response = test_client.put(URL, json={"conf": conf})
+
+        assert response.status_code == 200
+        assert response.json()["conf"] == conf

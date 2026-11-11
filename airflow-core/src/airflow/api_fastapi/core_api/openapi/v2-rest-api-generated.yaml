@@ -11798,6 +11798,8 @@ components:
         conf:
           additionalProperties: true
           type: object
+          required:
+          - json_conf
           title: Conf
       additionalProperties: false
       type: object
